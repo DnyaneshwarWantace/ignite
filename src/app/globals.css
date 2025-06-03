@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%; /* White */
+    --foreground: 240 10% 3.9%; /* Dark Gray */
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+
+    /* Primary (Purple) */
+    --primary: 261 56% 60%; /* #7F56D9 */
+    --primary-foreground: 0 0% 98%; /* Almost White for Text on Primary */
+
+    /* Complementary Secondary and Accent */
+    --secondary: 260 30% 85%; /* Light Lavender */
+    --secondary-foreground: 261 56% 40%; /* Slightly darker purple for contrast */
+
+    --accent: 240 20% 90%; /* Cool Gray for accents */
+    --accent-foreground: 240 10% 20%; /* Darker gray for text on accents */
+
+    /* Muted */
+    --muted: 240 20% 95%; /* Very light gray, almost white */
+    --muted-foreground: 240 10% 50%; /* Medium gray for readability */
+
+    /* Destructive (Reddish) */
+    --destructive: 0 70% 50%; /* Medium Red */
+    --destructive-foreground: 0 0% 98%; /* Almost White for Text on Destructive */
+
+    /* Border, Input, and Ring */
+    --border: 240 5.9% 90%; /* Light Gray for borders */
+    --input: 240 5.9% 90%; /* Light Gray for inputs */
+    --ring: 240 10% 3.9%; /* Dark Gray for focus rings */
+
+    /* Chart colors */
+    --chart-1: 44, 98%, 77%; /* Warm Orange */
+    --chart-2: 4, 92%, 69%; /* Teal */
+    --chart-3: 262, 85%, 77%; /* Deep Green */
+    --chart-4: 43 74% 66%; /* Light Yellow */
+    --chart-5: 27 87% 67%; /* Light Orange */
+
+    --radius: 0.5rem; /* Default border radius */
+  }
+
+  .dark {
+    /* Dark Mode Adjustments */
+    --background: 240 10% 3.9%; /* Dark Gray Background */
+    --foreground: 0 0% 98%; /* Almost White Foreground for Text */
+
+    --card: 240 10% 5%; /* Slightly lighter card background in dark mode */
+    --card-foreground: 0 0% 98%;
+
+    --popover: 240 10% 5%;
+    --popover-foreground: 0 0% 98%;
+
+    /* Keeping the same primary color */
+    --primary: 261 56% 60%; /* #7F56D9 */
+    --primary-foreground: 0 0% 98%;
+
+    /* Darker shades of secondary and accent for dark mode */
+    --secondary: 260 12% 25%; /* Dark Lavender */
+    --secondary-foreground: 260 56% 70%; /* Lighter Purple for Text */
+
+    --accent: 240 10% 25%; /* Dark Gray for accents */
+    --accent-foreground: 240 10% 70%; /* Light Gray for Text on accents */
+
+    /* Muted in Dark Mode */
+    --muted: 240 15% 15%; /* Very dark gray, almost black */
+    --muted-foreground: 240 5% 64.9%; /* Lighter Gray for readability */
+
+    /* Darker Destructive */
+    --destructive: 0 62.8% 30.6%; /* Dark Red */
+    --destructive-foreground: 0 0% 98%; /* White text on destructive */
+
+    /* Borders, Inputs, and Rings */
+    --border: 240 10% 20%; /* Dark gray for borders */
+    --input: 240 10% 20%;
+    --ring: 240 10% 50%; /* Lighter gray focus ring in dark mode */
+
+    /* Chart Colors for Dark Mode */
+    --chart-1: 220 70% 50%; /* Cool Blue */
+    --chart-2: 160 60% 45%; /* Dark Teal */
+    --chart-3: 30 80% 55%; /* Bright Orange */
+    --chart-4: 280 65% 60%; /* Bright Pink */
+    --chart-5: 340 75% 55%; /* Vibrant Red */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+.fade-gradient {
+  position: relative;
+  overflow: hidden;
+  max-height: 4.5rem; /* Limit the height for 2 lines */
+}
+
+.fade-gradient::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2rem;
+  background: linear-gradient(to top, white, transparent);
+}

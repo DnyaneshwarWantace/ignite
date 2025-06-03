@@ -1,0 +1,23 @@
+server {
+    server_name _;
+
+    location /_next/ {
+        alias /var/www/ignite/.next/;
+        expires 30d;
+        access_log on;
+    }
+
+    location / {
+        # Reverse proxy for Next.js server
+        proxy_pass http://localhost:3003;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+
+        # We need to remove this 404 handling
+        # because Next.js has its own handling
+        # try_files $uri $uri/ =404;
+    }
+}

@@ -83,8 +83,8 @@ export const GET = authMiddleware(
       }
     });
 
-    // Update brand with real statistics
-    const brandWithStats = {
+    // Update brand with real statistics (exclude ads from response)
+    const { ads: _, ...brandWithStats } = {
       ...brand,
       activeAds,
       inActiveAds: inactiveAds,
@@ -93,9 +93,6 @@ export const GET = authMiddleware(
       noOfGifAds: carouselAds, // Using carousel count for "gif" ads
       totalAds: ads.length, // Real count from database
     };
-
-    // Remove ads from response to keep it clean
-    delete brandWithStats.ads;
 
     return createResponse({
       message: messages.SUCCESS,

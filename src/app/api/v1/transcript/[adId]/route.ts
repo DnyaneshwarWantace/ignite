@@ -18,7 +18,7 @@ export async function GET(
       );
     }
 
-    const transcript = await prisma.transcript.findUnique({
+    const transcript = await prisma.adTranscript.findUnique({
       where: { adId }
     });
 
@@ -31,7 +31,7 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      transcript: transcript.text,
+      transcript: transcript.transcript,
       createdAt: transcript.createdAt,
       updatedAt: transcript.updatedAt
     });

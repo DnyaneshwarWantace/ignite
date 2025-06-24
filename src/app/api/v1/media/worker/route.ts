@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { startMediaWorker } from "../../../../../scripts/media-worker";
+import { startMediaWorker } from "@/scripts/media-worker";
 
 let workerRunning = false;
 let workerInterval: NodeJS.Timeout | null = null;
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     console.log(`🚀 Starting media worker with ${intervalMinutes} minute intervals`);
     
     // Import and start the media worker functions
-    const { processPendingMedia } = require("../../../../../scripts/media-worker");
+    const { processPendingMedia } = require("@/scripts/media-worker");
     
     // Process immediately
     await processPendingMedia(5);

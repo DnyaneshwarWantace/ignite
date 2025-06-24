@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import validation from "./validation";
 import { scrapeCompanyAds, extractPageIdFromInput } from "@apiUtils/adScraper";
 import { v2 as cloudinary } from 'cloudinary';
-import { startAutoTracking } from "@/lib/auto-tracker";
+import { startAutoTracking } from "@/rootlib/auto-tracker";
 
 export const dynamic = "force-dynamic";
 

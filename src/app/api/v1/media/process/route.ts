@@ -20,8 +20,7 @@ async function isUrlAccessible(url: string): Promise<boolean> {
     }
     
     const response = await fetch(url, { 
-      method: 'HEAD', 
-      timeout: 10000,
+      method: 'HEAD',
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       }
@@ -84,8 +83,8 @@ function extractMediaUrls(ad: any): { imageUrls: string[], videoUrls: string[] }
 
   // Remove duplicates
   return {
-    imageUrls: [...new Set(imageUrls)],
-    videoUrls: [...new Set(videoUrls)]
+    imageUrls: Array.from(new Set(imageUrls)),
+    videoUrls: Array.from(new Set(videoUrls))
   };
 }
 
@@ -346,7 +345,7 @@ export async function POST(request: NextRequest) {
                 }],
                 responsive_breakpoints: false,
                 eager: false
-              });
+              } as any);
               
               localImageUrl = result.secure_url;
               break;

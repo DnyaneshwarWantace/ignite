@@ -148,8 +148,8 @@ export function extractMediaUrls(content: string): {
   }
 
   return {
-    imageUrls: [...new Set(imageUrls)], // Remove duplicates
-    videoUrls: [...new Set(videoUrls)], // Remove duplicates
+    imageUrls: Array.from(new Set(imageUrls)), // Remove duplicates
+    videoUrls: Array.from(new Set(videoUrls)), // Remove duplicates
   };
 }
 

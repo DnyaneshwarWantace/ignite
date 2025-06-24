@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if transcript already exists for this ad
-    const existingTranscript = await prisma.transcript.findUnique({
+    const existingTranscript = await prisma.adTranscript.findUnique({
       where: { adId }
     });
 
@@ -25,19 +25,19 @@ export async function POST(request: NextRequest) {
 
     if (existingTranscript) {
       // Update existing transcript
-      savedTranscript = await prisma.transcript.update({
+      savedTranscript = await prisma.adTranscript.update({
         where: { adId },
         data: {
-          text: transcript,
+          transcript: transcript,
           updatedAt: new Date(createdAt || new Date())
         }
       });
     } else {
       // Create new transcript
-      savedTranscript = await prisma.transcript.create({
+      savedTranscript = await prisma.adTranscript.create({
         data: {
           adId,
-          text: transcript,
+          transcript: transcript,
           createdAt: new Date(createdAt || new Date()),
           updatedAt: new Date()
         }

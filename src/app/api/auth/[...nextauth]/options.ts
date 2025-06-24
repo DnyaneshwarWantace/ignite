@@ -17,11 +17,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
       authorize: async (credentials) => {
         try {
+          const email = credentials?.email as string;
+          
           // For development, allow any user (remove this in production)
           if (process.env.NODE_ENV === "development") {
             return {
               id: "dev-user",
-              email: credentials?.email || "dev@example.com",
+              email: email || "dev@example.com",
               name: "Development User",
             };
           }
@@ -29,7 +31,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           // In production, implement proper user validation
           const user = await prisma.user.findFirst({
             where: {
-              email: credentials?.email,
+              email: email,
             },
           });
 

@@ -1,22 +1,28 @@
 import { PrismaClient } from "@prisma/client";
 
+// Skip instantiation during build time
+const shouldSkipPrisma = process.env.NEXT_PHASE === "phase-production-build";
+
 const prismaClientSingleton = () => {
-  try {
-    return new PrismaClient({
-      log: ["error"],
-    });
-  } catch (error) {
-    console.error("Failed to initialize Prisma Client:", error);
-    throw error;
+  if (shouldSkipPrisma) {
+    return null;
   }
+  
+  return new PrismaClient({
+    log: ["error"],
+  });
 };
 
+type PrismaClientSingleton = ReturnType<typeof prismaClientSingleton>;
+
 declare global {
-  var prisma: undefined | ReturnType<typeof prismaClientSingleton>;
+  var prisma: PrismaClientSingleton | undefined;
 }
 
 const prisma = globalThis.prisma ?? prismaClientSingleton();
 
-if (process.env.NODE_ENV !== "production") globalThis.prisma = prisma;
+if (process.env.NODE_ENV !== "production") {
+  globalThis.prisma = prisma;
+}
 
 export default prisma;

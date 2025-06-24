@@ -14,8 +14,7 @@ export const GET = authMiddleware(
     
     try {
       const { searchParams } = new URL(request.url);
-      const page = parseInt(searchParams.get('page') || '1');
-      const limit = parseInt(searchParams.get('limit') || '20');
+      const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50); // Allow up to 50 ads per request
       const search = searchParams.get('search') || '';
       const format = searchParams.get('format') || '';
       const platform = searchParams.get('platform') || '';
@@ -23,13 +22,43 @@ export const GET = authMiddleware(
       const language = searchParams.get('language') || '';
       const niche = searchParams.get('niche') || '';
       
-      console.log('Discover API params:', { page, limit, search, format, platform, status, language, niche });
+      // Keyset pagination parameters
+      const cursorCreatedAt = searchParams.get('cursorCreatedAt');
+      const cursorId = searchParams.get('cursorId');
       
-      const skip = (page - 1) * limit;
+      console.log('Discover API params:', { 
+        limit, search, format, platform, status, language, niche,
+        cursorCreatedAt, cursorId
+      });
 
       // Build where clause for search and filters
       const whereClause: any = {};
       const andConditions: any[] = [];
+      
+      // Keyset pagination condition
+      if (cursorCreatedAt && cursorId) {
+        andConditions.push({
+          OR: [
+            {
+              createdAt: {
+                lt: new Date(cursorCreatedAt)
+              }
+            },
+            {
+              AND: [
+                {
+                  createdAt: new Date(cursorCreatedAt)
+                },
+                {
+                  id: {
+                    lt: cursorId
+                  }
+                }
+              ]
+            }
+          ]
+        });
+      }
       
       // Search filter
       if (search) {
@@ -214,11 +243,27 @@ export const GET = authMiddleware(
         whereClause.AND = andConditions;
       }
 
-      // Fetch all ads with their associated brands
-      const [ads, totalCount] = await Promise.all([
-        prisma.ad.findMany({
+      // Fetch ads with keyset pagination
+      const ads = await prisma.ad.findMany({
           where: whereClause,
-          include: {
+          select: {
+            id: true,
+            libraryId: true,
+            type: true,
+            content: true,
+            imageUrl: true,
+            videoUrl: true,
+            text: true,
+            headline: true,
+            description: true,
+            createdAt: true,
+            updatedAt: true,
+            brandId: true,
+            // Cloudinary media fields
+            localImageUrl: true,
+            localVideoUrl: true,
+            mediaStatus: true,
+            mediaDownloadedAt: true,
             brand: {
               select: {
                 id: true,
@@ -228,38 +273,42 @@ export const GET = authMiddleware(
               }
             }
           },
-          orderBy: {
-            createdAt: 'desc'
-          },
-          skip,
-          take: limit
-        }),
-        prisma.ad.count({
-          where: whereClause
-        })
-      ]);
+        orderBy: [
+          { createdAt: 'desc' },
+          { id: 'desc' }
+        ],
+        take: limit + 1 // Get one extra to know if there are more
+      });
 
-      const totalPages = Math.ceil(totalCount / limit);
+      // Check if there are more items
+      const hasMore = ads.length > limit;
+      const adsToReturn = hasMore ? ads.slice(0, -1) : ads;
+      
+      // Get cursor for next page
+      let nextCursor = null;
+      if (hasMore && adsToReturn.length > 0) {
+        const lastAd = adsToReturn[adsToReturn.length - 1];
+        nextCursor = {
+          createdAt: lastAd.createdAt.toISOString(),
+          id: lastAd.id
+        };
+      }
 
       console.log('Discover API response:', { 
-        adsCount: ads.length, 
-        totalCount, 
-        totalPages,
-        page,
+        adsCount: adsToReturn.length, 
+        hasMore,
+        nextCursor,
         filtersApplied: { search, format, platform, status, language, niche }
       });
 
       return createResponse({
         message: messages.SUCCESS,
         payload: {
-          ads,
+          ads: adsToReturn,
           pagination: {
-            page,
-            limit,
-            totalCount,
-            totalPages,
-            hasNext: page < totalPages,
-            hasPrev: page > 1
+            hasMore,
+            nextCursor,
+            limit
           }
         },
       });

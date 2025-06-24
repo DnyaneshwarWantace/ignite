@@ -25,16 +25,22 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
   const cleanTemplateVariables = (text: string, fallback: string = ""): string => {
     if (!text) return fallback;
     
+    // First remove the "brand}}" prefix if it exists
+    let cleanText = text.replace(/^brand\}\}\s*/, "");
+    
     // Replace common template variables with meaningful text
-    let cleanText = text
-      .replace(/\{\{product\.brand\}\}/gi, "Amazing Brand")
-      .replace(/\{\{product\.name\}\}/gi, "Premium Product")
-      .replace(/\{\{brand\.name\}\}/gi, "Top Brand")
-      .replace(/\{\{company\.name\}\}/gi, "Leading Company")
-      .replace(/\{\{product\.price\}\}/gi, "$99")
-      .replace(/\{\{discount\}\}/gi, "50% OFF")
-      .replace(/\{\{offer\}\}/gi, "Special Offer")
+    cleanText = cleanText
+      .replace(/\{\{product\.brand\}\}/gi, "")
+      .replace(/\{\{product\.name\}\}/gi, "")
+      .replace(/\{\{brand\.name\}\}/gi, "")
+      .replace(/\{\{company\.name\}\}/gi, "")
+      .replace(/\{\{product\.price\}\}/gi, "")
+      .replace(/\{\{discount\}\}/gi, "")
+      .replace(/\{\{offer\}\}/gi, "")
       .replace(/\{\{[^}]+\}\}/g, ""); // Remove any remaining template variables
+    
+    // Remove duplicate text that often appears after template variables
+    cleanText = cleanText.replace(/(.+?)\s*\1+/g, "$1");
     
     // Clean up extra spaces and return fallback if empty
     cleanText = cleanText.trim().replace(/\s+/g, ' ');
@@ -46,8 +52,8 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
     // Clean the hook text for better matching
     const cleanHookText = cleanTemplateVariables(hookText.toLowerCase().trim(), "");
     
-    // Find the first ad that contains this hook with improved matching - prioritize link_description
-    let matchingAd = ads.find((ad: any) => {
+    // Find all ads that contain this hook
+    let matchingAds = ads.filter((ad: any) => {
       try {
         const content = JSON.parse(ad.content);
         const snapshot = content.snapshot || {};
@@ -102,28 +108,27 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
       }
     });
 
-    // If no match found, try to use any ad as fallback (better than dummy data)
-    if (!matchingAd && ads.length > 0) {
-      console.log(`No matching ad found for hook: "${hookText}" (cleaned: "${cleanHookText}")`);
-      
-      // Use a random ad as fallback, but prefer ads with images
-      const adsWithImages = ads.filter((ad: any) => {
+    // If no matches found, try to use any ad as fallback
+    if (matchingAds.length === 0 && ads.length > 0) {
+      // Use ads with images as fallback
+      matchingAds = ads.filter((ad: any) => {
         try {
           const content = JSON.parse(ad.content);
           const snapshot = content.snapshot || {};
           const videos = snapshot.videos || [];
           const images = snapshot.images || [];
-          return videos.length > 0 || images.length > 0 || ad.imageUrl;
+          return videos.length > 0 || images.length > 0 || ad.imageUrl || ad.localImageUrl;
         } catch (e) {
           return false;
         }
       });
       
-      matchingAd = adsWithImages.length > 0 ? adsWithImages[0] : ads[0];
-      console.log(`Using fallback ad for hook: ${matchingAd?.id}`);
+      if (matchingAds.length === 0) {
+        matchingAds = [ads[0]];
+      }
     }
 
-    if (!matchingAd) {
+    if (matchingAds.length === 0) {
       return {
         imageUrl: null,
         adType: "unknown",
@@ -137,6 +142,8 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
     }
 
     try {
+      // Get the first matching ad
+      const matchingAd = matchingAds[0];
       const content = JSON.parse(matchingAd.content);
       const snapshot = content.snapshot || {};
       const videos = snapshot.videos || [];
@@ -144,46 +151,15 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
       const firstVideo = videos[0] || {};
       const firstImage = images[0] || {};
 
-      // Extract image URL with comprehensive fallback logic
-      let imageUrl = null;
-      
-      // Try video preview image first
-      if (firstVideo.video_preview_image_url) {
-        imageUrl = firstVideo.video_preview_image_url;
-      }
-      // Try original image
-      else if (firstImage.original_image_url) {
-        imageUrl = firstImage.original_image_url;
-      }
-      // Try resized image
-      else if (firstImage.resized_image_url) {
-        imageUrl = firstImage.resized_image_url;
-      }
-      // Try direct ad image URL
-      else if (matchingAd.imageUrl) {
-        imageUrl = matchingAd.imageUrl;
-      }
-      // Try snapshot image URL
-      else if (snapshot.image_url) {
-        imageUrl = snapshot.image_url;
-      }
-      // Try any image from images array
-      else if (images.length > 0) {
-        const anyImage = images.find((img: any) => img.original_image_url || img.resized_image_url);
-        if (anyImage) {
-          imageUrl = anyImage.original_image_url || anyImage.resized_image_url;
-        }
-      }
-      // Try any video preview from videos array
-      else if (videos.length > 0) {
-        const anyVideo = videos.find((vid: any) => vid.video_preview_image_url);
-        if (anyVideo) {
-          imageUrl = anyVideo.video_preview_image_url;
-        }
-      }
-      
-      // Return null instead of dummy image
-      imageUrl = null;
+      // Extract image URL in priority order
+      const imageUrl = 
+        matchingAd.localImageUrl ||
+        firstVideo.video_preview_image_url ||
+        firstImage.original_image_url ||
+        firstImage.resized_image_url ||
+        matchingAd.imageUrl ||
+        snapshot.image_url ||
+        null;
 
       // Determine ad type
       let adType = matchingAd.type || "unknown";
@@ -191,23 +167,21 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
       else if (images.length > 1) adType = "carousel";
       else if (images.length === 1) adType = "image";
 
-      // Extract and clean CTA text
+      // Extract CTA text and URL
       const rawCtaText = snapshot.cta_text || snapshot.call_to_action?.value || "Learn More";
       const ctaText = cleanTemplateVariables(rawCtaText, "Learn More");
-
-      // Extract landing page URL
       const ctaUrl = snapshot.link_url || content.link_url || content.url || "";
 
       // Calculate days since ad was created
-      const startDate = content.start_date || content.start_date_string;
       let daysSince = 0;
+      const startDate = content.start_date || content.start_date_string;
       if (startDate) {
         const startTime = typeof startDate === 'number' ? startDate * 1000 : new Date(startDate).getTime();
         daysSince = Math.floor((Date.now() - startTime) / (1000 * 60 * 60 * 24));
       }
 
-      // Check if ad is active
-      const isActive = content.is_active !== undefined ? content.is_active : true;
+              // Check if ad is active
+        const isActive = content.is_active !== false;
 
       // Get platform
       const platform = content.publisher_platform?.[0] || "FACEBOOK";
@@ -571,11 +545,15 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
               const adDetails = getAdDetailsForHook(hook.hook);
               return (
                 <Flex key={`pinned-${index}`} gap={"3"} align={"center"}>
-                  <img 
-                    src={adDetails.imageUrl} 
-                    alt={`hook ${index + 1}`} 
-                    className="w-10 h-10 rounded object-cover" 
-                  />
+                  <div className="flex gap-1">
+                    {adDetails.imageUrl && (
+                      <img 
+                        src={adDetails.imageUrl} 
+                        alt={`hook ${index + 1} image`} 
+                        className="w-12 h-12 rounded object-cover" 
+                      />
+                    )}
+                  </div>
                   {getAdTypeIcon(adDetails.adType)}
                   <button
                     onClick={() => togglePin(hook.hook)}
@@ -650,11 +628,15 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
               const adDetails = getAdDetailsForHook(hook.hook);
           return (
                 <Flex key={`hook-${index}`} gap={"3"} align={"center"}>
-                  <img 
-                    src={adDetails.imageUrl} 
-                    alt={`hook ${index + 1}`} 
-                    className="w-10 h-10 rounded object-cover" 
-                  />
+                  <div className="flex gap-1">
+                    {adDetails.imageUrl && (
+                      <img 
+                        src={adDetails.imageUrl} 
+                        alt={`hook ${index + 1} image`} 
+                        className="w-12 h-12 rounded object-cover" 
+                      />
+                    )}
+                  </div>
                   {getAdTypeIcon(adDetails.adType)}
                   <button
                     onClick={() => togglePin(hook.hook)}

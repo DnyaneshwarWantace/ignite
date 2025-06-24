@@ -46,16 +46,10 @@ export default function CreativeTests({ ads = [] }: CreativeTestsProps) {
     if (!text) return fallback;
     
     let cleanText = text
-      .replace(/\{\{product\.brand\}\}/gi, "Amazing Brand")
-      .replace(/\{\{product\.name\}\}/gi, "Premium Product")
-      .replace(/\{\{brand\.name\}\}/gi, "Top Brand")
-      .replace(/\{\{company\.name\}\}/gi, "Leading Company")
-      .replace(/\{\{product\.price\}\}/gi, "$99")
-      .replace(/\{\{discount\}\}/gi, "50% OFF")
-      .replace(/\{\{offer\}\}/gi, "Special Offer")
-      .replace(/\{\{[^}]+\}\}/g, "");
+      .replace(/\{\{[^}]+\}\}/g, "") // Remove all template variables
+      .replace(/\s+/g, ' ');
     
-    cleanText = cleanText.trim().replace(/\s+/g, ' ');
+    cleanText = cleanText.trim();
     return cleanText || fallback;
   };
 
@@ -152,7 +146,7 @@ export default function CreativeTests({ ads = [] }: CreativeTestsProps) {
             }
 
             // Check if ad is active
-            const isActive = content.is_active !== undefined ? content.is_active : true;
+            const isActive = content.is_active !== false;
 
             // Get platform
             const platform = content.publisher_platform?.[0] || "FACEBOOK";

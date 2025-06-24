@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const SCRAPE_CREATORS_API_KEY = 'zX5zqgJkGVUsMpqZohLXlwAEe6X2';
+const SCRAPE_CREATORS_API_KEY = 'eHxqHYUpDKclcLlIpUmfXBOvBZb2';
 const SCRAPE_CREATORS_BASE_URL = 'https://api.scrapecreators.com/v1/facebook/adLibrary';
 
 interface ScrapedAd {

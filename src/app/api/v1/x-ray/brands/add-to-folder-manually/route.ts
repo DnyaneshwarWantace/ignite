@@ -6,6 +6,8 @@ import prisma from "@prisma/index";
 import { NextRequest, NextResponse } from "next/server";
 import validation from "./validation";
 import { scrapeCompanyAds, extractPageIdFromInput } from "@apiUtils/adScraper";
+import { v2 as cloudinary } from 'cloudinary';
+import { startAutoTracking } from "@/lib/auto-tracker";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +35,15 @@ function extractBrandNameFromAds(scrapedAds: any[]): string | null {
   return null;
 }
 
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Media processing is now handled by the dedicated /api/v1/media/process endpoint
+
 export const POST = authMiddleware(
   async (request: NextRequest, response: NextResponse, user: User) => {
     let requestBody;
@@ -59,7 +70,7 @@ export const POST = authMiddleware(
       console.log("JSON parse error:", parseError);
       return createError({
         message: "Invalid JSON in request body",
-        payload: { error: parseError.message },
+        payload: { error: (parseError as Error).message },
       });
     }
 
@@ -139,7 +150,7 @@ export const POST = authMiddleware(
       const effectiveOffset = offset || existingAdsCount;
       console.log(`Using offset: ${effectiveOffset} (provided: ${offset}, existing: ${existingAdsCount})`);
       
-      const scrapedAds = await scrapeCompanyAds(extractedPageId, 200, effectiveOffset);
+      let scrapedAds = await scrapeCompanyAds(extractedPageId, 200, effectiveOffset);
       
       if (scrapedAds.length === 0) {
         // For testing purposes, create a mock ad if no ads are found
@@ -160,11 +171,8 @@ export const POST = authMiddleware(
         };
         
         // Use mock ad for testing
-        const scrapedAdsWithMock = [mockAd];
+        scrapedAds = [mockAd];
         console.log("Using mock ad for testing:", mockAd);
-        
-        // Continue with mock data
-        var scrapedAds = scrapedAdsWithMock;
       }
 
       // Create or find brand
@@ -204,22 +212,34 @@ export const POST = authMiddleware(
       const savedAds = [];
       const newAdIds = scrapedAds.map(ad => ad.id);
       
-      // Batch check for existing ads to improve performance
+      // GLOBAL duplicate check - check across ALL brands, not just current brand
       const existingAds = await prisma.ad.findMany({
         where: { 
-          libraryId: { in: newAdIds },
-          brandId: brand.id
+          libraryId: { in: newAdIds }
+          // Remove brandId filter to check globally
         },
-        select: { libraryId: true }
+        select: { 
+          libraryId: true, 
+          brandId: true,
+          mediaStatus: true,
+          localImageUrl: true,
+          localVideoUrl: true 
+        }
       });
       
-      const existingAdIds = new Set(existingAds.map(ad => ad.libraryId));
-      console.log(`Found ${existingAdIds.size} existing ads out of ${newAdIds.length} scraped ads`);
+      const existingAdMap = new Map();
+      existingAds.forEach(ad => {
+        existingAdMap.set(ad.libraryId, ad);
+      });
+      
+      console.log(`Found ${existingAds.length} existing ads globally out of ${newAdIds.length} scraped ads`);
       
       for (const scrapedAd of scrapedAds) {
         try {
-          // Check if ad already exists using the pre-fetched set
-          if (!existingAdIds.has(scrapedAd.id)) {
+          const existingAd = existingAdMap.get(scrapedAd.id);
+          
+          if (!existingAd) {
+            // New ad - create with pending media status
             const savedAd = await prisma.ad.create({
               data: {
                 libraryId: scrapedAd.id,
@@ -231,11 +251,37 @@ export const POST = authMiddleware(
                 headline: scrapedAd.headline,
                 description: scrapedAd.description,
                 brandId: brand.id,
+                mediaStatus: 'pending', // Set pending for media processing
+                mediaRetryCount: 0
               },
             });
             savedAds.push(savedAd);
+            console.log(`✅ New ad added: ${scrapedAd.id} - mediaStatus: pending`);
+          } else if (existingAd.brandId !== brand.id) {
+            // Ad exists under different brand - link to current brand too
+            const savedAd = await prisma.ad.create({
+              data: {
+                libraryId: scrapedAd.id,
+                type: scrapedAd.type,
+                content: scrapedAd.content,
+                imageUrl: scrapedAd.imageUrl,
+                videoUrl: scrapedAd.videoUrl,
+                text: scrapedAd.text,
+                headline: scrapedAd.headline,
+                description: scrapedAd.description,
+                brandId: brand.id,
+                // Copy media status and URLs from existing ad if already processed
+                mediaStatus: existingAd.mediaStatus || 'pending',
+                localImageUrl: existingAd.localImageUrl,
+                localVideoUrl: existingAd.localVideoUrl,
+                mediaRetryCount: 0
+              },
+            });
+            savedAds.push(savedAd);
+            console.log(`🔗 Ad linked to new brand: ${scrapedAd.id} - mediaStatus: ${existingAd.mediaStatus}`);
           } else {
-            console.log(`Skipping duplicate ad: ${scrapedAd.id}`);
+            // Ad already exists for this brand - skip
+            console.log(`⏭️  Skipping duplicate ad for same brand: ${scrapedAd.id}`);
           }
         } catch (adError) {
           console.error(`Error saving ad ${scrapedAd.id}:`, adError);
@@ -270,6 +316,20 @@ export const POST = authMiddleware(
     });
       }
 
+    // Log that ads were added (background worker will pick them up automatically)
+    if (savedAds.length > 0) {
+      console.log(`✅ Added ${savedAds.length} new ads with mediaStatus='pending' - background worker will process them automatically`);
+      
+      // Start auto-tracking for this page (only starts if not already running)
+      try {
+        await startAutoTracking();
+        console.log(`🚀 Auto-tracking service started/verified for page ${extractedPageId}`);
+      } catch (autoTrackError) {
+        console.error('Error starting auto-tracking:', autoTrackError);
+        // Don't fail the request if auto-tracking fails to start
+      }
+    }
+
     return createResponse({
       message: messages.SUCCESS,
       payload: {
@@ -292,7 +352,7 @@ export const POST = authMiddleware(
       console.error("Error scraping ads:", error);
       return createError({
         message: "Failed to scrape ads. Please check the page ID and try again.",
-        payload: { error: error.message },
+        payload: { error: (error as Error).message },
       });
     }
   }

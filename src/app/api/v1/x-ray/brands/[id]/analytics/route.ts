@@ -7,39 +7,85 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
+// Helper function to extract domain from URL
+function extractDomain(url: string): string {
+  try {
+    const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
+    return urlObj.hostname.replace('www.', '');
+  } catch (e) {
+    return url.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '');
+  }
+}
+
+// Helper function to extract landing page URL from ad
+function getLandingPageUrl(ad: any): string | null {
+  try {
+    const content = JSON.parse(ad.content || '{}');
+    const snapshot = content.snapshot || {};
+    
+    // Extract landing page URL from ad content
+    const url = snapshot.link_url || 
+               content.link_url || 
+               snapshot.url ||
+               content.url ||
+               snapshot.website_url ||
+               content.website_url;
+               
+    // Check cards for carousel ads
+    if (!url && snapshot.cards && snapshot.cards.length > 0) {
+      const cardUrl = snapshot.cards[0].link_url;
+      if (cardUrl) return cardUrl;
+    }
+               
+    if (url) {
+      // Ensure URL has protocol
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        return url;
+      } else {
+        return `https://${url}`;
+      }
+    }
+  } catch (e) {
+    // Skip ads with invalid content
+  }
+  
+  return null;
+}
+
+// Helper function to extract hooks from text
+function extractHooks(text: string): string[] {
+  const hooks: string[] = [];
+  
+  // Split by common sentence endings and clean
+  const sentences = text.split(/[.!?]+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 10 && s.length < 150); // Good hook length
+  
+  sentences.forEach(sentence => {
+    const cleanedHook = cleanHookText(sentence);
+    if (cleanedHook && cleanedHook.length >= 10) {
+      hooks.push(cleanedHook);
+    }
+  });
+  
+  return hooks;
+}
+
 // Helper function to extract landing pages from ads
 function extractLandingPages(ads: any[]) {
-  const landingPageMap = new Map();
+  const landingPageMap = new Map<string, number>();
   let processedAds = 0;
   let adsWithUrls = 0;
   
   ads.forEach((ad: any) => {
     processedAds++;
-    try {
-      const content = JSON.parse(ad.content);
-      const snapshot = content.snapshot || {};
-      
-      // Extract landing page URL
-      let landingUrl = snapshot.link_url || content.link_url || content.url;
-      
-      if (landingUrl) {
+    const url = getLandingPageUrl(ad);
+    if (url) {
         adsWithUrls++;
-        // Clean and normalize URL
-        landingUrl = landingUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
-        
-        if (landingPageMap.has(landingUrl)) {
-          landingPageMap.set(landingUrl, landingPageMap.get(landingUrl) + 1);
-        } else {
-          landingPageMap.set(landingUrl, 1);
+      const domain = extractDomain(url);
+      landingPageMap.set(domain, (landingPageMap.get(domain) || 0) + 1);
         }
-      }
-    } catch (e) {
-      // Skip ads with invalid content
-      console.error('Error parsing ad content for landing pages:', e);
-    }
   });
-  
-  console.log(`Landing Pages Debug: Processed ${processedAds} ads, ${adsWithUrls} had URLs, found ${landingPageMap.size} unique URLs`);
   
   // Convert to array and sort by usage count
   return Array.from(landingPageMap.entries())
@@ -53,16 +99,10 @@ function cleanTemplateVariables(text: string, fallback: string = ""): string {
   if (!text) return fallback;
   
   let cleanText = text
-    .replace(/\{\{product\.brand\}\}/gi, "Amazing Brand")
-    .replace(/\{\{product\.name\}\}/gi, "Premium Product")
-    .replace(/\{\{brand\.name\}\}/gi, "Top Brand")
-    .replace(/\{\{company\.name\}\}/gi, "Leading Company")
-    .replace(/\{\{product\.price\}\}/gi, "$99")
-    .replace(/\{\{discount\}\}/gi, "50% OFF")
-    .replace(/\{\{offer\}\}/gi, "Special Offer")
-    .replace(/\{\{[^}]+\}\}/g, ""); // Remove any remaining template variables
+    .replace(/\{\{[^}]+\}\}/g, "") // Remove all template variables
+    .replace(/\s+/g, ' ');
   
-  cleanText = cleanText.trim().replace(/\s+/g, ' ');
+  cleanText = cleanText.trim();
   return cleanText || fallback;
 }
 
@@ -99,7 +139,7 @@ function cleanHookText(text: string): string {
 
 // Helper function to extract hooks/headlines from ads
 function extractTopHooks(ads: any[]) {
-  const hookMap = new Map();
+  const hookMap = new Map<string, number>();
   let processedAds = 0;
   let adsWithHooks = 0;
   let totalHooksFound = 0;
@@ -107,55 +147,64 @@ function extractTopHooks(ads: any[]) {
   ads.forEach((ad: any) => {
     processedAds++;
     try {
-      const content = JSON.parse(ad.content);
+      const content = JSON.parse(ad.content || '{}');
       const snapshot = content.snapshot || {};
       
-      // Extract hooks from various fields - prioritize link_description as it contains the actual hook
-      const hooks = [
-        snapshot.link_description, // Primary hook source - this is where the actual hook text is
+      // Get all possible text sources
+      const textSources = [
+        snapshot.link_description,
         snapshot.title,
         snapshot.caption,
         content.headline,
         ad.headline,
         ad.text,
-        snapshot.body?.text
+        snapshot.body?.text,
+        content.text,
+        snapshot.message,
+        content.message,
+        snapshot.description,
+        content.description
       ].filter(Boolean);
       
-      if (hooks.length > 0) {
-        adsWithHooks++;
-        totalHooksFound += hooks.length;
+      // Also check cards for carousel ads
+      if (snapshot.cards && snapshot.cards.length > 0) {
+        snapshot.cards.forEach((card: any) => {
+          if (card) {
+            const cardTexts = [
+              card.body,
+              card.text,
+              card.title,
+              card.description,
+              card.message,
+              card.link_description
+            ].filter(Boolean);
+            textSources.push(...cardTexts);
+          }
+        });
       }
       
-      hooks.forEach((hook: string) => {
-        if (hook && hook.length > 3 && hook.length < 300) { // Reduced min length and increased max length
-          // Clean hook text specifically for marketing content
-          const cleanedHook = cleanHookText(hook);
-          
-          // Skip if the cleaned hook is empty or too short
-          if (cleanedHook.length < 5) return;
-          
-          const finalHook = cleanedHook.substring(0, 200); // Increased length limit for better hooks
-          
-          if (hookMap.has(finalHook)) {
-            hookMap.set(finalHook, hookMap.get(finalHook) + 1);
-          } else {
-            hookMap.set(finalHook, 1);
+      // Process each text source
+      textSources.forEach(text => {
+        if (text) {
+          const hooks = extractHooks(text);
+          if (hooks.length > 0) {
+            adsWithHooks++;
+            totalHooksFound += hooks.length;
+            hooks.forEach(hook => {
+              hookMap.set(hook, (hookMap.get(hook) || 0) + 1);
+            });
           }
         }
       });
     } catch (e) {
       // Skip ads with invalid content
-      console.error('Error parsing ad content for hooks:', e);
     }
   });
-  
-  console.log(`Hooks Debug: Processed ${processedAds} ads, ${adsWithHooks} had hooks, found ${totalHooksFound} total hooks, ${hookMap.size} unique hooks`);
   
   // Convert to array and sort by usage count
   return Array.from(hookMap.entries())
     .map(([hook, count]) => ({ hook, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 100); // Increased from 15 to 100 hooks for much better variety
+    .sort((a, b) => b.count - a.count); // Return all hooks, not just top 100
 }
 
 // Helper function to analyze ad content for special features
@@ -269,19 +318,6 @@ export const GET = authMiddleware(
 
     const ads = brand.ads || [];
     
-    console.log(`Analytics Debug: Brand ${brandId} has ${ads.length} ads in database`);
-    
-    // Log first few ads to see their structure
-    if (ads.length > 0) {
-      console.log('Sample ad structure:', {
-        id: ads[0].id,
-        type: ads[0].type,
-        hasContent: !!ads[0].content,
-        contentLength: ads[0].content?.length || 0,
-        contentPreview: ads[0].content?.substring(0, 100) + '...'
-      });
-    }
-    
     // Calculate basic statistics
     const videoAds = ads.filter((ad: any) => ad.type === 'video').length;
     const imageAds = ads.filter((ad: any) => ad.type === 'image').length;
@@ -339,8 +375,6 @@ export const GET = authMiddleware(
     const topHooks = extractTopHooks(ads);
     const adFeatures = analyzeAdFeatures(ads);
     const timeline = createTimeline(ads);
-
-    console.log(`Analytics Results: ${landingPages.length} landing pages, ${topHooks.length} hooks, ${timeline.length} timeline entries`);
 
     const analytics = {
       // Basic stats

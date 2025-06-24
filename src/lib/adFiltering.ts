@@ -124,18 +124,11 @@ export const getAdStatus = (ad: any): string[] => {
       const content = JSON.parse(ad.content);
       
       // Check various status fields
-      const isActive = content.is_active ?? content.active ?? content.status === 'active';
+      const isActive = content.is_active !== false; // Default to true unless explicitly false
       
-      if (isActive === true) return ['Running'];
-      if (isActive === false) return ['Not Running'];
+      if (isActive) return ['Running'];
+      return ['Not Running'];
       
-      // Check end date
-      const endDate = content.end_date || content.end_date_string;
-      if (endDate) {
-        const endDateTime = new Date(endDate).getTime();
-        const now = Date.now();
-        return endDateTime > now ? ['Running'] : ['Not Running'];
-      }
     } catch (e) {
       // Ignore parsing errors
     }

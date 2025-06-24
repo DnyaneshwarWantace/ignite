@@ -16,19 +16,27 @@ export const discoverApi = createApi({
   tagTypes: ["DiscoverAds"],
   endpoints: (builder) => ({
     fetchDiscoverAds: builder.query<any, { 
-      page?: number; 
-      limit?: number; 
       search?: string;
       format?: string[];
       platform?: string[];
       status?: string[];
       language?: string[];
       niche?: string[];
+      limit?: number;
+      cursorCreatedAt?: string;
+      cursorId?: string;
     }>({
-      query: ({ page = 1, limit = 20, search, format, platform, status, language, niche }) => {
+      query: ({ search, format, platform, status, language, niche, limit = 30, cursorCreatedAt, cursorId }) => {
         const params = new URLSearchParams();
-        params.append('page', page.toString());
+        
+        // Add pagination parameters - use cursor instead of page
         params.append('limit', limit.toString());
+        if (cursorCreatedAt) {
+          params.append('cursorCreatedAt', cursorCreatedAt);
+        }
+        if (cursorId) {
+          params.append('cursorId', cursorId);
+        }
         
         // Only add search parameter if it's 3+ characters or empty
         if (search && search.trim().length >= 3) {
@@ -54,13 +62,32 @@ export const discoverApi = createApi({
         
         const url = `/discover/ads?${params.toString()}`;
         console.log('Discover API URL:', url);
+        console.log('Pagination:', { limit, cursorCreatedAt, cursorId });
         console.log('Search term length:', search?.length || 0);
         console.log('Filters:', { format, platform, status, language, niche });
-        console.log('Full API URL:', API_URL + url);
         return url;
       },
+      // Ensure each unique combination of parameters gets its own cache entry
+      serializeQueryArgs: ({ queryArgs }) => {
+        const { search, format, platform, status, language, niche, limit, cursorCreatedAt, cursorId } = queryArgs;
+        return JSON.stringify({
+          search: search || '',
+          format: format?.sort() || [],
+          platform: platform?.sort() || [],
+          status: status?.sort() || [],
+          language: language?.sort() || [],
+          niche: niche?.sort() || [],
+          limit: limit || 30,
+          cursor: cursorCreatedAt && cursorId ? `${cursorCreatedAt}_${cursorId}` : null
+        });
+      },
       transformResponse: (response: { payload: { ads: any[]; pagination: any } }) => response.payload,
-      providesTags: ["DiscoverAds"],
+      // Force fresh data for each request, keep cache briefly for UX
+      keepUnusedDataFor: 30, // Keep for 30 seconds only
+      providesTags: (result, error, arg) => [
+        { type: 'DiscoverAds', id: arg.cursorCreatedAt ? `cursor-${arg.cursorCreatedAt}_${arg.cursorId}` : 'first-page' },
+        { type: 'DiscoverAds', id: 'LIST' }
+      ],
       transformErrorResponse: (error: any) => {
         console.error('Discover API Error:', error);
         const message = error?.data?.message || "Failed to fetch discover ads.";

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -11,6 +11,7 @@ import ReadMore from "./ReadMore";
 import { motion } from "framer-motion";
 import { toast } from "@/lib/toast";
 import AdPreviewModal from "./ad-preview-modal";
+import AdCarousel from "./AdCarousel";
 
 // Global video manager to ensure only one video plays at a time
 class VideoManager {
@@ -84,7 +85,8 @@ interface AG1AdCardProps {
   timePosted: string;
   title?: string;
   description: string;
-  imageSrc: string;
+  imageSrc?: string; // Single image for backward compatibility
+  imageSrcs?: string[]; // Array of images for carousel support
   videoUrl?: string; // HD video URL
   videoSdUrl?: string; // SD video URL as fallback
   isVideo?: boolean; // Whether this ad is a video ad
@@ -96,6 +98,9 @@ interface AG1AdCardProps {
   landingPageUrl?: string; // Actual ad landing page URL
   content?: string; // Raw JSON content with Facebook data
   hideActions?: boolean; // Hide share and preview icons (for modal use)
+  isMediaLoading?: boolean; // Whether media is currently loading/retrying
+  mediaLoadFailed?: boolean; // Whether media loading failed after retries
+  isActive?: boolean; // Whether the ad is currently active/running
   onCtaClick: () => void;
   onSaveAd: () => void;
 }
@@ -107,6 +112,7 @@ export default function AdCard({
   title,
   description,
   imageSrc,
+  imageSrcs,
   videoUrl,
   videoSdUrl,
   isVideo = false,
@@ -120,12 +126,51 @@ export default function AdCard({
   landingPageUrl,
   content,
   hideActions = false,
+  isMediaLoading = false,
+  mediaLoadFailed = false,
+  isActive = true,
 }: AG1AdCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true); // Videos start muted
   const [showControls, setShowControls] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+
+  // Extract real content from cards if available
+  let displayTitle = title;
+  let displayDescription = description;
+
+  if (content) {
+    try {
+      const contentObj = JSON.parse(content);
+      const snapshot = contentObj.snapshot || {};
+      
+      if (snapshot.cards && snapshot.cards.length > 0) {
+        const firstCard = snapshot.cards[0];
+        
+        // Use card content if title/description has template variables
+        if (title?.includes('{{product.name}}')) {
+          displayTitle = firstCard.title || title;
+        }
+        if (description?.includes('{{product.brand}}')) {
+          displayDescription = firstCard.body || description;
+        }
+        if (description?.includes('{{product.description}}')) {
+          displayDescription = firstCard.link_description || description;
+        }
+      }
+    } catch (e) {
+      console.error('Error parsing ad content:', e);
+    }
+  }
+
+  // Clean template variables as fallback
+  if (displayTitle?.includes('{{')) {
+    displayTitle = displayTitle.replace(/\{\{[^}]+\}\}/g, '').trim();
+  }
+  if (displayDescription?.includes('{{')) {
+    displayDescription = displayDescription.replace(/\{\{[^}]+\}\}/g, '').trim();
+  }
 
   // Determine which video URL to use (prefer HD, fallback to SD)
   const activeVideoUrl = videoUrl || videoSdUrl;
@@ -148,26 +193,49 @@ export default function AdCard({
     }
   }, [shouldShowVideo, videoId]);
 
-  // Image validation and fallback handling
+  // Image validation and fallback handling with carousel support
   const imageValidation = useMemo(() => {
-    if (!imageSrc) {
+    // Determine which images to use - prioritize imageSrcs array, fallback to single imageSrc
+    const allImages = imageSrcs && imageSrcs.length > 0 ? imageSrcs : (imageSrc ? [imageSrc] : []);
+    
+    if (allImages.length === 0) {
       return {
         hasValidImage: false,
         shouldShowImage: false,
-        finalImageSrc: null
+        finalImages: [],
+        isCarousel: false
       };
     }
     
-    const isDummy = imageSrc.includes('freepik.com') || 
-                   imageSrc.includes('placeholder') || 
-                   imageSrc.includes('via.placeholder');
+    // Filter out dummy/placeholder images and validate URLs
+    const validImages = allImages.filter(url => {
+      if (!url) return false;
+      
+      // Check for dummy/placeholder images
+      const isDummy = url.includes('freepik.com') || 
+                     url.includes('placeholder') || 
+                     url.includes('via.placeholder') ||
+                     url.includes('example.com') ||
+                     url.includes('dummy') ||
+                     url === '/placeholder.svg';
+      
+      // Accept both Facebook CDN and Cloudinary URLs
+      const isValidUrl = url.includes('fbcdn.net') || 
+                        url.includes('scontent') ||
+                        url.includes('cloudinary.com') ||
+                        url.startsWith('https://') ||
+                        url.startsWith('http://');
+      
+      return !isDummy && isValidUrl;
+    });
     
     return {
-      hasValidImage: !isDummy,
-      shouldShowImage: !isDummy,
-      finalImageSrc: isDummy ? null : imageSrc
+      hasValidImage: validImages.length > 0,
+      shouldShowImage: validImages.length > 0,
+      finalImages: validImages,
+      isCarousel: validImages.length > 1
     };
-  }, [imageSrc]);
+  }, [imageSrc, imageSrcs]);
 
   const handleVideoClick = () => {
     const video = document.getElementById(videoId) as HTMLVideoElement;
@@ -180,6 +248,11 @@ export default function AdCard({
     }
   };
 
+  const handlePlayPauseClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleVideoClick();
+  };
+
   const handleMuteToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
     const video = document.getElementById(videoId) as HTMLVideoElement;
@@ -187,6 +260,11 @@ export default function AdCard({
       video.muted = !isMuted;
       setIsMuted(!isMuted);
     }
+  };
+
+  const handleDownloadClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleDownloadVideo(e);
   };
 
   const handleImageError = () => {
@@ -253,7 +331,53 @@ export default function AdCard({
     const status: "Still Running" | "Stopped" | "Scheduled" = "Still Running";
 
     // Calculate start date (you can make this dynamic based on actual data)
-    const startDate = "May 24, 2025"; // You can calculate this from timePosted
+    // Calculate start date from content with validation
+    let startDate = "Unknown";
+    if (content) {
+      try {
+        const contentObj = typeof content === 'string' ? JSON.parse(content) : content;
+        
+        // Try different possible date fields
+        const possibleDate = contentObj.startDateString || 
+                           contentObj.start_date || 
+                           contentObj.start_date_string ||
+                           contentObj.startDate ||
+                           contentObj.snapshot?.start_date ||
+                           contentObj.snapshot?.startDate ||
+                           contentObj.created_time ||
+                           contentObj.snapshot?.created_time;
+        
+        if (possibleDate) {
+          const dateObj = new Date(possibleDate);
+          const timestamp = dateObj.getTime();
+          
+          // Validate date is after Facebook's founding (2004) and not in the future
+          const facebookFoundingDate = new Date('2004-01-01').getTime();
+          const now = new Date().getTime();
+          
+          if (timestamp > facebookFoundingDate && timestamp <= now) {
+            // Format the date as "MMM DD, YYYY"
+            startDate = dateObj.toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            });
+          } else if (typeof possibleDate === 'number' && possibleDate > 1000000000) {
+            // Handle Unix timestamp (convert from seconds to milliseconds)
+            const dateFromTimestamp = new Date(possibleDate * 1000);
+            if (dateFromTimestamp.getTime() > facebookFoundingDate && dateFromTimestamp.getTime() <= now) {
+              startDate = dateFromTimestamp.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing ad content for start date:', e);
+      }
+    }
 
     // Determine aspect ratio (you can calculate this from image dimensions)
     const aspectRatio = isVideo ? "9:16 Vertical" : "4:3";
@@ -261,9 +385,9 @@ export default function AdCard({
     return {
       id: adId || "",
       brand: companyName,
-      title: title,
-      description: description,
-      imageSrc: imageSrc,
+      title: displayTitle,
+      description: displayDescription,
+      imageSrc: imageSrc ?? "", // Fix TypeScript error - provide empty string for undefined/null
       videoUrl: videoUrl,
       videoSdUrl: videoSdUrl,
       isVideo: isVideo,
@@ -450,25 +574,34 @@ export default function AdCard({
   const displayImageSrc = imageError ? null : imageSrc;
 
   return (
-    <Card className="w-full overflow-hidden break-inside-avoid">
-      <CardHeader className="flex flex-row items-center justify-between  space-y-0 pb-2">
-        <div className="flex items-center space-x-2">
-          <Avatar className="h-5 w-5">
+    <Card className="w-full overflow-hidden bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 ad-card">
+      <CardHeader className="flex flex-row items-center justify-between p-4 card-header">
+        <div className="flex items-center space-x-2 brand-info">
+          <Avatar className="w-8 h-8">
             <AvatarImage src={avatarSrc} alt={companyName} />
-            <AvatarFallback>AG</AvatarFallback>
+            <AvatarFallback>{companyName[0]}</AvatarFallback>
           </Avatar>
-          <Flex align={"center"}>
-            <p className="text-sm font-semibold truncate text-ellipsis max-w-[150px]">{companyName}</p>
-            <Chip
-              label={timePosted}
-              icon={<Dot className="w-1 h-1 rounded-full bg-black " />}
-              iconClassName="justify-start ml-1"
-              iconPosition="left"
-              className="bg-opacity-30 border text-xs pr-1 pl-3"
-            />
-          </Flex>
+          <div>
+            <Typography variant="title" className="font-medium text-sm brand-name">
+              {companyName}
+            </Typography>
+            <Badge 
+              variant="secondary" 
+              className={`bg-opacity-30 border text-xs pr-1 pl-3 time-chip ${
+                isActive 
+                  ? 'bg-green-100 border-green-300 text-green-700' 
+                  : 'bg-red-100 border-red-300 text-red-700'
+              }`}
+            >
+              <Clock className="w-3 h-3 mr-1" />
+              {timePosted}
+              <span className={`ml-1 w-2 h-2 rounded-full inline-block ${
+                isActive ? 'bg-green-500' : 'bg-red-500'
+              }`} />
+            </Badge>
+          </div>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 action-buttons">
           {!hideActions && (
             <>
           <Button variant={"outline"} size={"icon"} onClick={handleCopyLink}>
@@ -481,41 +614,57 @@ export default function AdCard({
           )}
         </div>
       </CardHeader>
-      <CardContent className="p-0">
+      <CardContent className="p-0 card-content">
         <motion.div layout transition={{ duration: 0.5 }} className={`p-0 transition-all duration-500`}>
-          <div className="px-6 py-2 space-y-2">
-            {expand ? <ReadMore text={description} /> : <h3 className="font-medium text-sm leading-tight ">{description}</h3>}
+          <div className="px-6 py-2 space-y-2 description-section">
+            {expand ? (
+              displayDescription ? (
+                <ReadMore text={displayDescription} />
+              ) : null
+            ) : (
+              displayTitle ? <h3 className="font-medium text-sm leading-tight line-clamp-1">{displayTitle}</h3> : null
+            )}
           </div>
           <div 
-            className="relative w-full cursor-pointer group"
+            className="relative w-full cursor-pointer group media-section"
             onMouseEnter={() => setShowControls(true)}
             onMouseLeave={() => setShowControls(false)}
-            onClick={shouldShowVideo ? handleVideoClick : undefined}
           >
             {shouldShowVideo ? (
               <>
                 <video
                   id={videoId}
                   src={activeVideoUrl}
-                  poster={imageValidation.finalImageSrc} // Use thumbnail as poster
+                  poster={imageValidation.finalImages[0] ?? undefined}
                   muted={isMuted}
                   loop
                   playsInline
+                  preload="metadata"
                   className="w-full h-auto object-cover"
                   onPlay={() => setIsPlaying(true)}
                   onPause={() => setIsPlaying(false)}
+                  onClick={handleVideoClick}
+                  onLoadedMetadata={() => {
+                    const video = document.getElementById(videoId) as HTMLVideoElement;
+                    if (video && !isPlaying) {
+                      video.currentTime = 0.1;
+                    }
+                  }}
                 />
                 
                 {/* Video Controls Overlay */}
-                <div className={`absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center transition-opacity duration-200 ${
-                  showControls || !isPlaying ? 'opacity-100' : 'opacity-0'
-                }`}>
+                <div 
+                  className={`absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center transition-opacity duration-200 pointer-events-none ${
+                    showControls || !isPlaying ? 'opacity-100' : 'opacity-0'
+                  }`}
+                  onClick={handleVideoClick}
+                >
                   {/* Play/Pause Button */}
                   <Button
                     variant="secondary"
                     size="icon"
-                    className="bg-white bg-opacity-80 hover:bg-opacity-100 transition-all duration-200"
-                    onClick={handleVideoClick}
+                    className="bg-white bg-opacity-80 hover:bg-opacity-100 transition-all duration-200 pointer-events-auto"
+                    onClick={handlePlayPauseClick}
                   >
                     {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6" />}
                   </Button>
@@ -524,7 +673,7 @@ export default function AdCard({
                   <Button
                     variant="secondary"
                     size="icon"
-                    className="absolute top-2 right-2 bg-white bg-opacity-80 hover:bg-opacity-100 transition-all duration-200"
+                    className="absolute top-2 right-2 bg-white bg-opacity-80 hover:bg-opacity-100 transition-all duration-200 pointer-events-auto"
                     onClick={handleMuteToggle}
                   >
                     {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
@@ -534,8 +683,8 @@ export default function AdCard({
                   <Button
                     variant="secondary"
                     size="icon"
-                    className="absolute bottom-2 right-2 bg-white bg-opacity-80 hover:bg-opacity-100 transition-all duration-200"
-                    onClick={handleDownloadVideo}
+                    className="absolute bottom-2 right-2 bg-white bg-opacity-80 hover:bg-opacity-100 transition-all duration-200 pointer-events-auto"
+                    onClick={handleDownloadClick}
                     title="Download Video"
                   >
                     <Download className="h-4 w-4" />
@@ -544,62 +693,90 @@ export default function AdCard({
                 
                 {/* Video Type Badge */}
                 <div className="absolute top-2 left-2">
-                  <Badge variant="secondary" className="bg-black bg-opacity-70 text-white text-xs">
+                  <Badge variant="secondary" className="bg-black bg-opacity-70 text-white text-xs video-badge">
                     VIDEO
                   </Badge>
                 </div>
               </>
             ) : (
               <>
-                {imageValidation.shouldShowImage && imageValidation.finalImageSrc && (
+                {/* Always show image area - either carousel, single image, or placeholder */}
                   <div className="relative overflow-hidden rounded-lg">
-                    {isVideo && videoUrl ? (
-                      <video
-                        className="w-full h-auto object-cover"
-                        controls
-                        poster={imageValidation.finalImageSrc}
-                        onError={() => {
-                          console.error('Video failed to load:', videoUrl);
-                        }}
-                      >
-                        <source src={videoUrl} type="video/mp4" />
-                        {videoSdUrl && <source src={videoSdUrl} type="video/mp4" />}
-                        Your browser does not support the video tag.
-                      </video>
+                  {imageValidation.shouldShowImage && imageValidation.finalImages.length > 0 && !imageError ? (
+                    imageValidation.isCarousel ? (
+                      // Carousel for multiple images
+                      <div className="relative">
+                        <AdCarousel
+                          images={imageValidation.finalImages}
+                          alt={displayTitle || displayDescription || `${companyName} ad`}
+                          className="w-full"
+                        />
+                        {/* Carousel badge */}
+                        <div className="absolute top-2 left-2 z-10">
+                          <Badge variant="secondary" className="bg-black bg-opacity-70 text-white text-xs flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            {imageValidation.finalImages.length}
+                          </Badge>
+                        </div>
+                      </div>
                     ) : (
-                      <img 
-                        src={displayImageSrc} 
-                        alt={title || description} 
+                      // Single image
+                      <div className="relative">
+                        <img 
+                          src={imageValidation.finalImages[0]} 
+                          alt={displayTitle || displayDescription || `${companyName} ad`} 
                         className="w-full h-auto object-cover"
-                        onError={(e) => {
-                          console.error('Image failed to load:', displayImageSrc);
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                    )}
+                          onError={handleImageError}
+                        />
+                      </div>
+                    )
+                  ) : (
+                    /* Show placeholder with fixed dimensions to prevent layout shift */
+                    <div className="w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                      <div className="text-center text-gray-500">
+                        <div className="w-16 h-16 mx-auto mb-2 bg-gray-300 rounded-lg flex items-center justify-center">
+                          {mediaLoadFailed ? (
+                            <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          ) : isMediaLoading ? (
+                            <div className="w-8 h-8 border-2 border-gray-400 border-t-primary rounded-full animate-spin"></div>
+                          ) : (
+                            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-400">
+                          {mediaLoadFailed ? 'Media unavailable' : isMediaLoading ? 'Retrying...' : 'Loading media...'}
+                        </p>
+                      </div>
                   </div>
                 )}
+                </div>
               </>
             )}
           </div>
         </motion.div>
       </CardContent>
-      <CardFooter className="flex  justify-center pb-2">
+      <CardFooter className="flex justify-center pb-2 card-footer">
         <Flex direction={"column"} gap="4">
-          <Flex direction={"row"} gap={"4"} className="bg-gray-50 p-2 rounded-md">
-            <Box>
-              <Typography variant="title" className="font-medium text-sm">
+          <Flex direction={"row"} gap={"4"} className="bg-gray-50 p-2 rounded-md cta-section">
+            <Box className="url-info">
+              <Typography variant="title" className="font-medium text-sm url-title">
                 {url}
               </Typography>
-              <Typography variant="title" className="text-sm truncate text-ellipsis max-w-[200px]">
+              <Typography variant="title" className="text-sm truncate text-ellipsis max-w-[200px] url-desc">
                 {url_desc}
               </Typography>
             </Box>
-            <Button onClick={onCtaClick} variant={"outline"} className="flex-1 mr-2">
+            <Button onClick={onCtaClick} variant={"outline"} className="flex-1 mr-2 cta-button">
               {ctaText}
             </Button>
           </Flex>
-          <Flex direction={"row"}>
+          <Flex direction={"row"} className="saved-ad-section">
             <Button className="w-full flex justify-between items-center" variant="outline" onClick={onSaveAd}>
               <span>Saved Ad</span>
               <ChevronDown className="w-4 h-4 ml-2" />

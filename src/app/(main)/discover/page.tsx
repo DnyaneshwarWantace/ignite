@@ -1,16 +1,18 @@
 "use client";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import CommonTopbar from "@/components/common-topbar";
 import PageWrapper from "@/components/layout/page-wrapper";
 import { Button } from "@/components/ui/button";
 import { Plus, Loader2 } from "lucide-react";
 import { Flex } from "@radix-ui/themes";
-import AdCard from "@/components/ad-card";
 import FilterRow from "@/components/FilterRow";
 import { useFetchDiscoverAdsQuery } from "@/store/slices/discover";
 import { Typography } from "@/components/ui/typography";
 import { showToast } from "@/lib/toastUtils";
 import { useSearchParams } from "next/navigation";
+import { useInView } from "react-intersection-observer";
+import Masonry from "react-masonry-css";
+import LazyAdCard from "@/components/LazyAdCard";
 import { 
   getSearchableText, 
   getAdFormat, 
@@ -21,6 +23,36 @@ import {
   filterAds,
   FilterState 
 } from "@/lib/adFiltering";
+
+// Masonry breakpoints for responsive columns
+const breakpointColumnsObj = {
+  default: 4,  // 4 columns on very large screens (1536px+)
+  1536: 3,     // 4 columns on XL screens
+  1280: 3,     // 3 columns on large screens (laptops)
+  1024: 3,     // 3 columns on medium screens
+  768: 2,      // 2 columns on tablets
+  640: 2,      // 2 columns on small tablets
+  480: 1       // 1 column on mobile
+};
+
+// Calculate ads needed for initial load
+const getInitialLoadCount = () => {
+  if (typeof window === 'undefined') return 20;
+  
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const avgAdHeight = 350;
+  const adsPerColumn = Math.ceil(height / avgAdHeight);
+  
+  let columns = 1;
+  if (width >= 1536) columns = 3;
+  else if (width >= 1280) columns = 3;
+  else if (width >= 768) columns = 2;
+  else columns = 1;
+  
+  // Load enough for 2 screens initially
+  return columns * adsPerColumn * 2;
+};
 
 export default function DiscoverPage() {
   const searchParams = useSearchParams();
@@ -36,37 +68,183 @@ export default function DiscoverPage() {
     search: "",
     sort: null,
   });
-  const [page, setPage] = useState(1);
-  const limit = 20;
 
-  // Determine search behavior - only make API calls for empty search or 3+ characters
+  // Individual ad streaming state
+  const [allAds, setAllAds] = useState<any[]>([]);
+  const [nextCursor, setNextCursor] = useState<{createdAt: string, id: string} | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isStreamingMore, setIsStreamingMore] = useState(false);
+  const loadingInProgress = useRef(false);
+  const streamingQueue = useRef<any[]>([]);
+  const streamingTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // Determine search behavior
   const searchTerm = filters.search?.trim() || '';
   const isShortSearch = searchTerm.length > 0 && searchTerm.length < 3;
   const apiSearchTerm = searchTerm.length >= 3 ? searchTerm : '';
 
-  const { data, isLoading, error } = useFetchDiscoverAdsQuery({
-    page,
-    limit,
+  // Initial load
+  const initialLimit = useMemo(() => getInitialLoadCount(), []);
+  
+  const { data: firstPageData, isLoading: firstPageLoading, error } = useFetchDiscoverAdsQuery({
     search: apiSearchTerm || undefined,
     format: filters.format?.length > 0 ? filters.format : undefined,
     platform: filters.platform?.length > 0 ? filters.platform : undefined,
     status: filters.status?.length > 0 ? filters.status : undefined,
     language: filters.language?.length > 0 ? filters.language : undefined,
     niche: filters.niche?.length > 0 ? filters.niche : undefined,
+    limit: initialLimit,
   }, {
-    skip: isShortSearch // Skip API call for 1-2 character searches
+    skip: isShortSearch
   });
 
-  // Apply filtering - now much simpler since backend does most of the work
-  const filteredAds = useMemo(() => {
-    if (!data?.ads) return [];
+  // Stream ads individually (like Foreplay)
+  const streamAdsIndividually = useCallback((newAds: any[]) => {
+    // Add ads to queue
+    streamingQueue.current = [...streamingQueue.current, ...newAds];
     
-    // Filter by adId from URL first
-    if (adIdFromUrl) {
-      return data.ads.filter((ad: any) => ad.id === adIdFromUrl);
+    // Start streaming if not already streaming
+    if (!streamingTimer.current && streamingQueue.current.length > 0) {
+      const streamNext = () => {
+        if (streamingQueue.current.length > 0) {
+          const nextAd = streamingQueue.current.shift();
+          
+          // Check for duplicates before adding
+          setAllAds(prev => {
+            const existingIds = new Set(prev.map(ad => ad.id));
+            if (!existingIds.has(nextAd!.id)) {
+              return [...prev, nextAd!];
+            }
+            return prev;
+          });
+          
+          // Continue streaming with slight delay for smooth animation
+          streamingTimer.current = setTimeout(streamNext, 50); // 50ms delay between ads
+        } else {
+          // Streaming complete
+          streamingTimer.current = null;
+          setIsStreamingMore(false);
+        }
+      };
+      
+      streamNext();
+    }
+  }, []);
+
+  // Initialize first page
+  useEffect(() => {
+    if (firstPageData?.ads && !isShortSearch && isInitialLoading) {
+      console.log('Initial page loaded:', {
+        adsCount: firstPageData.ads.length,
+        hasMore: firstPageData.pagination?.hasMore
+      });
+      
+      // Stream initial ads
+      streamAdsIndividually(firstPageData.ads);
+      setNextCursor(firstPageData.pagination?.nextCursor || null);
+      setHasMore(firstPageData.pagination?.hasMore || false);
+      setIsInitialLoading(false);
+    }
+  }, [firstPageData, isShortSearch, isInitialLoading, streamAdsIndividually]);
+
+  // Reset on filter change
+  useEffect(() => {
+    // Clear streaming queue and timer
+    streamingQueue.current = [];
+    if (streamingTimer.current) {
+      clearTimeout(streamingTimer.current);
+      streamingTimer.current = null;
     }
     
-    // For short search terms (1-2 chars), do local filtering only
+    setAllAds([]);
+    setNextCursor(null);
+    setHasMore(true);
+    setIsInitialLoading(true);
+    setIsStreamingMore(false);
+    loadingInProgress.current = false;
+  }, [filters.search, filters.format, filters.platform, filters.status, filters.language, filters.niche]);
+
+  // Continuous loading function
+  const loadMoreAds = useCallback(async () => {
+    if (!nextCursor || loadingInProgress.current || !hasMore) {
+      return;
+    }
+
+    loadingInProgress.current = true;
+    setIsStreamingMore(true);
+    
+    try {
+      // Load smaller batches more frequently for continuous flow
+      const batchSize = Math.max(Math.floor(initialLimit * 0.3), 8);
+      
+      const response = await fetch(`/api/v1/discover/ads?${new URLSearchParams({
+        limit: batchSize.toString(),
+        cursorCreatedAt: nextCursor.createdAt,
+        cursorId: nextCursor.id,
+        ...(apiSearchTerm && { search: apiSearchTerm }),
+        ...(filters.format?.length > 0 && { format: filters.format.join(',') }),
+        ...(filters.platform?.length > 0 && { platform: filters.platform.join(',') }),
+        ...(filters.status?.length > 0 && { status: filters.status.join(',') }),
+        ...(filters.language?.length > 0 && { language: filters.language.join(',') }),
+        ...(filters.niche?.length > 0 && { niche: filters.niche.join(',') }),
+      }).toString()}`);
+
+      if (!response.ok) {
+        throw new Error('Failed to load more ads');
+      }
+
+      const data = await response.json();
+      const newAds = data.payload.ads;
+      
+      if (newAds.length > 0) {
+        console.log('Streaming new ads:', newAds.length);
+        streamAdsIndividually(newAds);
+      } else {
+        setIsStreamingMore(false);
+      }
+      
+      setNextCursor(data.payload.pagination?.nextCursor || null);
+      setHasMore(data.payload.pagination?.hasMore || false);
+      
+    } catch (error) {
+      console.error('Error loading more ads:', error);
+      showToast('Failed to load more ads', { variant: 'error' });
+      setIsStreamingMore(false);
+    } finally {
+      loadingInProgress.current = false;
+    }
+  }, [nextCursor, hasMore, allAds, apiSearchTerm, filters, initialLimit, streamAdsIndividually]);
+
+  // Intersection observer for continuous loading
+  const { ref: infiniteScrollRef, inView } = useInView({
+    threshold: 0,
+    rootMargin: '300px', // Start loading early
+  });
+
+  // Trigger continuous loading
+  useEffect(() => {
+    if (inView && hasMore && !isInitialLoading && !loadingInProgress.current) {
+      console.log('Continuous scroll triggered');
+      loadMoreAds();
+    }
+  }, [inView, hasMore, isInitialLoading, loadMoreAds]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (streamingTimer.current) {
+        clearTimeout(streamingTimer.current);
+      }
+    };
+  }, []);
+
+  // Apply filtering for short searches
+  const filteredAds = useMemo(() => {
+    if (adIdFromUrl) {
+      return allAds.filter((ad: any) => ad.id === adIdFromUrl);
+    }
+    
     if (isShortSearch) {
       const filterState: FilterState = {
         search: filters.search || '',
@@ -78,245 +256,11 @@ export default function DiscoverPage() {
         date: filters.date,
         sort: filters.sort
       };
-      return filterAds(data.ads, filterState);
+      return filterAds(allAds, filterState);
     }
     
-    // For 3+ character searches or no search, backend already filtered everything
-    return data.ads;
-  }, [data?.ads, adIdFromUrl, filters, isShortSearch]);
-
-  // Debug logging for filtering
-  React.useEffect(() => {
-    console.log('Discover Filtering Debug:', {
-      totalAds: data?.ads?.length || 0,
-      filteredAds: filteredAds.length,
-      searchTerm: filters.search || 'None',
-      searchLength: filters.search?.length || 0,
-      isShortSearch,
-      apiSearchTerm,
-      isLocalFiltering: isShortSearch,
-      backendFiltering: !isShortSearch,
-      totalCount: data?.pagination?.totalCount || 0,
-      currentPage: page,
-      totalPages: data?.pagination?.totalPages || 0,
-      activeFilters: {
-        search: filters.search || 'None',
-        format: filters.format?.length || 0,
-        platform: filters.platform?.length || 0,
-        status: filters.status?.length || 0,
-        language: filters.language?.length || 0,
-        niche: filters.niche?.length || 0,
-      },
-      apiFilters: {
-        format: filters.format?.length > 0 ? filters.format : 'None',
-        platform: filters.platform?.length > 0 ? filters.platform : 'None',
-        status: filters.status?.length > 0 ? filters.status : 'None',
-        language: filters.language?.length > 0 ? filters.language : 'None',
-        niche: filters.niche?.length > 0 ? filters.niche : 'None',
-      }
-    });
-  }, [data?.ads, filteredAds, filters, isShortSearch, apiSearchTerm, page]);
-
-  // Debug logging
-  React.useEffect(() => {
-    console.log('Discover Page Debug:', {
-      page,
-      isLoading,
-      error,
-      dataExists: !!data,
-      adsCount: data?.ads?.length || 0,
-      totalCount: data?.pagination?.totalCount || 0,
-      totalPages: data?.pagination?.totalPages || 0
-    });
-    
-    // Debug first few ads' URLs with safe checks
-    if (data?.ads?.length > 0) {
-      data.ads.slice(0, 3).forEach((ad: any, index: number) => {
-        try {
-          const url = getLandingPageUrl(ad);
-          const videoData = getVideoUrls(ad);
-          const imageUrl = getImageUrl(ad);
-          
-          console.log(`Ad ${index + 1} Debug:`, {
-            adId: ad.id,
-            extractedUrl: url,
-            hasContent: !!ad.content,
-            contentPreview: ad.content ? ad.content.substring(0, 100) + '...' : 'No content',
-            imageUrl: imageUrl,
-            imageDebug: {
-              directImageUrl: ad.imageUrl || 'None',
-              usingFallback: imageUrl && (imageUrl.includes('placeholder') || imageUrl.includes('via.placeholder')),
-              hasValidImage: imageUrl && !imageUrl.includes('placeholder') && !imageUrl.includes('via.placeholder')
-            },
-            videoData: {
-              hasVideo: videoData.isVideo,
-              hdUrl: videoData.videoHdUrl ? 'Available' : 'None',
-              sdUrl: videoData.videoSdUrl ? 'Available' : 'None'
-            },
-            // Add filtering debug info with safe checks
-            format: getAdFormat ? getAdFormat(ad) : 'Unknown',
-            platform: getAdPlatform ? getAdPlatform(ad) : ['Unknown'],
-            status: getAdStatus ? getAdStatus(ad) : ['Unknown'],
-            language: getAdLanguage ? getAdLanguage(ad) : ['Unknown'],
-            niche: getAdNiche ? getAdNiche(ad) : ['Unknown']
-          });
-        } catch (e) {
-          console.error(`Error debugging ad ${index + 1}:`, e);
-        }
-      });
-    }
-  }, [page, isLoading, error, data]);
-
-  // Reset page when any filter changes
-  React.useEffect(() => {
-    setPage(1);
-  }, [filters.search, filters.format, filters.platform, filters.status, filters.language, filters.niche]);
-
-  // Helper function to get image URL
-  const getImageUrl = (ad: any) => {
-    if (ad.imageUrl) return ad.imageUrl;
-    
-    if (ad.content) {
-      try {
-        const content = JSON.parse(ad.content);
-        const snapshot = content.snapshot || {};
-        const videos = snapshot.videos || [];
-        const images = snapshot.images || [];
-        const firstVideo = videos[0] || {};
-        const firstImage = images[0] || {};
-        
-        // For video ads, prioritize video preview image
-        if (videos.length > 0 && firstVideo.video_preview_image_url) {
-          return firstVideo.video_preview_image_url;
-        }
-        
-        // For image ads, try various image fields
-        if (images.length > 0) {
-          return firstImage.original_image_url || 
-                 firstImage.resized_image_url || 
-                 firstImage.watermarked_resized_image_url ||
-                 firstImage.url ||
-                 firstImage.src;
-        }
-        
-        // Try snapshot-level image fields
-        if (snapshot.image_url) {
-          return snapshot.image_url;
-        }
-        
-        // Try other possible image fields
-        if (snapshot.creative_image_url) {
-          return snapshot.creative_image_url;
-        }
-        
-        // Try cards array for carousel ads
-        if (snapshot.cards && snapshot.cards.length > 0) {
-          const firstCard = snapshot.cards[0];
-          return firstCard.original_image_url || 
-                 firstCard.resized_image_url || 
-                 firstCard.image_url;
-        }
-      } catch (e) {
-        console.error('Error parsing ad content for image:', e);
-      }
-    }
-    
-    if (ad.videoUrl) return ad.videoUrl; // For video thumbnails
-    return null;
-  };
-
-  // Helper function to get CTA text
-  const getCtaText = (ad: any) => {
-    if (ad.content) {
-      try {
-        const content = JSON.parse(ad.content);
-        if (content.cta_text) return content.cta_text;
-      } catch (e) {
-        // If content is not JSON, ignore
-      }
-    }
-    return 'Learn More';
-  };
-
-  // Helper function to get video URLs
-  const getVideoUrls = (ad: any) => {
-    if (ad.content) {
-      try {
-        const content = JSON.parse(ad.content);
-        const snapshot = content.snapshot || {};
-        const videos = snapshot.videos || [];
-        const firstVideo = videos[0] || {};
-        
-        return {
-          videoHdUrl: firstVideo.video_hd_url || null,
-          videoSdUrl: firstVideo.video_sd_url || null,
-          isVideo: videos.length > 0 && (firstVideo.video_hd_url || firstVideo.video_sd_url)
-        };
-      } catch (e) {
-        console.error('Error parsing ad content for videos:', e);
-      }
-    }
-    
-    return {
-      videoHdUrl: null,
-      videoSdUrl: null,
-      isVideo: false
-    };
-  };
-
-  // Helper function to get landing page URL
-  const getLandingPageUrl = (ad: any) => {
-    if (ad.content) {
-      try {
-        const content = JSON.parse(ad.content);
-        const snapshot = content.snapshot || {};
-        
-        // Try multiple possible URL fields
-        const url = snapshot.link_url || 
-                   content.link_url || 
-                   snapshot.url ||
-                   content.url ||
-                   snapshot.website_url ||
-                   content.website_url;
-                   
-        if (url) {
-          // Ensure URL has protocol
-          if (url.startsWith('http://') || url.startsWith('https://')) {
-            return url;
-          } else {
-            return `https://${url}`;
-          }
-        }
-      } catch (e) {
-        console.error('Error parsing ad content for URL:', e);
-      }
-    }
-    
-    // Fallback: try direct ad properties
-    if (ad.url) return ad.url;
-    if (ad.landingUrl) return ad.landingUrl;
-    if (ad.link_url) return ad.link_url;
-    
-    return null;
-  };
-
-  // Helper function to calculate days since creation
-  const getDaysAgo = (createdAt: string) => {
-    const now = new Date();
-    const created = new Date(createdAt);
-    const diffTime = Math.abs(now.getTime() - created.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return `${diffDays}D`;
-  };
-
-  // Helper function to clean text from template variables
-  const cleanText = (text: string) => {
-    if (!text) return '';
-    return text
-      .replace(/\{\{[^}]+\}\}/g, 'Amazing Brand')
-      .replace(/\[.*?\]/g, '')
-      .trim();
-  };
+    return allAds;
+  }, [allAds, adIdFromUrl, filters, isShortSearch]);
 
   const handleCtaClick = (url: string | null) => {
     if (url && url !== '#' && url !== null) {
@@ -330,90 +274,7 @@ export default function DiscoverPage() {
     showToast('Ad saved successfully!', { variant: 'success' });
   };
 
-  // Helper function to get brand avatar from Facebook data
-  const getBrandAvatar = (ad: any) => {
-    // Try brand object first
-    if (ad.brand?.logo) return ad.brand.logo;
-    
-    // Extract from Facebook content
-    if (ad.content) {
-      try {
-        const content = JSON.parse(ad.content);
-        const snapshot = content.snapshot || {};
-        const brandedContent = snapshot.branded_content || {};
-        
-        // Try various profile picture fields
-        return snapshot.page_profile_picture_url || 
-               brandedContent.page_profile_pic_url ||
-               snapshot.profile_picture_url ||
-               content.page_profile_picture_url;
-      } catch (e) {
-        console.error('Error parsing ad content for brand avatar:', e);
-      }
-    }
-    
-    // Fallback to a better default
-    return "/placeholder.svg?height=32&width=32";
-  };
-
-  // Helper function to get brand name from Facebook data
-  const getBrandName = (ad: any) => {
-    // Try brand object first
-    if (ad.brand?.name) return ad.brand.name;
-    
-    // Extract from Facebook content
-    if (ad.content) {
-      try {
-        const content = JSON.parse(ad.content);
-        const snapshot = content.snapshot || {};
-        const brandedContent = snapshot.branded_content || {};
-        
-        // Try various brand name fields
-        return snapshot.page_name || 
-               brandedContent.page_name ||
-               snapshot.current_page_name ||
-               content.page_name;
-      } catch (e) {
-        console.error('Error parsing ad content for brand name:', e);
-      }
-    }
-    
-    return 'Unknown Brand';
-  };
-
-  // Helper function to get ad description from Facebook data
-  const getAdDescription = (ad: any) => {
-    // Extract from Facebook content first for better quality
-    if (ad.content) {
-      try {
-        const content = JSON.parse(ad.content);
-        const snapshot = content.snapshot || {};
-        const body = snapshot.body || {};
-        
-        // Try multiple description fields in order of preference
-        let description = snapshot.title || 
-                         body.text || 
-                         snapshot.body_text || 
-                         snapshot.description ||
-                         snapshot.link_description;
-        
-        if (description && typeof description === 'object') {
-          description = JSON.stringify(description);
-        }
-        
-        if (description) {
-          return cleanText(String(description));
-        }
-      } catch (e) {
-        console.error('Error parsing ad content for description:', e);
-      }
-    }
-    
-    // Fallback to direct ad properties
-    return cleanText(ad.headline || ad.text || ad.content || 'No description available');
-  };
-
-  if (isLoading && page === 1) {
+  if (firstPageLoading && isInitialLoading) {
     return (
       <PageWrapper
         bb
@@ -447,7 +308,6 @@ export default function DiscoverPage() {
   }
 
   if (error) {
-    // Let the error boundary handle the error display
     throw error;
   }
 
@@ -468,7 +328,7 @@ export default function DiscoverPage() {
         />
       }
     >
-      <Flex wrap={"wrap"} gap={"6"}>
+      <Flex wrap={"wrap"} gap={"6"} className="w-full">
         <FilterRow
           onFormatUpdate={(v) =>
             updateFilters({
@@ -524,12 +384,12 @@ export default function DiscoverPage() {
         {filters.search && filters.search.length > 0 && filters.search.length < 3 && (
           <div className="w-full bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
             <Typography variant="p" className="text-blue-700 text-sm">
-              Type at least 3 characters to search the full database. Currently searching locally in {data?.ads?.length || 0} loaded ads.
+              Type at least 3 characters to search the full database. Currently searching locally in {allAds.length} loaded ads.
             </Typography>
           </div>
         )}
         
-        {filteredAds.length === 0 && !isLoading ? (
+        {filteredAds.length === 0 && !firstPageLoading ? (
           <div className="w-full min-h-[50vh] flex flex-col justify-center items-center px-4">
             <div className="text-center space-y-2 max-w-md mx-auto">
               <Typography variant="h3" className="text-gray-400">
@@ -548,152 +408,86 @@ export default function DiscoverPage() {
             </div>
           </div>
         ) : (
-          <div className="w-full columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 space-y-4">
-            {filteredAds.map((ad: any) => {
-              const videoData = getVideoUrls(ad);
-              const landingPageUrl = getLandingPageUrl(ad);
-              const brandAvatar = getBrandAvatar(ad);
-              const brandName = getBrandName(ad);
-              const adDescription = getAdDescription(ad);
-              
-              return (
-                <AdCard
+          <div className="w-full">
+            <Masonry
+              breakpointCols={breakpointColumnsObj}
+              className="flex w-auto -ml-4"
+              columnClassName="pl-4 bg-clip-padding"
+            >
+              {filteredAds.map((ad: any) => (
+                <LazyAdCard
                   key={ad.id}
-                  avatarSrc={brandAvatar}
-                  companyName={brandName}
-                  timePosted={getDaysAgo(ad.createdAt)}
-                  description={adDescription}
-                  imageSrc={getImageUrl(ad)}
-                  videoUrl={videoData.videoHdUrl}
-                  videoSdUrl={videoData.videoSdUrl}
-                  isVideo={videoData.isVideo}
-                  ctaText={getCtaText(ad)}
-                  url={getLandingPageUrl(ad) ? (() => {
-                    const url = getLandingPageUrl(ad);
-                    try {
-                      const urlObj = new URL(url!.startsWith('http') ? url! : `https://${url}`);
-                      return urlObj.hostname.replace('www.', '').toUpperCase();
+                  ad={ad}
+                  onCtaClick={() => {
+                    const landingPageUrl = (() => {
+                      if (ad.content) {
+                        try {
+                          const content = JSON.parse(ad.content);
+                          const snapshot = content.snapshot || {};
+                          
+                          // For Facebook API structure - check snapshot first
+                          let url = snapshot.link_url || 
+                                   content.link_url || 
+                                   snapshot.url ||
+                                   content.url ||
+                                   snapshot.website_url ||
+                                   content.website_url;
+                          
+                          // Check cards for carousel ads
+                          if (!url && snapshot.cards && snapshot.cards.length > 0) {
+                            url = snapshot.cards[0].link_url;
+                          }
+                                   
+                          if (url) {
+                            if (url.startsWith('http://') || url.startsWith('https://')) {
+                              return url;
+                            } else {
+                              return `https://${url}`;
+                            }
+                          }
                     } catch (e) {
-                      return url!.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '').toUpperCase();
-                    }
-                  })() : 'NO URL'}
-                  url_desc={getLandingPageUrl(ad) ? `Visit ${brandName}` : 'No landing page available'}
-                  adId={ad.id}
-                  landingPageUrl={landingPageUrl || undefined}
-                  content={ad.content}
-                  onCtaClick={() => handleCtaClick(getLandingPageUrl(ad))}
+                          console.error('Error parsing ad content for URL:', e);
+                        }
+                      }
+                      
+                      if (ad.url) return ad.url;
+                      if (ad.landingUrl) return ad.landingUrl;
+                      if (ad.link_url) return ad.link_url;
+                      
+                      return null;
+                    })();
+                    
+                    handleCtaClick(landingPageUrl);
+                  }}
                   onSaveAd={handleSaveAd}
-                  expand={true}
                 />
-              );
-            })}
+              ))}
+            </Masonry>
+
+            {/* Continuous loading indicator */}
+            {hasMore && (
+              <div ref={infiniteScrollRef} className="w-full py-6 flex justify-center">
+                {isStreamingMore ? (
+                  <div className="flex items-center gap-2 text-primary">
+                    <div className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
           </div>
-        )}
-
-        {/* Pagination - hide when filtering by adId */}
-        {!adIdFromUrl && data?.pagination && data.pagination.totalPages > 1 && (
-          <div className="w-full flex flex-col items-center gap-4 mt-8">
-            <Typography variant="p" className="text-gray-600 text-center">
-              Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, data.pagination.totalCount)} of {data.pagination.totalCount} 
-              {(filters.format?.length > 0 || filters.platform?.length > 0 || filters.status?.length > 0 || filters.language?.length > 0 || filters.niche?.length > 0 || (filters.search && filters.search.length >= 3)) 
-                ? ' filtered ads' 
-                : ' ads'
-              }
+                ) : (
+                  <div className="text-center opacity-20">
+                    <Typography variant="p" className="text-gray-400 text-xs">
+                      {streamingQueue.current.length > 0 ? 'Adding ads...' : 'Scroll for more'}
             </Typography>
-            
-            <div className="flex items-center gap-2">
-              {/* Previous Button */}
-              <Button 
-                onClick={() => setPage(page - 1)}
-                disabled={page === 1 || isLoading}
-                variant="outline"
-                size="sm"
-              >
-                Previous
-              </Button>
-
-              {/* Page Numbers */}
-              <div className="flex items-center gap-1">
-                {/* First page */}
-                {page > 3 && (
-                  <>
-                    <Button 
-                      onClick={() => setPage(1)}
-                      disabled={isLoading}
-                      variant={1 === page ? "default" : "outline"}
-                      size="sm"
-                      className="w-10"
-                    >
-                      1
-                    </Button>
-                    {page > 4 && <span className="px-2">...</span>}
-                  </>
-                )}
-
-                {/* Current page and surrounding pages */}
-                {Array.from({ length: Math.min(5, data.pagination.totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (data.pagination.totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (page <= 3) {
-                    pageNum = i + 1;
-                  } else if (page >= data.pagination.totalPages - 2) {
-                    pageNum = data.pagination.totalPages - 4 + i;
-                  } else {
-                    pageNum = page - 2 + i;
-                  }
-
-                  if (pageNum < 1 || pageNum > data.pagination.totalPages) return null;
-                  if (pageNum === 1 && page > 3) return null; // Already shown above
-
-                  return (
-                    <Button 
-                      key={pageNum}
-                      onClick={() => setPage(pageNum)}
-                      disabled={isLoading}
-                      variant={pageNum === page ? "default" : "outline"}
-                      size="sm"
-                      className="w-10"
-                    >
-                      {pageNum}
-                    </Button>
-                  );
-                })}
-
-                {/* Last page */}
-                {page < data.pagination.totalPages - 2 && data.pagination.totalPages > 5 && (
-                  <>
-                    {page < data.pagination.totalPages - 3 && <span className="px-2">...</span>}
-                    <Button 
-                      onClick={() => setPage(data.pagination.totalPages)}
-                      disabled={isLoading}
-                      variant={data.pagination.totalPages === page ? "default" : "outline"}
-                      size="sm"
-                      className="w-10"
-                    >
-                      {data.pagination.totalPages}
-                    </Button>
-                  </>
+                  </div>
                 )}
               </div>
+            )}
 
-              {/* Next Button */}
-              <Button 
-                onClick={() => setPage(page + 1)}
-                disabled={page === data.pagination.totalPages || isLoading}
-                variant="outline"
-                size="sm"
-              >
-                Next
-              </Button>
-            </div>
-
-            {/* Loading indicator */}
-            {isLoading && (
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <Typography variant="p" className="text-gray-600 text-sm">
-                  Loading page {page}...
+            {/* End of results */}
+            {!hasMore && filteredAds.length > 0 && (
+              <div className="w-full py-8 text-center">
+                <Typography variant="p" className="text-gray-500">
+                  You've reached the end! Loaded {filteredAds.length} ads.
                 </Typography>
               </div>
             )}

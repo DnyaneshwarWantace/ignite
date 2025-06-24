@@ -11,7 +11,7 @@ import { Link, Presentation, Loader2 } from "lucide-react";
 import React, { useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { Chip } from "@/components/ui/chip";
-import AdCard from "@/components/ad-card";
+import LazyAdCard from "@/components/LazyAdCard";
 import CreativeTests from "@/components/CreativeTestTab";
 import LandingPageViewer from "@/components/landing-pages";
 import XrayHooks from "@/components/xray-hooks";
@@ -30,6 +30,7 @@ import {
   filterAds,
   FilterState 
 } from "@/lib/adFiltering";
+import Masonry from "react-masonry-css";
 const OverallStats = dynamic(() => import("@/components/overall-statistics"), { ssr: false });
 
 export default function Brand({ params }: { params: { brand: string } }) {
@@ -115,86 +116,240 @@ export default function Brand({ params }: { params: { brand: string } }) {
     return null;
   };
 
-  // Helper function to get image URL with comprehensive fallback
+  // Helper function to get image URL with comprehensive fallback - UPDATED
   const getImageUrl = (ad: any) => {
-    // Try direct ad image URL first (but not placeholder)
-    if (ad.imageUrl && !ad.imageUrl.includes('placeholder') && !ad.imageUrl.includes('via.placeholder')) {
-      return ad.imageUrl;
+    // First priority: Use local Cloudinary URL if available
+    if (ad.localImageUrl) {
+      console.log(`Using local image URL for ad ${ad.id}: ${ad.localImageUrl}`);
+      return ad.localImageUrl;
     }
+    
+    // Second priority: Use original imageUrl field
+    if (ad.imageUrl) return ad.imageUrl;
     
     if (ad.content) {
       try {
         const content = JSON.parse(ad.content);
         const snapshot = content.snapshot || {};
-        const videos = snapshot.videos || [];
-        const images = snapshot.images || [];
-        const firstVideo = videos[0] || {};
-        const firstImage = images[0] || {};
         
-        // For video ads, prioritize video preview image
-        if (videos.length > 0 && firstVideo.video_preview_image_url) {
-          return firstVideo.video_preview_image_url;
+        // For Facebook API structure - check images array first
+        if (snapshot.images && snapshot.images.length > 0) {
+          const firstImage = snapshot.images[0];
+          if (firstImage.original_image_url) return firstImage.original_image_url;
+          if (firstImage.resized_image_url) return firstImage.resized_image_url;
+          if (firstImage.watermarked_resized_image_url) return firstImage.watermarked_resized_image_url;
+          if (firstImage.url) return firstImage.url;
+          if (firstImage.src) return firstImage.src;
         }
         
-        // For image ads, try various image fields
-        if (images.length > 0) {
-          const imageUrl = firstImage.original_image_url || 
-                          firstImage.resized_image_url || 
-                          firstImage.watermarked_resized_image_url ||
-                          firstImage.url ||
-                          firstImage.src;
-          if (imageUrl) return imageUrl;
+        // For video ads - check videos array for preview image
+        if (snapshot.videos && snapshot.videos.length > 0) {
+          const firstVideo = snapshot.videos[0];
+          if (firstVideo.video_preview_image_url) return firstVideo.video_preview_image_url;
         }
         
-        // Try snapshot-level image fields
-        if (snapshot.image_url) {
-          return snapshot.image_url;
-        }
-        
-        // Try other possible image fields
-        if (snapshot.creative_image_url) {
-          return snapshot.creative_image_url;
-        }
-        
-        // Try additional fields
-        if (snapshot.link_image_url) {
-          return snapshot.link_image_url;
-        }
-        
-        if (snapshot.media_url) {
-          return snapshot.media_url;
-        }
-        
-        // Try cards array for carousel ads
+        // For carousel ads - check cards array
         if (snapshot.cards && snapshot.cards.length > 0) {
           const firstCard = snapshot.cards[0];
-          const cardImage = firstCard.original_image_url || 
-                           firstCard.resized_image_url || 
-                           firstCard.image_url;
-          if (cardImage) return cardImage;
+          if (firstCard.original_image_url) return firstCard.original_image_url;
+          if (firstCard.resized_image_url) return firstCard.resized_image_url;
+          if (firstCard.image_url) return firstCard.image_url;
         }
         
-        // Try content-level image fields
-        if (content.image_url) {
-          return content.image_url;
-        }
+        // Direct snapshot URLs (legacy)
+        if (snapshot.image_url) return snapshot.image_url;
+        if (snapshot.creative_image_url) return snapshot.creative_image_url;
         
-        if (content.media_url) {
-          return content.media_url;
-        }
+        // Legacy formats (for older ads)
+        if (snapshot.thumbnail_url) return snapshot.thumbnail_url;
+        if (content.image_url) return content.image_url;
+        if (content.thumbnail_url) return content.thumbnail_url;
+        if (content.preview_image_url) return content.preview_image_url;
+        
+        // Branded content structure (older ads)
+        const brandedContent = snapshot.branded_content || {};
+        if (brandedContent.image_url) return brandedContent.image_url;
         
       } catch (e) {
         console.error('Error parsing ad content for image:', e);
       }
     }
     
-    // For video ads as final attempt, use video URL as thumbnail
-    if (ad.videoUrl && !ad.videoUrl.includes('placeholder')) {
-      return ad.videoUrl;
+    // Last resort: try video URL as image
+    if (ad.videoUrl) return ad.videoUrl;
+    
+    return null;
+  };
+
+  // Helper function to get video URLs - UPDATED
+  const getVideoUrls = (ad: any) => {
+    // First priority: Use local Cloudinary video URL if available
+    if (ad.localVideoUrl) {
+      console.log(`Using local video URL for ad ${ad.id}: ${ad.localVideoUrl}`);
+      return {
+        videoHdUrl: ad.localVideoUrl,
+        videoSdUrl: ad.localVideoUrl, // Use same URL for both HD and SD
+        isVideo: true
+      };
     }
     
-    // Return null instead of dummy image - let the AdCard handle the fallback
-    return null;
+    // Second priority: Use original videoUrl field
+    if (ad.videoUrl) {
+      return {
+        videoHdUrl: ad.videoUrl,
+        videoSdUrl: ad.videoUrl,
+        isVideo: true
+      };
+    }
+    
+    // Third priority: Extract from content as fallback
+    if (ad.content) {
+      try {
+        const content = JSON.parse(ad.content);
+        const snapshot = content.snapshot || {};
+        
+        // Check videos array for Facebook API structure
+        if (snapshot.videos && snapshot.videos.length > 0) {
+          const firstVideo = snapshot.videos[0];
+          return {
+            videoHdUrl: firstVideo.video_hd_url || null,
+            videoSdUrl: firstVideo.video_sd_url || null,
+            isVideo: !!(firstVideo.video_hd_url || firstVideo.video_sd_url)
+          };
+        }
+        
+        // Check cards for video content (carousel with videos)
+        if (snapshot.cards && snapshot.cards.length > 0) {
+          const firstCard = snapshot.cards[0];
+          if (firstCard.video_hd_url || firstCard.video_sd_url) {
+            return {
+              videoHdUrl: firstCard.video_hd_url || null,
+              videoSdUrl: firstCard.video_sd_url || null,
+              isVideo: true
+            };
+          }
+        }
+        
+      } catch (e) {
+        console.error('Error parsing ad content for videos:', e);
+      }
+    }
+    
+    return {
+      videoHdUrl: null,
+      videoSdUrl: null,
+      isVideo: false
+    };
+  };
+
+  // Helper function to get brand info - UPDATED
+  const getBrandInfo = (ad: any) => {
+    if (ad.content) {
+      try {
+        const content = JSON.parse(ad.content);
+        const snapshot = content.snapshot || {};
+        
+        // Brand avatar
+        let brandAvatar = currentBrand?.logo;
+        if (!brandAvatar) {
+          brandAvatar = snapshot.page_profile_picture_url || 
+                       snapshot.branded_content?.page_profile_pic_url ||
+                       snapshot.profile_picture_url ||
+                       content.page_profile_picture_url ||
+                       "/placeholder.svg?height=32&width=32";
+        }
+        
+        // Brand name
+        let brandName = currentBrand?.name;
+        if (!brandName) {
+          brandName = snapshot.page_name || 
+                     snapshot.current_page_name ||
+                     content.page_name ||
+                     snapshot.branded_content?.page_name ||
+                     "Unknown Brand";
+        }
+        
+        return { brandAvatar, brandName };
+      } catch (e) {
+        console.error('Error parsing ad content for brand info:', e);
+      }
+    }
+    
+    return {
+      brandAvatar: currentBrand?.logo || "/placeholder.svg?height=32&width=32",
+      brandName: currentBrand?.name || "Unknown Brand"
+    };
+  };
+
+  // Helper function to get ad description - UPDATED
+  const getAdDescription = (ad: any) => {
+    if (ad.content) {
+      try {
+        const content = JSON.parse(ad.content);
+        const snapshot = content.snapshot || {};
+        
+        // For Facebook API structure - check body.text first
+        let description = null;
+        
+        // Main text content
+        if (snapshot.body && snapshot.body.text) {
+          description = snapshot.body.text;
+        } else if (snapshot.body_text) {
+          description = snapshot.body_text;
+        } else if (snapshot.title) {
+          description = snapshot.title;
+        } else if (snapshot.description) {
+          description = snapshot.description;
+        } else if (snapshot.link_description) {
+          description = snapshot.link_description;
+        }
+        
+        // Check cards for carousel ads
+        if (!description && snapshot.cards && snapshot.cards.length > 0) {
+          const firstCard = snapshot.cards[0];
+          description = firstCard.body || firstCard.title || firstCard.description;
+        }
+        
+        if (description && typeof description === 'object') {
+          description = JSON.stringify(description);
+        }
+        
+        if (description) {
+          // Clean up template variables and other unwanted content
+          return String(description)
+            .replace(/\{\{[^}]+\}\}/g, '') // Remove template variables
+            .replace(/\[.*?\]/g, '') // Remove bracketed content
+            .trim();
+        }
+      } catch (e) {
+        console.error('Error parsing ad content for description:', e);
+      }
+    }
+    
+    return ad.headline || ad.text || ad.content || 'No description available';
+  };
+
+  // Helper function to get CTA text - UPDATED
+  const getCtaText = (ad: any) => {
+    if (ad.content) {
+      try {
+        const content = JSON.parse(ad.content);
+        const snapshot = content.snapshot || {};
+        
+        // For Facebook API structure
+        if (snapshot.cta_text) return snapshot.cta_text;
+        if (content.cta_text) return content.cta_text;
+        
+        // Check cards for carousel ads
+        if (snapshot.cards && snapshot.cards.length > 0) {
+          const firstCard = snapshot.cards[0];
+          if (firstCard.cta_text) return firstCard.cta_text;
+        }
+      } catch (e) {
+        // If content is not JSON, ignore
+      }
+    }
+    return 'Learn More';
   };
 
   // Apply filtering using shared utility
@@ -522,53 +677,27 @@ export default function Brand({ params }: { params: { brand: string } }) {
               })}
             </Flex>
 
-            <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 space-y-4">
+            <Flex direction={"column"} gap={"6"} className="w-full">
+              <Typography variant="subtitle" className="text-md text-muted-foreground">
+                All Ads ({currentAds.length})
+              </Typography>
+              
+              {/* Masonry layout for ads */}
+              <div className="w-full">
               {currentAds.length > 0 ? (
-                currentAds.map((ad: any, index: number) => {
-                  // Parse ad content to extract details
-                  let adContent: any = {};
-                  try {
-                    adContent = JSON.parse(ad.content);
-                  } catch (e) {
-                    console.error('Error parsing ad content for ad ID:', ad.id, e);
-                    console.error('Raw ad content:', ad.content);
-                    adContent = {};
-                  }
-                  
-                  // Check if ad content is empty or malformed
-                  if (!adContent || Object.keys(adContent).length === 0) {
-                    console.warn('Empty or malformed ad content for ad ID:', ad.id);
-                    console.warn('Raw ad data:', ad);
-                  }
-
-                  // Extract data from Facebook ad structure based on exact API response format
-                  const snapshot = adContent.snapshot || {};
-                  const body = snapshot.body || {};
-                  const videos = snapshot.videos || [];
-                  const firstVideo = videos[0] || {};
-                  const images = snapshot.images || [];
-                  const firstImage = images[0] || {};
-                  const brandedContent = snapshot.branded_content || {};
-                  
-                  // Brand info - use the page info from snapshot (exact structure from your sample)
-                  const brandLogo = currentBrand?.logo || 
-                                   snapshot.page_profile_picture_url || 
-                                   brandedContent.page_profile_pic_url ||
-                                   "/placeholder.svg?height=32&width=32";
-                  
-                  const brandName = currentBrand?.name || 
-                                   snapshot.page_name || 
-                                   brandedContent.page_name ||
-                                   ad.brand || 
-                                   "Unknown Brand";
-                  
-                  // Description/text - try multiple fields
-                  let description = snapshot.title || body.text || snapshot.body_text || snapshot.description || "No description available";
-                  if (typeof description === 'object') {
-                    description = JSON.stringify(description);
-                  }
-                  description = String(description).replace(/\{\{[^}]+\}\}/g, brandName);
-                  
+                  <Masonry
+                    breakpointCols={{
+                      default: 3,
+                      1280: 3,
+                      1024: 2,
+                      768: 2,
+                      640: 1,
+                      480: 1
+                    }}
+                    className="flex w-auto -ml-4"
+                    columnClassName="pl-4 bg-clip-padding"
+                  >
+                    {currentAds.map((ad: any, index: number) => {
                   // Handle days since calculation
                   let daysSince = 0;
                   if (ad.createdAt) {
@@ -578,21 +707,15 @@ export default function Brand({ params }: { params: { brand: string } }) {
                     daysSince = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                   }
                   
-                  // Use the helper function for better image extraction
+                      // Use the improved helper functions
+                      const { brandAvatar, brandName } = getBrandInfo(ad);
+                      const description = getAdDescription(ad);
                   const imageUrl = getImageUrl(ad);
+                      const { videoHdUrl, videoSdUrl, isVideo } = getVideoUrls(ad);
+                      const ctaText = getCtaText(ad);
+                      const landingUrl = getLandingPageUrl(ad);
                   
-                  // Extract video URLs if this is a video ad
-                  const videoHdUrl = firstVideo.video_hd_url || null;
-                  const videoSdUrl = firstVideo.video_sd_url || null;
-                  const isVideoAd = videos.length > 0 && (videoHdUrl || videoSdUrl);
-                  
-                  // Extract CTA text (from your sample: "Learn more")
-                  const ctaText = snapshot.cta_text || "Learn More";
-                  
-                  // Extract landing page URL
-                  const landingUrl = snapshot.link_url || body.link_url || null;
-                  
-                  // Get clean URL for display (remove protocol and www)
+                      // Get clean URL for display
                   let cleanUrl = "NO URL";
                   let urlDescription = "No landing page available";
                   
@@ -607,84 +730,39 @@ export default function Brand({ params }: { params: { brand: string } }) {
                     }
                   }
                   
-                  // Function to get landing page URL (helper for consistency)
-                  const getLandingPageUrl = (adData: any) => {
+                      // Get title from content if available
+                      let title = undefined;
                     try {
-                      const content = JSON.parse(adData.content);
+                        const content = JSON.parse(ad.content || '{}');
                       const snapshot = content.snapshot || {};
-                      
-                      const url = snapshot.link_url || 
-                                 content.link_url || 
-                                 snapshot.url ||
-                                 content.url ||
-                                 snapshot.website_url ||
-                                 content.website_url;
-                                 
-                      if (url) {
-                        if (url.startsWith('http://') || url.startsWith('https://')) {
-                          return url;
-                        } else {
-                          return `https://${url}`;
-                  }
+                        if (snapshot.title && snapshot.title !== description) {
+                          title = snapshot.title;
+                        }
+                      } catch (e) {
+                        // No title available
                       }
-                    } catch (e) {
-                      console.error('Error parsing ad content for URL:', e);
-                    }
-                    
-                    if (adData.url) return adData.url;
-                    if (adData.landingUrl) return adData.landingUrl;
-                    if (adData.link_url) return adData.link_url;
-                    
-                    return null;
-                  };
-
-                    console.log(`Ad ${index + 1} extracted data:`, {
-                      adId: ad.id,
-                      brandName,
-                    description: description.substring(0, 100) + '...',
-                    imageUrl: imageUrl ? imageUrl.substring(0, 50) + '...' : 'None',
-                    isVideoAd,
-                    videoHdUrl: videoHdUrl ? 'Available' : 'None',
-                    videoSdUrl: videoSdUrl ? 'Available' : 'None',
-                      ctaText,
-                    landingUrl,
-                      cleanUrl,
-                      daysSince,
-                    videoPreviewImage: firstVideo.video_preview_image_url ? 'Available' : 'None',
-                    imageFields: {
-                      original: firstImage.original_image_url ? 'Available' : 'None',
-                      resized: firstImage.resized_image_url ? 'Available' : 'None',
-                      watermarked: firstImage.watermarked_resized_image_url ? 'Available' : 'None',
-                    },
-                    snapshotFields: {
-                      title: snapshot.title ? 'Available' : 'None',
-                      bodyText: body.text ? 'Available' : 'None',
-                      imageUrl: snapshot.image_url ? 'Available' : 'None',
-                      linkUrl: snapshot.link_url ? 'Available' : 'None',
-                    },
-                      originalAdContent: adContent,
-                      rawAdData: ad
-                    });
                   
                   return (
-              <AdCard
+                        <LazyAdCard
                       key={ad.id}
-                      avatarSrc={brandLogo}
-                      companyName={brandName}
-                      timePosted={`${daysSince}D`}
-                      title={snapshot.title || undefined}
-                      description={description}
-                      imageSrc={imageUrl}
-                      videoUrl={videoHdUrl}
-                      videoSdUrl={videoSdUrl}
-                      isVideo={isVideoAd}
-                      ctaText={ctaText}
-                      url={cleanUrl}
-                      url_desc={urlDescription}
-                      adId={ad.id}
-                      landingPageUrl={getLandingPageUrl(ad) || undefined}
-                      expand={true}
-                      content={ad.content}
+                          ad={{
+                            ...ad,
+                            avatarSrc: brandAvatar,
+                            companyName: brandName,
+                            timePosted: `${daysSince}D`,
+                            title: title,
+                            description: description,
+                            imageSrc: imageUrl,
+                            videoUrl: videoHdUrl,
+                            videoSdUrl: videoSdUrl,
+                            isVideo: isVideo,
+                            ctaText: ctaText,
+                            url: cleanUrl,
+                            url_desc: urlDescription,
+                            adId: ad.id,
+                            landingPageUrl: landingUrl || undefined,
+                            content: ad.content
+                          }}
                       onCtaClick={() => {
                         if (landingUrl) {
                           window.open(landingUrl.startsWith('http') ? landingUrl : `https://${landingUrl}`, '_blank');
@@ -694,9 +772,12 @@ export default function Brand({ params }: { params: { brand: string } }) {
                         // TODO: Implement save ad functionality
                         console.log('Save ad:', ad.id);
                       }}
+                          expand={true}
+                          hideActions={false}
                     />
                   );
-                })
+                    })}
+                  </Masonry>
               ) : (
                 <div className="w-full text-center py-8">
                   <Typography variant="subtitle" className="text-gray-500">
@@ -712,6 +793,7 @@ export default function Brand({ params }: { params: { brand: string } }) {
                 </div>
               )}
             </div>
+            </Flex>
           </Flex>
         </TabsContent>
         <TabsContent value="ct">

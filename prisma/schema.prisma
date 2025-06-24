@@ -105,6 +105,16 @@ model Ad {
   headline    String?
   description String?
   
+  // Local media URLs (after downloading to Cloudinary)
+  localImageUrl    String?
+  localVideoUrl    String?
+  
+  // Processing status for media download
+  mediaStatus      String @default("pending") // pending, processing, success, failed
+  mediaDownloadedAt DateTime?
+  mediaError       String? // Error message if download failed
+  mediaRetryCount  Int @default(0) // Number of retry attempts
+  
   brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
   brandId String
 

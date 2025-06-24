@@ -57,16 +57,10 @@ export default function Timeline({ timelineData = [], ads = [] }: TimelineProps)
     if (!text) return fallback;
     
     let cleanText = text
-      .replace(/\{\{product\.brand\}\}/gi, "Amazing Brand")
-      .replace(/\{\{product\.name\}\}/gi, "Premium Product")
-      .replace(/\{\{brand\.name\}\}/gi, "Top Brand")
-      .replace(/\{\{company\.name\}\}/gi, "Leading Company")
-      .replace(/\{\{product\.price\}\}/gi, "$99")
-      .replace(/\{\{discount\}\}/gi, "50% OFF")
-      .replace(/\{\{offer\}\}/gi, "Special Offer")
-      .replace(/\{\{[^}]+\}\}/g, "");
+      .replace(/\{\{[^}]+\}\}/g, "") // Remove all template variables
+      .replace(/\s+/g, ' ');
     
-    cleanText = cleanText.trim().replace(/\s+/g, ' ');
+    cleanText = cleanText.trim();
     return cleanText || fallback;
   };
 

@@ -25,50 +25,61 @@ export const GET = authMiddleware(
     // Fetch ALL ads for this brand without any filtering or pagination
     const ads = await prisma.ad.findMany({
       where: {
-        brandId: brandId,
+        brandId,
       },
-      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        libraryId: true,
+        type: true,
+        content: true,
+        imageUrl: true,
+        videoUrl: true,
+        text: true,
+        headline: true,
+        description: true,
+        createdAt: true,
+        updatedAt: true,
+        brandId: true,
+        // Cloudinary media fields
+        localImageUrl: true,
+        localVideoUrl: true,
+        mediaStatus: true,
+        mediaDownloadedAt: true,
+        mediaRetryCount: true,
+        brand: {
+          select: {
+            id: true,
+            name: true,
+            logo: true,
+            pageId: true,
+            totalAds: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
 
-    console.log(`[DEBUG] All Ads Endpoint - Brand ${brandId}: Found ${ads.length} total ads`);
-
-    // Count active vs inactive ads for debugging
+    // Count active vs inactive ads based on content
     let activeCount = 0;
     let inactiveCount = 0;
     
-    ads.forEach((ad) => {
+    ads.forEach((ad: any) => {
       try {
         const content = JSON.parse(ad.content);
-        const isActive = content.is_active ?? content.active ?? content.status === 'active' ?? 
-                       content.ad_delivery_status === 'active' ?? content.delivery_status === 'active';
-        
+        const isActive = content.is_active ?? content.active ?? content.status === 'active';
         if (isActive === true) {
           activeCount++;
         } else if (isActive === false) {
           inactiveCount++;
         } else {
-          // Check if ad has end_date to determine if it's inactive
-          const endDate = content.end_date || content.end_date_string;
-          if (endDate) {
-            const endDateTime = new Date(endDate).getTime();
-            const now = Date.now();
-            if (endDateTime < now) {
-              inactiveCount++;
-            } else {
-              activeCount++;
-            }
-          } else {
-            // If no clear status, assume active
-            activeCount++;
-          }
+          activeCount++; // Assume active if unknown
         }
       } catch (e) {
-        // If can't parse, assume active
-        activeCount++;
+        activeCount++; // Assume active if can't parse
       }
     });
-
-    console.log(`[DEBUG] All Ads Endpoint - Active: ${activeCount}, Inactive: ${inactiveCount}`);
 
     return createResponse({
       message: messages.SUCCESS,

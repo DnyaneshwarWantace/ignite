@@ -156,171 +156,123 @@ export default function AdPreviewModal({ isOpen, onClose, ad }: AdPreviewModalPr
     
     console.log(`Validating transcript: "${cleanText.substring(0, 100)}..."`);
     
-    // 1. Check for ALL gibberish patterns (including new examples)
-    const allGibberishPatterns = [
-      // Previous examples
-      'boolean', 'pcb human', 'clinical trial getting sleepy', 'jimmy only',
-      'donald ga ga', 'cable tv a week', 'jersey picky picky', 'speculators timea',
-      'legal cannabis', 'brothel ma\'am', 'esoteric guinea',
-      'coup de ya de', 'chunky monkey', 'atheists office', 'diet alarm clock',
-      'why the i be exempted', 'opposition steven come little', 'couldn\'t see a gp',
-      'navy then putting to coup', 'cool handler that they', 'money that atheists',
-      
-      // New example patterns
-      'the know he had to a media', 'public utility a citizen', 'the mama getting the',
-      'it was made too to learn', 'do been up up up', 'barely received the do',
-      'couldn\'t up and i can', 'pop up a trip to chatting', 'chatting banker i guess',
-      'julia jewel be getting', 'mcpherson with guy', 'truck is adding to get',
-      'smith puts on a joke', 'means is that the atkins'
+    // 1. Check for obvious gibberish patterns (only the most obvious ones)
+    const obviousGibberishPatterns = [
+      'boolean pcb human', 'donald ga ga', 'coup de ya de', 'chunky monkey atheists',
+      'esoteric guinea', 'speculators timea', 'brothel ma\'am legal cannabis',
+      'jersey picky picky cable tv', 'jimmy only clinical trial getting sleepy'
     ];
     
-    for (const pattern of allGibberishPatterns) {
+    for (const pattern of obviousGibberishPatterns) {
       if (cleanText.includes(pattern)) {
-        console.log(`❌ REJECTED: Contains gibberish pattern: "${pattern}"`);
+        console.log(`❌ REJECTED: Contains obvious gibberish pattern: "${pattern}"`);
         return false;
       }
     }
     
-    // 2. Check for broken grammar patterns (ULTRA strict)
-    const brokenGrammarPatterns = [
-      /\bthe know he\b/, /\bthe mama getting the\b/, /\bdo been up\b/, /\bcouldn't up and\b/,
-      /\bhe was gonna get on with a truck is adding\b/, /\bmeans is that the\b/,
-      /\bto a media the\b/, /\bmade too to\b/, /\bbarely received the do\b/,
-      /\bjulia jewel be getting\b/, /\bsmith puts on a joke\b/, /\bup up up\b/,
-      /\bthe do it or did he\b/, /\bpop up a trip to chatting\b/
-    ];
-    
-    for (const pattern of brokenGrammarPatterns) {
-      if (pattern.test(cleanText)) {
-        console.log(`❌ REJECTED: Contains broken grammar pattern: ${pattern}`);
-        return false;
-      }
-    }
-    
-    // 3. Check for repetitive word patterns (sign of gibberish)
+    // 2. Check for repeated nonsense words (3+ repetitions)
     const repeatedWords = cleanText.match(/\b(\w+)\s+\1\s+\1\b/g); // "up up up", "do do do"
-    if (repeatedWords && repeatedWords.length > 0) {
-      console.log(`❌ REJECTED: Contains repeated words: ${repeatedWords.join(', ')}`);
+    if (repeatedWords && repeatedWords.length > 1) { // Allow one repetition
+      console.log(`❌ REJECTED: Too many repeated words: ${repeatedWords.join(', ')}`);
       return false;
     }
     
-    // 4. Check for nonsensical article/noun combinations
-    const nonsensicalCombos = [
-      /\ba media the\b/, /\ba citizen the\b/, /\ba problem the\b/, /\ba trip to chatting\b/,
-      /\bthe do\b/, /\bthe it\b/, /\bto get and i saw\b/, /\badding to get\b/
-    ];
+    // 3. Check basic sentence structure - more lenient
+    const sentences = cleanText.split(/[.!?]+/).filter(s => s.trim().length > 5);
     
-    for (const combo of nonsensicalCombos) {
-      if (combo.test(cleanText)) {
-        console.log(`❌ REJECTED: Contains nonsensical combination: ${combo}`);
-        return false;
-      }
-    }
-    
-    // 5. Check sentence structure - MUCH more strict
-    const sentences = cleanText.split(/[.!?]+/).filter(s => s.trim().length > 10);
+    // If we have sentences, check for some basic coherence
+    if (sentences.length > 0) {
     let coherentSentences = 0;
     
     for (const sentence of sentences) {
       const sentenceWords = sentence.trim().split(/\s+/);
-      if (sentenceWords.length < 5) continue;
-      
-      // Check for basic subject-verb-object structure
-      let hasSubject = false;
-      let hasVerb = false;
-      let hasCoherentStructure = true;
-      
-      // Must have proper subject (not "the do", "the it", etc.)
-      const subjects = sentenceWords.filter(word => 
-        /^(i|you|he|she|it|we|they|this|that|there|here|[a-z]+er|[a-z]+ly)$/.test(word) ||
-        /^(the|a|an)\s+(man|woman|person|people|company|business|product|service|video|audio|music|voice|speaker|story|message|content)/.test(sentence)
-      );
-      
-      if (subjects.length > 0) hasSubject = true;
-      
-      // Must have proper verbs (not "be getting", "is adding", etc. in wrong context)
-      const properVerbs = sentenceWords.filter(word => 
-        /^(says?|said|tells?|told|shows?|showed|explains?|explained|describes?|described|talks?|talked|speaks?|spoke|mentions?|mentioned|discusses?|discussed|presents?|presented|demonstrates?|demonstrated)$/.test(word)
-      );
-      
-      if (properVerbs.length > 0) hasVerb = true;
-      
-      // Check for incoherent word sequences within sentence
-      for (let i = 0; i < sentenceWords.length - 2; i++) {
-        const threeWords = `${sentenceWords[i]} ${sentenceWords[i+1]} ${sentenceWords[i+2]}`;
-        if (/^(the do it|do been up|made too to|couldn't up and|pop up a|trip to chatting|be getting he|was gonna get|is adding to|puts on a|means is that)/.test(threeWords)) {
-          hasCoherentStructure = false;
-          break;
+        if (sentenceWords.length < 3) {
+          coherentSentences++; // Short sentences are okay
+          continue;
         }
-      }
-      
-      if (hasSubject && hasVerb && hasCoherentStructure) {
+        
+        // Check for basic English patterns
+        const hasBasicEnglishPattern = (
+          // Has common English words
+          /\b(i|you|he|she|it|we|they|the|a|an|this|that|is|are|was|were|have|has|will|would|can|could|should|get|make|take|go|come|see|know|think|want|need|like|love|help|work|play|run|walk|talk|speak|say|tell|show|give|buy|sell|use|do|did|does|done)\b/.test(sentence) ||
+          // Has proper nouns or brand names
+          /\b[A-Z][a-z]+\b/.test(sentence) ||
+          // Has numbers or common ad language
+          /\b(new|best|free|save|discount|percent|dollar|money|product|service|brand|company|business)\b/.test(sentence)
+        );
+        
+        if (hasBasicEnglishPattern) {
         coherentSentences++;
       }
     }
     
-    // Require 90% coherent sentences (ULTRA strict)
-    if (sentences.length > 0 && coherentSentences < sentences.length * 0.9) {
-      console.log(`❌ REJECTED: Only ${coherentSentences}/${sentences.length} sentences are coherent (need 90%)`);
+      // Require at least 50% coherent sentences (much more lenient)
+      if (coherentSentences < sentences.length * 0.5) {
+        console.log(`❌ REJECTED: Only ${coherentSentences}/${sentences.length} sentences are coherent (need 50%)`);
       return false;
     }
-    
-    // 6. Check for proper English flow and meaning
-    const meaninglessTransitions = [
-      /\bhe was gonna get on with a truck\b/, /\bi saw another smith\b/,
-      /\bjulia jewel\b/, /\bmcpherson with guy\b/, /\batkins to the people\b/
-    ];
-    
-    for (const transition of meaninglessTransitions) {
-      if (transition.test(cleanText)) {
-        console.log(`❌ REJECTED: Contains meaningless transition: ${transition}`);
-        return false;
-      }
     }
     
-    // 7. Final ultra-strict coherence check
-    // Split into logical phrases and check if they make sense
-    const phrases = cleanText.split(/[,;]/).filter(p => p.trim().length > 5);
-    let senselessPhrases = 0;
-    
-    for (const phrase of phrases) {
-      const phraseWords = phrase.trim().split(/\s+/);
-      
-      // Phrases that make no sense
-      if (phraseWords.length > 3) {
-        const phraseText = phrase.trim();
-        
-        // Check for specific nonsensical patterns
-        if (/^(the know he|public utility a|the mama getting|made too to|do been up|barely received the|couldn't up and|pop up a trip|chatting banker|julia jewel be|mcpherson with guy|truck is adding|smith puts on|means is that)/.test(phraseText)) {
-          senselessPhrases++;
-        }
-        
-        // Check for impossible grammatical constructions
-        if (/\b(the do|the it|to to|up up|be be|getting the it|adding to get)\b/.test(phraseText)) {
-          senselessPhrases++;
-        }
-      }
-    }
-    
-    // Allow max 10% senseless phrases
-    if (phrases.length > 2 && senselessPhrases > phrases.length * 0.1) {
-      console.log(`❌ REJECTED: Too many senseless phrases: ${senselessPhrases}/${phrases.length}`);
-      return false;
-    }
-    
-    // 8. Final word frequency check - must be realistic English
+    // 4. Check for basic English word frequency - more lenient
     const totalWords = words.length;
-    const commonWords = words.filter(word => 
-      /^(the|and|to|a|of|in|is|it|you|that|he|was|for|on|are|as|with|his|they|i|at|be|this|have|from|or|one|had|by|word|but|not|what|all|were|we|when|your|can|said|there|each|which|she|do|how|their|if|will|up|other|about|out|many|then|them|these|so|some|her|would|make|like|into|him|has|two|more|go|no|way|could|my|than|first|water|been|call|who|its|now|find|long|down|day|did|get|come|made|may|part)$/.test(word.toLowerCase())
+    const commonEnglishWords = words.filter(word => 
+      /^(the|and|to|a|of|in|is|it|you|that|he|was|for|on|are|as|with|his|they|i|at|be|this|have|from|or|one|had|by|word|but|not|what|all|were|we|when|your|can|said|there|each|which|she|do|how|their|if|will|up|other|about|out|many|then|them|these|so|some|her|would|make|like|into|him|has|two|more|go|no|way|could|my|than|first|water|been|call|who|its|now|find|long|down|day|did|get|come|made|may|part|new|sound|take|only|little|work|know|place|year|live|me|back|give|most|very|after|thing|our|just|name|good|sentence|man|think|say|great|where|help|through|much|before|line|right|too|mean|old|any|same|tell|boy|follow|came|want|show|also|around|form|three|small|set|put|end|why|again|turn|here|off|went|old|number|great|tell|men|say)$/.test(word.toLowerCase())
     );
     
-    // Must have at least 30% basic English words for realistic speech
-    if (totalWords > 20 && commonWords.length < totalWords * 0.3) {
-      console.log(`❌ REJECTED: Not enough basic English words: ${commonWords.length}/${totalWords} (need 30%)`);
+    // Must have at least 20% basic English words (more lenient than 30%)
+    if (totalWords > 15 && commonEnglishWords.length < totalWords * 0.2) {
+      console.log(`❌ REJECTED: Not enough basic English words: ${commonEnglishWords.length}/${totalWords} (need 20%)`);
+        return false;
+      }
+    
+    // 5. Check for complete nonsense - only reject if it's really bad
+    const completeNonsensePatterns = [
+      /^[bcdfghjklmnpqrstvwxyz]{5,}$/,  // All consonants
+      /^[aeiou]{4,}$/,                  // All vowels
+      /(.)\1{4,}/,                      // Same character repeated 5+ times
+    ];
+    
+    let nonsenseWordCount = 0;
+    for (const word of words) {
+      for (const pattern of completeNonsensePatterns) {
+        if (pattern.test(word)) {
+          nonsenseWordCount++;
+          break;
+        }
+      }
+    }
+    
+    // Allow up to 20% nonsense words (for names, technical terms, etc.)
+    if (totalWords > 10 && nonsenseWordCount > totalWords * 0.2) {
+      console.log(`❌ REJECTED: Too many nonsense words: ${nonsenseWordCount}/${totalWords}`);
       return false;
     }
     
-    console.log(`✅ PASSED: Transcript appears to be genuine English speech`);
+    // 6. Final check - if transcript has any recognizable English phrases, accept it
+    const englishPhrases = [
+      /\b(get|buy|save|shop|visit|click|learn more|find out|discover|try|new|free|best|great|amazing|perfect|easy|simple|fast|quick|now|today|call|contact|website|online|app|download|sign up|join|follow|like|share|subscribe)\b/,
+      /\b(our|your|we|us|you|they|this|that|these|those|here|there|when|where|what|how|why|who)\b/,
+      /\b(product|service|brand|company|business|store|shop|sale|deal|offer|discount|price|money|dollar|percent)\b/,
+      /\b(video|music|sound|voice|audio|watch|listen|see|look|view|show|play)\b/
+    ];
+    
+    let hasEnglishPhrases = false;
+    for (const pattern of englishPhrases) {
+      if (pattern.test(cleanText)) {
+        hasEnglishPhrases = true;
+        break;
+      }
+    }
+    
+    // If we found common English phrases, it's very likely to be English
+    if (hasEnglishPhrases && totalWords >= 5) {
+      console.log(`✅ PASSED: Contains recognizable English phrases`);
+      console.log(`Stats: ${totalWords} total words, ${commonEnglishWords.length} common English words, ${nonsenseWordCount} nonsense words`);
+      return true;
+    }
+    
+    console.log(`✅ PASSED: Transcript appears to be valid English speech`);
+    console.log(`Stats: ${totalWords} total words, ${commonEnglishWords.length} common English words, ${nonsenseWordCount} nonsense words`);
     return true;
   };
 
@@ -650,17 +602,186 @@ export default function AdPreviewModal({ isOpen, onClose, ad }: AdPreviewModalPr
           <div className="p-6 flex-1">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(95vh-140px)]">
               {/* Left Side - Ad Content - Centered */}
-              <div className="lg:col-span-2 flex justify-center items-start h-full">
+              <div className="lg:col-span-2 flex justify-center items-start h-full bg-[#F9FAFB] rounded-lg p-6">
                 <div className="w-full max-w-sm h-full flex flex-col">
-                  <div className="modal-ad-container h-full" style={{ 
-                    '--max-media-height': 'calc(100% - 200px)'
-                  } as React.CSSProperties}>
+                  {/* Custom Modal Wrapper with Figma Styling */}
+                  <div className="figma-ad-card-wrapper w-[362px] h-[558px] overflow-hidden bg-white border border-[#E4E7EC] shadow-[0px_1px_2px_rgba(16,24,40,0.05)] rounded-2xl">
                     <style dangerouslySetInnerHTML={{
                       __html: `
-                        .modal-ad-container img,
-                        .modal-ad-container video {
-                          max-height: var(--max-media-height) !important;
-                          object-fit: cover;
+                        .figma-ad-card-wrapper .card {
+                          border: none !important;
+                          box-shadow: none !important;
+                          border-radius: 0 !important;
+                          height: 100% !important;
+                          width: 100% !important;
+                          display: flex !important;
+                          flex-direction: column !important;
+                        }
+                        
+                        .figma-ad-card-wrapper .card-header {
+                          padding: 12px 12px 8px 12px !important;
+                          height: 36px !important;
+                          flex-shrink: 0 !important;
+                        }
+                        
+                        .figma-ad-card-wrapper .card-header .avatar {
+                          width: 20px !important;
+                          height: 20px !important;
+                        }
+                        
+                        .figma-ad-card-wrapper .card-header .company-name {
+                          font-size: 16px !important;
+                          font-weight: 500 !important;
+                          color: #101828 !important;
+                          max-width: 120px !important;
+                        }
+                        
+                        .figma-ad-card-wrapper .card-header .time-chip {
+                          background: #F9FAFB !important;
+                          border: 1px solid #E4E7EC !important;
+                          border-radius: 12px !important;
+                          padding: 2px 8px !important;
+                          font-size: 12px !important;
+                          font-weight: 500 !important;
+                          color: #344054 !important;
+                        }
+                        
+                        .figma-ad-card-wrapper .card-header .action-buttons {
+                          display: none !important;
+                        }
+                        
+                        .figma-ad-card-wrapper .card-content {
+                          padding: 0 !important;
+                          flex: 1 !important;
+                          display: flex !important;
+                          flex-direction: column !important;
+                          min-height: 0 !important;
+                        }
+                        
+                        .figma-ad-card-wrapper .description-section {
+                          width: 338px !important;
+                          height: 80px !important;
+                          margin: 12px auto 0 auto !important;
+                          display: flex !important;
+                          align-items: center !important;
+                          justify-content: center !important;
+                          padding: 0 12px !important;
+                          flex-shrink: 0 !important;
+                        }
+                        
+                        .figma-ad-card-wrapper .description-section h3,
+                        .figma-ad-card-wrapper .description-section .read-more {
+                          font-size: 14px !important;
+                          color: black !important;
+                          line-height: 20px !important;
+                          text-align: center !important;
+                          margin: 0 !important;
+                        }
+                        
+                        .figma-ad-card-wrapper .media-section {
+                          width: 338px !important;
+                          height: 320px !important;
+                          margin: 12px auto 0 auto !important;
+                          border-radius: 8px !important;
+                          overflow: hidden !important;
+                          flex-shrink: 0 !important;
+                          position: relative !important;
+                        }
+                        
+                        .figma-ad-card-wrapper .media-section img,
+                        .figma-ad-card-wrapper .media-section video {
+                          width: 100% !important;
+                          height: 100% !important;
+                          object-fit: cover !important;
+                          border-radius: 8px !important;
+                          display: block !important;
+                        }
+                        
+                        .figma-ad-card-wrapper .card-footer {
+                          width: 338px !important;
+                          height: 66px !important;
+                          margin: 12px auto 0 auto !important;
+                          padding: 0 !important;
+                          flex-shrink: 0 !important;
+                        }
+                        
+                        .figma-ad-card-wrapper .cta-section {
+                          width: 100% !important;
+                          height: 66px !important;
+                          background: #F9FAFB !important;
+                          border-radius: 8px !important;
+                          padding: 12px !important;
+                          display: flex !important;
+                          align-items: center !important;
+                          gap: 8px !important;
+                        }
+                        
+                        .figma-ad-card-wrapper .cta-section .url-info {
+                          flex: 1 !important;
+                          display: flex !important;
+                          flex-direction: column !important;
+                          gap: 4px !important;
+                        }
+                        
+                        .figma-ad-card-wrapper .cta-section .url-info .url-title {
+                          font-size: 12px !important;
+                          color: #475467 !important;
+                          text-transform: uppercase !important;
+                          margin: 0 !important;
+                        }
+                        
+                        .figma-ad-card-wrapper .cta-section .url-info .url-desc {
+                          font-size: 14px !important;
+                          font-weight: 500 !important;
+                          color: #101828 !important;
+                          white-space: nowrap !important;
+                          overflow: hidden !important;
+                          text-overflow: ellipsis !important;
+                          margin: 0 !important;
+                        }
+                        
+                        .figma-ad-card-wrapper .cta-section .cta-button {
+                          background: white !important;
+                          border: 1px solid #D0D5DD !important;
+                          color: #344054 !important;
+                          font-size: 14px !important;
+                          font-weight: 600 !important;
+                          padding: 8px 12px !important;
+                          height: 36px !important;
+                          box-shadow: 0px 1px 2px rgba(16, 24, 40, 0.05), inset 0px 0px 0px 1px rgba(16, 24, 40, 0.18), inset 0px -2px 0px rgba(16, 24, 40, 0.05) !important;
+                          border-radius: 8px !important;
+                          flex-shrink: 0 !important;
+                        }
+                        
+                        .figma-ad-card-wrapper .cta-section .cta-button:hover {
+                          background: #f9fafb !important;
+                        }
+                        
+                        /* Hide the saved ad section in modal */
+                        .figma-ad-card-wrapper .saved-ad-section {
+                          display: none !important;
+                        }
+                        
+                        /* Ensure motion div doesn't interfere */
+                        .figma-ad-card-wrapper .card-content > div {
+                          height: 100% !important;
+                          display: flex !important;
+                          flex-direction: column !important;
+                        }
+                        
+                        /* Style video badge for modal */
+                        .figma-ad-card-wrapper .video-badge {
+                          position: absolute !important;
+                          bottom: 16px !important;
+                          left: 50% !important;
+                          transform: translateX(-50%) !important;
+                          background: #F9FAFB !important;
+                          border: 1px solid #E4E7EC !important;
+                          border-radius: 12px !important;
+                          padding: 2px 8px !important;
+                          font-size: 12px !important;
+                          font-weight: 500 !important;
+                          color: #344054 !important;
                         }
                       `
                     }} />
@@ -703,287 +824,271 @@ export default function AdPreviewModal({ isOpen, onClose, ad }: AdPreviewModalPr
               </div>
               
               {/* Right Side - Details Sidebar */}
-              <div className="space-y-4 flex flex-col h-full">
-                {/* Save Details */}
-                <Button className="w-full bg-blue-600 hover:bg-blue-700">Save Details</Button>
+              <div className="flex flex-col h-[558px] bg-white border border-[#E4E7EC] rounded-lg overflow-hidden">
+                {/* Save Details Section */}
+                <div className="flex flex-col flex-shrink-0">
+                  {/* Save Details Header */}
+                  <div className="flex justify-between items-center py-2.5 px-4 bg-white border border-[#D0D5DD] rounded-t">
+                    <span className="text-sm font-medium text-[#101828]">Save Details</span>
+                  </div>
+                  
+                  {/* Save Details Content */}
+                  <div className="flex flex-col gap-2 p-4 bg-white border-l border-r border-[#D0D5DD]">
+                    <div className="flex items-center gap-2 p-1.5 bg-white border border-[#D0D5DD] rounded-lg shadow-[0px_1px_2px_rgba(16,24,40,0.05)]">
+                      <span className="flex-1 text-sm text-[#667085] text-left">Save Ad To Board</span>
+                      <Button variant="outline" size="sm" className="h-7 w-7 p-0 border-[#D0D5DD] shadow-[0px_1px_2px_rgba(16,24,40,0.05),inset_0px_0px_0px_1px_rgba(16,24,40,0.18),inset_0px_-2px_0px_rgba(16,24,40,0.05)]">
+                        <ChevronDown className="h-5 w-5 text-[#344054]" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* Gap between sections */}
+                  <div className="h-2 bg-[#F9FAFB]"></div>
+                </div>
 
-                {/* Save to Board */}
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Save Ad To Board" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="board1">Board 1</SelectItem>
-                    <SelectItem value="board2">Board 2</SelectItem>
-                  </SelectContent>
-                </Select>
+                {/* Metadata Section */}
+                <div className="flex flex-col flex-1 min-h-0">
+                  {/* Metadata Header */}
+                  <div className="flex justify-between items-center py-2.5 px-4 bg-white border border-[#D0D5DD] flex-shrink-0">
+                    <span className="text-sm font-medium text-[#101828]">Metadata</span>
+                    <ChevronDown className="h-5 w-5 text-black" />
+                  </div>
+                  
+                  {/* Tabs */}
+                  <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                    <TabsList className={`grid w-full ${ad.isVideo ? 'grid-cols-2' : 'grid-cols-1'} bg-white border-l border-r border-[#D0D5DD] flex-shrink-0 rounded-none`}>
+                      <TabsTrigger value="details" className="data-[state=active]:bg-[#F9FAFB] rounded-none">Details</TabsTrigger>
+                      {ad.isVideo && (
+                        <TabsTrigger value="transcript" className="relative data-[state=active]:bg-[#F9FAFB] rounded-none">
+                          Transcript
+                          {transcript.hasTranscript && (
+                            <CheckCircle className="w-3 h-3 text-green-500 ml-1" />
+                          )}
+                        </TabsTrigger>
+                      )}
+                    </TabsList>
 
-                {/* Horizontal Divider Line */}
-                <div className="w-full h-px bg-gray-200 my-4"></div>
-
-            {/* Tabs */}
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                  <TabsList className={`grid w-full ${ad.isVideo ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                <TabsTrigger value="details">Details</TabsTrigger>
-                {ad.isVideo && (
-                  <TabsTrigger value="transcript" className="relative">
-                    Transcript
-                    {transcript.hasTranscript && (
-                      <CheckCircle className="w-3 h-3 text-green-500 ml-1" />
-                    )}
-                  </TabsTrigger>
-                )}
-              </TabsList>
-
-                  <div className="flex-1 overflow-y-auto mt-4 min-h-0">
-                    <TabsContent value="details" className="space-y-2 m-0">
-                  {/* Brand */}
-                      <div className="flex items-center justify-between py-1">
-                    <span className="text-sm font-medium text-gray-600">Brand</span>
-                        <div className="flex items-center">
+                    <div className="flex-1 overflow-y-auto bg-white border-l border-r border-[#D0D5DD] min-h-0">
+                      <TabsContent value="details" className="space-y-4 m-0 p-4 h-full">
+                        {/* Brand */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-5 h-5 flex items-center justify-center">
+                              <div className="w-1 h-1 bg-[#475467] rounded-full"></div>
+                            </div>
+                            <span className="text-sm text-[#475467] text-left">Brand</span>
+                          </div>
                           <a
                             href={getFacebookBrandLink()}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-sm font-medium text-blue-600 hover:text-blue-800 underline flex items-center gap-1"
+                            className="text-sm font-medium text-[#6941C6] hover:text-blue-800 underline flex items-center gap-1 text-right"
                           >
                             {ad.brand.length > 15 ? `${ad.brand.substring(0, 15)}...` : ad.brand}
                             <ArrowUpRight className="h-3 w-3" />
                           </a>
-                    </div>
-                  </div>
+                        </div>
 
-                  {/* Status */}
-                      <div className="flex items-center justify-between py-1">
-                    <span className="text-sm font-medium text-gray-600">Status</span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span className="text-sm">{ad.status}</span>
-                      {ad.startDate && (
-                        <span className="text-xs text-gray-500">
-                          from {ad.startDate}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                        {/* Status */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-5 h-5 flex items-center justify-center">
+                              <div className="w-1 h-1 bg-[#475467] rounded-full"></div>
+                            </div>
+                            <span className="text-sm text-[#475467] text-left">Status</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-right">
+                            <span className="text-sm text-[#475467]">{ad.status}</span>
+                            {ad.startDate && (
+                              <span className="text-xs text-gray-500">
+                                from {ad.startDate}
+                              </span>
+                            )}
+                          </div>
+                        </div>
 
-                  {/* Time Running */}
-                      <div className="flex items-center justify-between py-1">
-                    <span className="text-sm font-medium text-gray-600">Time Running</span>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm">{ad.timeRunning}</span>
-                    </div>
-                  </div>
+                        {/* Time Running */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="w-5 h-5 text-[#475467]" />
+                            <span className="text-sm text-[#475467] text-left">Time Running</span>
+                          </div>
+                          <span className="text-sm text-[#475467] text-right">{ad.timeRunning}</span>
+                        </div>
 
-                  {/* Format */}
-                      <div className="flex items-center justify-between py-1">
-                    <span className="text-sm font-medium text-gray-600">Format</span>
-                    <div className="flex items-center gap-2">
-                      {ad.format === 'Video' ? (
-                        <Play className="w-4 h-4 text-gray-400" />
-                      ) : (
-                        <ImageIcon className="w-4 h-4 text-gray-400" />
-                      )}
-                          <span className="text-sm">{ad.format}</span>
-                    </div>
-                  </div>
+                        {/* Format */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            {ad.format === 'Video' ? (
+                              <Play className="w-5 h-5 text-[#475467]" />
+                            ) : (
+                              <ImageIcon className="w-5 h-5 text-[#475467]" />
+                            )}
+                            <span className="text-sm text-[#475467] text-left">Format</span>
+                          </div>
+                          <span className="text-sm text-[#475467] text-right">{ad.format}</span>
+                        </div>
 
-                  {/* Niche */}
-                      <div className="flex items-center justify-between py-1">
-                    <span className="text-sm font-medium text-gray-600">Niche</span>
-                    <div className="flex items-center gap-2">
-                      <Target className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm">{ad.niche}</span>
-                    </div>
-                  </div>
+                        {/* Niche */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-5 h-5 flex items-center justify-center">
+                              <div className="w-1 h-1 bg-[#475467] rounded-full"></div>
+                            </div>
+                            <span className="text-sm text-[#475467] text-left">Niche</span>
+                          </div>
+                          <span className="text-sm text-[#475467] text-right">{ad.niche}</span>
+                        </div>
 
-                  {/* Platforms */}
-                      <div className="flex items-start justify-between py-1">
-                    <span className="text-sm font-medium text-gray-600">Platforms</span>
-                    <div className="flex items-center gap-2 max-w-[200px] text-right">
-                          <span className="text-sm break-words">{formatPlatforms(ad.platforms)}</span>
-                    </div>
-                  </div>
+                        {/* Platforms */}
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <Globe className="w-5 h-5 text-[#475467]" />
+                            <span className="text-sm text-[#475467] text-left">Platforms</span>
+                          </div>
+                          <span className="text-sm text-[#475467] text-right max-w-[180px] break-words">{formatPlatforms(ad.platforms)}</span>
+                        </div>
 
-                  {/* Aspect Ratio */}
-                  {ad.aspectRatio && (
-                        <div className="flex items-center justify-between py-1">
-                      <span className="text-sm font-medium text-gray-600">Aspect Ratio</span>
-                      <div className="flex items-center gap-2">
-                            <span className="text-sm">{ad.aspectRatio}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Landing Page */}
-                      <div className="flex items-center justify-between py-1">
-                    <span className="text-sm font-medium text-gray-600">Landing Page</span>
-                        <div className="flex items-center">
-                    {ad.landingPageUrl ? (
+                        {/* Landing Page */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <Globe className="w-5 h-5 text-[#475467]" />
+                            <span className="text-sm text-[#475467] text-left">Landing Page</span>
+                          </div>
+                          {ad.landingPageUrl ? (
                             <button
                               onClick={handleLandingPageClick}
-                              className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                              className="text-sm text-[#6941C6] hover:text-blue-800 flex items-center gap-1 text-right"
                             >
                               Open Link
                               <ExternalLink className="h-3 w-3" />
                             </button>
                           ) : (
-                            <span className="text-sm text-gray-400">No URL</span>
+                            <span className="text-sm text-[#475467] text-right">No URL</span>
                           )}
                         </div>
-                      </div>
+                      </TabsContent>
 
-                      {/* Download Options */}
-                      <div className="space-y-2 pt-3">
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleReport}
-                            className="flex items-center gap-2 flex-1"
-                          >
-                            <Flag className="w-4 h-4" />
-                            Report
-                          </Button>
-                      <Button
-                        variant="outline"
-                            size="sm"
-                            onClick={handleDownload}
-                            className="flex items-center gap-2 flex-1"
-                      >
-                            <Download className="w-4 h-4" />
-                            {ad.isVideo ? 'Video' : 'Image'}
-                      </Button>
-                        </div>
-                  </div>
-                </TabsContent>
-
-                {ad.isVideo && (
-                      <TabsContent value="transcript" className="m-0 h-full overflow-y-auto">
-                    <div className="space-y-4">
-                      {/* Get Transcript Button */}
-                      {!transcript.hasTranscript && !transcript.loading && (
-                        <Button
-                          onClick={handleGetTranscript}
-                          className="w-full flex items-center gap-2"
-                          disabled={transcript.loading}
-                        >
-                          <FileText className="w-4 h-4" />
-                          Get Transcript
-                        </Button>
-                      )}
-
-                      {/* Loading State */}
-                      {transcript.loading && (
-                    <Card>
-                          <CardContent className="p-6">
-                          <div className="text-center space-y-4">
-                            <Loader2 className="w-12 h-12 text-blue-500 mx-auto animate-spin" />
-                            <h3 className="text-lg font-semibold">Generating Transcript</h3>
-                            <p className="text-sm text-gray-600">
-                                Please wait while we download the video, extract audio, and generate the transcript using AI...
-                            </p>
-                              <div className="text-xs text-gray-500">
-                                This may take a few minutes depending on video length
-                              </div>
-                          </div>
-                          </CardContent>
-                        </Card>
-                      )}
-
-                      {/* Error State */}
-                      {transcript.error && (
-                        <Card>
-                          <CardContent className="p-6">
-                          <div className="text-center space-y-4">
-                              <div className="w-12 h-12 text-red-500 mx-auto">❌</div>
-                            <h3 className="text-lg font-semibold">Transcription Failed</h3>
-                            <p className="text-sm text-gray-600">{transcript.error}</p>
-                              <Button onClick={handleGetTranscript} variant="outline" size="sm">
-                              Try Again
-                            </Button>
-                          </div>
-                          </CardContent>
-                        </Card>
-                      )}
-
-                      {/* Transcript Content */}
-                          {transcript.hasTranscript && transcript.text && !transcript.noSpeech && (
-                        <Card>
-                          <CardContent className="p-4">
+                      {ad.isVideo && (
+                        <TabsContent value="transcript" className="m-0 h-full overflow-y-auto p-4">
                           <div className="space-y-4">
-                              <div className="flex items-center justify-between">
-                                <h3 className="font-semibold flex items-center gap-2">
-                                  <FileText className="w-4 h-4" />
-                                  Video Transcript
+                            {/* Get Transcript Button */}
+                            {!transcript.hasTranscript && !transcript.loading && (
+                              <Button
+                                onClick={handleGetTranscript}
+                                className="w-full flex items-center gap-2 bg-[#6941C6] hover:bg-[#5A2FB8] text-white"
+                                disabled={transcript.loading}
+                              >
+                                <Languages className="w-4 h-4" />
+                                Get Transcript
+                              </Button>
+                            )}
+
+                            {/* Loading State */}
+                            {transcript.loading && (
+                              <div className="p-4 bg-[#F9FAFB] rounded-lg border border-[#E4E7EC]">
+                                <div className="text-center space-y-3">
+                                  <Loader2 className="w-8 h-8 text-[#6941C6] mx-auto animate-spin" />
+                                  <h4 className="text-sm font-medium text-[#101828]">Generating Transcript</h4>
+                                  <p className="text-xs text-[#667085]">
+                                    Processing video audio with AI...
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Error State */}
+                            {transcript.error && (
+                              <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                                <p className="text-sm text-red-600">{transcript.error}</p>
+                                <Button
+                                  onClick={handleGetTranscript}
+                                  size="sm"
+                                  className="mt-2 w-full"
+                                >
+                                  Try Again
+                                </Button>
+                              </div>
+                            )}
+
+                            {/* No Speech Detected */}
+                            {transcript.noSpeech && (
+                              <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                                <p className="text-sm text-yellow-700">No speech detected in this video.</p>
+                              </div>
+                            )}
+
+                            {/* Transcript Content */}
+                            {transcript.hasTranscript && transcript.text && !transcript.noSpeech && (
+                              <div className="p-4 bg-[#F9FAFB] rounded-lg border border-[#E4E7EC]">
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <FileText className="w-4 h-4 text-[#475467]" />
+                                      <span className="text-sm font-medium text-[#101828]">Video Transcript</span>
                                       {transcript.language && SUPPORTED_LANGUAGES[transcript.language as keyof typeof SUPPORTED_LANGUAGES] && (
-                                        <div className="flex items-center gap-1 text-sm text-gray-600">
+                                        <div className="flex items-center gap-1 text-xs text-[#667085]">
                                           <span>{SUPPORTED_LANGUAGES[transcript.language as keyof typeof SUPPORTED_LANGUAGES].flag}</span>
                                           <span>({SUPPORTED_LANGUAGES[transcript.language as keyof typeof SUPPORTED_LANGUAGES].name})</span>
                                         </div>
                                       )}
-                                </h3>
-                              <CheckCircle className="w-5 h-5 text-green-500" />
-                            </div>
-                                  <div className="bg-gray-50 p-4 rounded-lg">
-                              <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                                {transcript.text}
-                              </p>
-                            </div>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(transcript.text || '');
-                                  toast.success('Transcript copied to clipboard!');
-                                }}
-                                className="w-full"
-                              >
-                                Copy Transcript
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )}
+                                    </div>
+                                    <CheckCircle className="w-4 h-4 text-green-500" />
+                                  </div>
+                                  <div className="max-h-64 overflow-y-auto">
+                                    <p className="text-sm leading-relaxed text-[#475467] whitespace-pre-wrap">
+                                      {transcript.text}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(transcript.text || '');
+                                      toast.success('Transcript copied to clipboard!');
+                                    }}
+                                    className="w-full"
+                                  >
+                                    Copy Transcript
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
 
-                          {/* No Speech Detected */}
-                          {transcript.hasTranscript && transcript.noSpeech && (
-                            <Card>
-                              <CardContent className="p-6">
-                                <div className="text-center space-y-4">
-                                  <div className="w-12 h-12 text-yellow-500 mx-auto">🔇</div>
-                                  <h3 className="text-lg font-semibold">No Speech Detected</h3>
-                                  <p className="text-sm text-gray-600">
-                                    This video contains only music, sound effects, or background audio without spoken content.
+                            {/* Transcript Info for Non-Generated */}
+                            {!transcript.hasTranscript && !transcript.loading && !transcript.error && (
+                              <div className="p-4 bg-[#F9FAFB] rounded-lg border border-[#E4E7EC]">
+                                <div className="text-center space-y-2">
+                                  <FileText className="w-8 h-8 text-[#9CA3AF] mx-auto" />
+                                  <h4 className="text-sm font-medium text-[#101828]">Video Transcript</h4>
+                                  <p className="text-xs text-[#667085]">
+                                    Generate an AI-powered transcript of this video's spoken content.
                                   </p>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )}
-
-                      {/* Info for videos without transcript */}
-                      {!transcript.hasTranscript && !transcript.loading && !transcript.error && (
-                        <Card>
-                          <CardContent className="p-6">
-                          <div className="text-center space-y-4">
-                            <FileText className="w-12 h-12 text-gray-400 mx-auto" />
-                            <h3 className="text-lg font-semibold">Video Transcript</h3>
-                            <p className="text-sm text-gray-600">
-                                Generate an AI-powered transcript of this video's spoken content. 
-                                    The system will automatically detect the language and provide accurate transcription.
-                            </p>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                      </CardContent>
-                    </Card>
+                        </TabsContent>
                       )}
                     </div>
-                  </TabsContent>
-                )}
+                  </Tabs>
+                </div>
+
+                {/* Gap between sections */}
+                <div className="h-2 bg-[#F9FAFB] flex-shrink-0"></div>
+
+                {/* Download Button */}
+                <div className="p-4 flex-shrink-0 bg-white border border-[#D0D5DD] rounded-b">
+                  <Button 
+                    onClick={handleDownload}
+                    className="w-full flex items-center gap-2 bg-white border border-[#D0D5DD] text-[#344054] shadow-[0px_1px_2px_rgba(16,24,40,0.05),inset_0px_0px_0px_1px_rgba(16,24,40,0.18),inset_0px_-2px_0px_rgba(16,24,40,0.05)] hover:bg-gray-50"
+                  >
+                    <Download className="w-5 h-5" />
+                    Download
+                  </Button>
+                </div>
               </div>
-            </Tabs>
-          </div>
-        </div>
+            </div>
           </div>
         </div>
       </div>

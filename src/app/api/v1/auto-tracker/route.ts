@@ -1,25 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-
-// Conditionally import auto-tracker functions to avoid build issues
-let autoTracker: any = null;
-if (process.env.DATABASE_URL) {
-  try {
-    autoTracker = require("../../../../../lib/auto-tracker");
-  } catch (error) {
-    console.warn("Failed to load auto-tracker:", error);
-  }
-}
+import { startAutoTracking, stopAutoTracking, getTrackingStatus, trackSpecificPage } from "../../../../../lib/auto-tracker";
 
 export async function GET(request: NextRequest) {
   try {
-    if (!autoTracker) {
-      return NextResponse.json({
-        success: false,
-        error: "Auto-tracker not available during build"
-      }, { status: 503 });
-    }
-
-    const status = autoTracker.getTrackingStatus();
+    const status = getTrackingStatus();
     
     return NextResponse.json({
       success: true,
@@ -35,25 +19,18 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    if (!autoTracker) {
-      return NextResponse.json({
-        success: false,
-        error: "Auto-tracker not available during build"
-      }, { status: 503 });
-    }
-
     const { action, pageId } = await request.json();
     
     switch (action) {
       case 'start':
-        await autoTracker.startAutoTracking();
+        await startAutoTracking();
         return NextResponse.json({
           success: true,
           message: 'Auto-tracking started'
         });
         
       case 'stop':
-        autoTracker.stopAutoTracking();
+        stopAutoTracking();
         return NextResponse.json({
           success: true,
           message: 'Auto-tracking stopped'
@@ -67,7 +44,7 @@ export async function POST(request: NextRequest) {
           }, { status: 400 });
         }
         
-        await autoTracker.trackSpecificPage(pageId);
+        await trackSpecificPage(pageId);
         return NextResponse.json({
           success: true,
           message: `Tracking completed for page ${pageId}`

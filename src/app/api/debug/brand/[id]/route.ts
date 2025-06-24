@@ -1,16 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import prisma from "@prisma/index";
 
 export const dynamic = "force-dynamic";
-
-// Conditionally import Prisma to avoid build issues
-let prisma: any = null;
-if (process.env.DATABASE_URL) {
-  try {
-    prisma = require("@prisma/index").default;
-  } catch (error) {
-    console.warn("Failed to load Prisma in debug route:", error);
-  }
-}
 
 export async function GET(
   request: NextRequest,
@@ -18,14 +9,6 @@ export async function GET(
 ) {
   try {
     const brandId = params.id;
-    
-    // Skip database operations if Prisma is not available
-    if (!prisma) {
-      return NextResponse.json({
-        error: "Database not available during build",
-        brandId,
-      }, { status: 503 });
-    }
     
     // Check if brand exists
     const brand = await prisma.brand.findUnique({

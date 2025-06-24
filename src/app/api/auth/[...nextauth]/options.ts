@@ -1,26 +1,14 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
+import prisma from "@prisma/index";
 import Credentials from "next-auth/providers/credentials";
-
-// Conditionally import Prisma to avoid build issues
-let prisma: any = null;
-let adapter: any = null;
-
-if (process.env.DATABASE_URL) {
-  try {
-    prisma = require("@prisma/index").default;
-    adapter = PrismaAdapter(prisma);
-  } catch (error) {
-    console.warn("Failed to initialize Prisma adapter:", error);
-  }
-}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     GoogleProvider({
-      clientId: process.env.AUTH_GOOGLE_ID || "",
-      clientSecret: process.env.AUTH_GOOGLE_SECRET || "",
+      clientId: process.env.AUTH_GOOGLE_ID as string,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET as string,
     }),
     Credentials({
       credentials: {
@@ -40,17 +28,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             };
           }
 
-          // Skip database queries during build
-          if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL) {
-            return null;
-          }
-
           // In production, implement proper user validation
-          const user = prisma ? await prisma.user.findFirst({
+          const user = await prisma.user.findFirst({
             where: {
               email: email,
             },
-          }) : null;
+          });
 
           if (user) {
             return {
@@ -103,5 +86,5 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
   debug: process.env.NODE_ENV === "development",
-  ...(adapter ? { adapter } : {}),
+  adapter: PrismaAdapter(prisma),
 });

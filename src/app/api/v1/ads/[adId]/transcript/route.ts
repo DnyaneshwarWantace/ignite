@@ -1,15 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
 
-// Conditionally import Prisma to avoid build issues
-let prisma: any = null;
-if (process.env.DATABASE_URL) {
-  try {
-    const { PrismaClient } = require('@prisma/client');
-    prisma = new PrismaClient();
-  } catch (error) {
-    console.warn("Failed to load Prisma in ads transcript route:", error);
-  }
-}
+const prisma = new PrismaClient();
 
 export async function GET(
   request: NextRequest,
@@ -22,13 +14,6 @@ export async function GET(
       return NextResponse.json(
         { error: 'Ad ID is required' },
         { status: 400 }
-      );
-    }
-
-    if (!prisma) {
-      return NextResponse.json(
-        { transcript: null, hasTranscript: false },
-        { status: 503 }
       );
     }
 
@@ -82,13 +67,6 @@ export async function DELETE(
       return NextResponse.json(
         { error: 'Ad ID is required' },
         { status: 400 }
-      );
-    }
-
-    if (!prisma) {
-      return NextResponse.json(
-        { error: 'Database not available' },
-        { status: 503 }
       );
     }
 

@@ -38,21 +38,29 @@ export const POST = authMiddleware(
       },
     ];
 
-    brandNames.forEach(async (brand) => {
-      await prisma.brand.create({
-        data: {
-          name: brand.name,
-          logo: brand.logo,
-          totalAds: brand.totalAds,
+    try {
+      for (const brand of brandNames) {
+        await prisma.brand.create({
+          data: {
+            name: brand.name,
+            logo: brand.logo,
+            totalAds: brand.totalAds,
+          },
+        });
+      }
+
+      return createResponse({
+        message: messages.SUCCESS,
+        payload: {
+          message: "5 fake brands added successfully",
         },
       });
-    });
-
-    return createResponse({
-      message: messages.SUCCESS,
-      payload: {
-        message: "5 fake brands added successfully",
-      },
-    });
+    } catch (error) {
+      console.error("Error adding fake brands:", error);
+      return NextResponse.json(
+        { error: "Failed to add fake brands" },
+        { status: 500 }
+      );
+    }
   }
 );

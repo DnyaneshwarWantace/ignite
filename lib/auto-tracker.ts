@@ -87,6 +87,11 @@ async function getPageTrackingInfo(pageId: string): Promise<PageTrackingInfo | n
 
 /**
  * Track new ads and update statuses for a specific page
+ * 
+ * THREE-BOUNDARY LOGIC:
+ * 1. BOUNDARY 1 (Primary): Stop when we find the exact lastKnownAd ID
+ * 2. BOUNDARY 2 (Secondary): Stop when we find an ad older than lastKnownAd date
+ * 3. BOUNDARY 3 (Tertiary): Stop when we find an existing ad after missing lastKnownAd (old ads detection)
  */
 async function trackPageAds(pageId: string): Promise<void> {
   log(`🔄 Starting tracking for page ${pageId}`);
@@ -132,17 +137,17 @@ async function trackPageAds(pageId: string): Promise<void> {
               adDate = new Date(typeof adStartDate === 'number' ? adStartDate * 1000 : adStartDate);
             }
 
-            // Check if this is our last known ad (boundary)
+            // BOUNDARY 1: Check if this is our last known ad (PRIMARY BOUNDARY)
             if (scrapedAd.id === trackingInfo.lastKnownAdId) {
-              log(`🎯 Found last known ad boundary: ${scrapedAd.id}`);
+              log(`🎯 BOUNDARY 1 - Found last known ad: ${scrapedAd.id}`);
               lastKnownAdStillExists = true;
               foundBoundary = true;
               break;
             }
 
-            // Check if ad is older than our boundary date
+            // BOUNDARY 2: Check if ad is older than our boundary date (SECONDARY BOUNDARY)
             if (adDate <= trackingInfo.lastKnownAdDate) {
-              log(`📅 Reached date boundary: ad ${scrapedAd.id} date ${adDate.toLocaleDateString()} <= boundary ${trackingInfo.lastKnownAdDate.toLocaleDateString()}`);
+              log(`📅 BOUNDARY 2 - Reached date boundary: ad ${scrapedAd.id} date ${adDate.toLocaleDateString()} <= boundary ${trackingInfo.lastKnownAdDate.toLocaleDateString()}`);
               foundBoundary = true;
               break;
             }
@@ -156,8 +161,32 @@ async function trackPageAds(pageId: string): Promise<void> {
               // This is a new ad
               newAds.push(scrapedAd);
               newAdsInThisPage++;
+              log(`✨ NEW AD: ${scrapedAd.id}`);
             } else {
               log(`✓ Found existing ad: ${scrapedAd.id}`);
+              
+              // BOUNDARY 3: Old ads detection (TERTIARY BOUNDARY)
+              // If we find an existing ad but haven't found our lastKnownAd yet,
+              // this might be an old ad that appeared after our boundary disappeared.
+              if (!lastKnownAdStillExists) {
+                try {
+                  const existingAdContent = JSON.parse(existingAd.content);
+                  const existingAdDate = existingAdContent.start_date || existingAdContent.start_date_string;
+                  if (existingAdDate) {
+                    const existingDate = new Date(typeof existingAdDate === 'number' ? existingAdDate * 1000 : existingAdDate);
+                    if (existingDate <= trackingInfo.lastKnownAdDate) {
+                      log(`🛑 BOUNDARY 3 - Found old ad after missing lastKnownAd: ${scrapedAd.id} (${existingDate.toLocaleDateString()}) - we've gone past our boundary. Stopping.`);
+                      foundBoundary = true;
+                      break;
+                    }
+                  }
+                } catch (e) {
+                  // If we can't parse date, assume it's an old ad and stop to be safe
+                  log(`🛑 BOUNDARY 3 - Found existing ad after missing lastKnownAd: ${scrapedAd.id} - stopping to be safe`);
+                  foundBoundary = true;
+                  break;
+                }
+              }
             }
 
           } catch (error) {
@@ -293,20 +322,23 @@ async function trackPageAds(pageId: string): Promise<void> {
     if (lastKnownAdBecameInactive || !lastKnownAdStillExists) {
       log(`🔄 Finding new last known ad...`);
       
-      // Find the new oldest active ad to be our boundary
-      const activeDbAds = await prisma.ad.findMany({
+      // Find the newest active ad that we actually found during this scrape
+      // This will be our new boundary for next time
+      const currentActiveAds = await scrapeCompanyAds(pageId, 2000, 0);
+      const currentActiveAdIds = currentActiveAds.map(ad => ad.id);
+      
+      // Find active ads from database that are still active in current scrape
+      const stillActiveDbAds = await prisma.ad.findMany({
         where: {
-          brand: { pageId: pageId }
-        },
-        include: {
-          brand: { select: { pageId: true } }
+          brand: { pageId: pageId },
+          libraryId: { in: currentActiveAdIds }
         },
         orderBy: [
-          { createdAt: 'asc' } // Oldest first
+          { createdAt: 'desc' } // Newest first
         ]
       });
 
-      const newActiveAds = activeDbAds.filter(ad => {
+      const activeAds = stillActiveDbAds.filter(ad => {
         try {
           const content = JSON.parse(ad.content);
           return content.is_active !== false;
@@ -315,9 +347,9 @@ async function trackPageAds(pageId: string): Promise<void> {
         }
       });
 
-      if (newActiveAds.length > 0) {
-        const newLastKnownAd = newActiveAds[0]; // Oldest active ad
-        log(`✅ New last known ad: ${newLastKnownAd.libraryId}`);
+      if (activeAds.length > 0) {
+        const newLastKnownAd = activeAds[0]; // Newest active ad that's still active
+        log(`✅ New last known ad: ${newLastKnownAd.libraryId} (newest active ad found in current scrape)`);
       } else {
         log(`⚠️ No active ads left for page ${pageId}`);
       }

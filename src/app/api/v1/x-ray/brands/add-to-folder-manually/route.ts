@@ -328,7 +328,7 @@ export const POST = authMiddleware(
         console.error('Error starting auto-tracking:', autoTrackError);
         // Don't fail the request if auto-tracking fails to start
       }
-    }
+      }
 
     return createResponse({
       message: messages.SUCCESS,

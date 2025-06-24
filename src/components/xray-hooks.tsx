@@ -180,7 +180,7 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
         daysSince = Math.floor((Date.now() - startTime) / (1000 * 60 * 60 * 24));
       }
 
-              // Check if ad is active
+      // Check if ad is active
         const isActive = content.is_active !== false;
 
       // Get platform

@@ -2,10 +2,19 @@ import messages from "@apiUtils/messages";
 import { createError, createResponse } from "@apiUtils/responseutils";
 import { authMiddleware } from "@middleware";
 import { User } from "@prisma/client";
-import prisma from "@prisma/index";
 import { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
+
+// Conditionally import Prisma to avoid build issues
+let prisma: any = null;
+if (process.env.DATABASE_URL) {
+  try {
+    prisma = require("@prisma/index").default;
+  } catch (error) {
+    console.warn("Failed to load Prisma in discover ads route:", error);
+  }
+}
 
 export const GET = authMiddleware(
   async (request: NextRequest, context: any, user: User) => {
@@ -13,6 +22,20 @@ export const GET = authMiddleware(
     console.log('User:', user?.email || 'No user');
     
     try {
+      // Skip database operations if Prisma is not available
+      if (!prisma) {
+        return createResponse({
+          message: "Database not available during build",
+          payload: {
+            ads: [],
+            pagination: {
+              hasMore: false,
+              nextCursor: null,
+              limit: 20
+            }
+          },
+        });
+      }
       const { searchParams } = new URL(request.url);
       const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50); // Allow up to 50 ads per request
       const search = searchParams.get('search') || '';

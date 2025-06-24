@@ -3,7 +3,9 @@ import { createResponse } from "@apiUtils/responseutils";
 import { authMiddleware } from "@middleware";
 import { User } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@prisma/index";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +40,7 @@ export const POST = authMiddleware(
       },
     ];
 
-    brandNames.forEach(async (brand) => {
+    for (const brand of brandNames) {
       await prisma.brand.create({
         data: {
           name: brand.name,
@@ -46,7 +48,7 @@ export const POST = authMiddleware(
           totalAds: brand.totalAds,
         },
       });
-    });
+    }
 
     return createResponse({
       message: messages.SUCCESS,

@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
 
-const prisma = new PrismaClient();
+// Conditionally import Prisma to avoid build issues
+let prisma: any = null;
+if (process.env.DATABASE_URL) {
+  try {
+    const { PrismaClient } = require("@prisma/client");
+    prisma = new PrismaClient();
+  } catch (error) {
+    console.warn("Failed to load Prisma in transcript route:", error);
+  }
+}
 
 // POST - Save transcript to database
 export async function POST(request: NextRequest) {
@@ -13,6 +21,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Ad ID and transcript are required" },
         { status: 400 }
+      );
+    }
+
+    if (!prisma) {
+      return NextResponse.json(
+        { error: "Database not available" },
+        { status: 503 }
       );
     }
 

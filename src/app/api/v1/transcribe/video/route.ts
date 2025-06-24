@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { transcribeVideoFromUrl } from '@/lib/vosk-transcription';
 
-const prisma = new PrismaClient();
+// Conditionally import Prisma to avoid build issues
+let prisma: any = null;
+if (process.env.DATABASE_URL) {
+  try {
+    const { PrismaClient } = require('@prisma/client');
+    prisma = new PrismaClient();
+  } catch (error) {
+    console.warn("Failed to load Prisma in transcribe video route:", error);
+  }
+}
 
 // Your transcription backend URL - update this to match your Vosk server
 const TRANSCRIPTION_SERVICE_URL = process.env.TRANSCRIPTION_SERVICE_URL || 'http://localhost:3000';
@@ -22,6 +30,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Ad ID is required' },
         { status: 400 }
+      );
+    }
+
+    if (!prisma) {
+      return NextResponse.json(
+        { error: 'Database not available' },
+        { status: 503 }
       );
     }
 
@@ -145,6 +160,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: 'Ad ID is required' },
         { status: 400 }
+      );
+    }
+
+    if (!prisma) {
+      return NextResponse.json(
+        { error: 'Database not available' },
+        { status: 503 }
       );
     }
 

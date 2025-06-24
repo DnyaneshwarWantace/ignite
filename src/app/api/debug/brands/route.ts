@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const brandsWithStats = brands.map((brand) => {
+    const brandsWithStats = brands.map((brand: any) => {
       const ads = brand.ads || [];
       
       // Count ads by type

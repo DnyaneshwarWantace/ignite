@@ -1,11 +1,23 @@
 import messages from "@apiUtils/messages";
 import { createError, createResponse } from "@apiUtils/responseutils";
 import { authMiddleware } from "@middleware";
-import { User } from "@prisma/client";
+import { User, PrismaClient } from "@prisma/client";
 import { NextRequest } from "next/server";
-import prisma from "@prisma/index";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+// Initialize Prisma client with better error handling for Vercel environment
+const getPrismaClient = () => {
+  try {
+    return require("@prisma/index").default as PrismaClient;
+  } catch (error) {
+    console.error("Failed to initialize Prisma client:", error);
+    return null;
+  }
+};
+
+const prisma = getPrismaClient();
 
 export const GET = authMiddleware(
   async (request: NextRequest, context: any, user: User) => {
@@ -13,8 +25,16 @@ export const GET = authMiddleware(
     console.log('User:', user?.email || 'No user');
     
     try {
+      if (!prisma) {
+        console.error('Prisma client is not initialized');
+        return createError({
+          message: "Database connection error",
+          status: 500
+        });
+      }
+
       const { searchParams } = new URL(request.url);
-      const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50); // Allow up to 50 ads per request
+      const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50);
       const search = searchParams.get('search') || '';
       const format = searchParams.get('format') || '';
       const platform = searchParams.get('platform') || '';
@@ -313,7 +333,7 @@ export const GET = authMiddleware(
         },
       });
     } catch (error) {
-      console.error('Error fetching discover ads:', error);
+      console.error('Error in discover ads route:', error);
       return createError({
         message: "Failed to fetch ads",
         status: 500

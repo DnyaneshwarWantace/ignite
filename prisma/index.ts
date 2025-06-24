@@ -1,7 +1,14 @@
 import { PrismaClient } from "@prisma/client";
 
 const prismaClientSingleton = () => {
-  return new PrismaClient();
+  try {
+    return new PrismaClient({
+      log: ["error"],
+    });
+  } catch (error) {
+    console.error("Failed to initialize Prisma Client:", error);
+    throw error;
+  }
 };
 
 declare global {
@@ -10,6 +17,6 @@ declare global {
 
 const prisma = globalThis.prisma ?? prismaClientSingleton();
 
-export default prisma;
-
 if (process.env.NODE_ENV !== "production") globalThis.prisma = prisma;
+
+export default prisma;

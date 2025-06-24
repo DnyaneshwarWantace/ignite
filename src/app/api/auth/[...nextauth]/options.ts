@@ -7,8 +7,8 @@ import Credentials from "next-auth/providers/credentials";
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     GoogleProvider({
-      clientId: process.env.AUTH_GOOGLE_ID as string,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET as string,
+      clientId: process.env.AUTH_GOOGLE_ID || "",
+      clientSecret: process.env.AUTH_GOOGLE_SECRET || "",
     }),
     Credentials({
       credentials: {
@@ -26,6 +26,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               email: email || "dev@example.com",
               name: "Development User",
             };
+          }
+
+          // Skip database queries during build
+          if (process.env.NODE_ENV === "production" && !process.env.DATABASE_URL) {
+            return null;
           }
 
           // In production, implement proper user validation
@@ -86,5 +91,5 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
   debug: process.env.NODE_ENV === "development",
-  adapter: PrismaAdapter(prisma),
+  ...(process.env.DATABASE_URL ? { adapter: PrismaAdapter(prisma) } : {}),
 });

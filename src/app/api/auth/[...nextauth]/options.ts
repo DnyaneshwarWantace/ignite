@@ -3,8 +3,23 @@ import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import prisma from "@prisma/index";
 import Credentials from "next-auth/providers/credentials";
+import { NextAuthConfig } from "next-auth";
+import { Account, Profile, User } from "next-auth";
+import { JWT } from "next-auth/jwt";
+import { Session } from "next-auth";
+import { AdapterUser } from "@auth/core/adapters";
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
+// Skip actual auth during build
+const buildTimeConfig: NextAuthConfig = {
+  providers: [],
+  pages: {
+    signIn: "/login",
+    error: "/login",
+  },
+};
+
+// Runtime configuration
+const runtimeConfig: NextAuthConfig = {
   providers: [
     GoogleProvider({
       clientId: process.env.AUTH_GOOGLE_ID as string,
@@ -59,7 +74,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     error: "/login",
   },
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account, profile }: { 
+      user: User | AdapterUser; 
+      account: Account | null; 
+      profile?: Profile;
+    }) {
       try {
         if (!user.name || user.name === "") {
           user.name = user.email?.split("@")[0] || "User";
@@ -71,14 +90,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
     },
 
-    async session({ session, token }) {
+    async session({ session, token }: { 
+      session: Session; 
+      token: JWT;
+    }) {
       if (token && session.user) {
         session.user.id = token.sub || "";
       }
       return session;
     },
 
-    async jwt({ token, user }) {
+    async jwt({ token, user }: { 
+      token: JWT; 
+      user?: User | AdapterUser;
+    }) {
       if (user) {
         token.sub = user.id;
       }
@@ -87,4 +112,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   debug: process.env.NODE_ENV === "development",
   adapter: PrismaAdapter(prisma),
-});
+};
+
+// Use build time config during build, runtime config otherwise
+const config = process.env.NEXT_PHASE === 'build' ? buildTimeConfig : runtimeConfig;
+
+export const { handlers, signIn, signOut, auth } = NextAuth(config);

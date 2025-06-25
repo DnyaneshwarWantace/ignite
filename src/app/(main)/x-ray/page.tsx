@@ -214,6 +214,7 @@ export default function XRayPage() {
                     {selectedIds.map((id: string, k: number) => {
                       return (
                         <Badge
+                          key={`selected-${id}`}
                           onClick={() => {
                             updateSelection(id);
                           }}
@@ -315,7 +316,7 @@ export default function XRayPage() {
                         window.open("https://www.facebook.com/ads/library/", "_blank");
                       }}
                     >
-                      <img src="/images/icons/Facebook.svg" className="mr-2" />
+                      <img src="/images/icons/Facebook.svg" className="mr-2" alt="Facebook icon" />
                       Add Library
                       <ArrowUpRight className="ml-2 w-9 h-9" />
                     </Button>

@@ -129,7 +129,7 @@ export default function WriterPage() {
           <CardContent className="px-4">
             <Accordion type="single" collapsible className="w-full">
               {concepts.map((con, index) => (
-                <AccordionConcept id={index} name={con.conceptName}>
+                <AccordionConcept key={`concept-${index}`} id={index} name={con.conceptName}>
                   <ConceptForm {...con} />
                 </AccordionConcept>
               ))}

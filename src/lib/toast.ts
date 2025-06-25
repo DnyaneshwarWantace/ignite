@@ -1,23 +1,23 @@
-import { toast } from 'sonner';
+import { toast as sonnerToast } from 'sonner';
 
-export const toastService = {
+export const toast = {
   success: (message: string) => {
-    toast.success(message, {
+    sonnerToast.success(message, {
       duration: 3000,
     });
   },
   error: (message: string) => {
-    toast.error(message, {
+    sonnerToast.error(message, {
       duration: 3000,
     });
   },
   info: (message: string) => {
-    toast.info(message, {
+    sonnerToast.info(message, {
       duration: 3000,
     });
   },
   warning: (message: string) => {
-    toast.warning(message, {
+    sonnerToast.warning(message, {
       duration: 3000,
     });
   },
@@ -25,5 +25,5 @@ export const toastService = {
 
 export const showToast = (message: string, options?: { variant?: 'success' | 'error' | 'info' | 'warning' }) => {
   const variant = options?.variant || 'info';
-  toastService[variant](message);
+  toast[variant](message);
 }; 

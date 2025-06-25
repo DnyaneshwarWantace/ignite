@@ -68,7 +68,7 @@ async function getPageTrackingInfo(pageId: string): Promise<PageTrackingInfo | n
       if (startDate) {
         adDate = new Date(typeof startDate === 'number' ? startDate * 1000 : startDate);
       }
-    } catch {
+    } catch (e) {
       adDate = oldestActiveAd.createdAt;
     }
 
@@ -180,12 +180,12 @@ async function trackPageAds(pageId: string): Promise<void> {
                       break;
                     }
                   }
-                                 } catch {
-                   // If we can't parse date, assume it's an old ad and stop to be safe
-                   log(`🛑 BOUNDARY 3 - Found existing ad after missing lastKnownAd: ${scrapedAd.id} - stopping to be safe`);
-                   foundBoundary = true;
-                   break;
-                 }
+                } catch (e) {
+                  // If we can't parse date, assume it's an old ad and stop to be safe
+                  log(`🛑 BOUNDARY 3 - Found existing ad after missing lastKnownAd: ${scrapedAd.id} - stopping to be safe`);
+                  foundBoundary = true;
+                  break;
+                }
               }
             }
 

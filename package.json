@@ -12,11 +12,8 @@
     "devbuild": "dotenv -c .env -- prisma db push && next build --no-lint",
     "devstart": "dotenv -c .env -- prisma db push && next start",
     "lint": "dotenv -c .env -- prisma db push && next lint",
-    "build": "prisma generate && next build --no-lint",
-    "build:production": "dotenv -c .env.production -- prisma generate && next build --no-lint",
-    "start": "next start",
-    "start:production": "dotenv -c .env.production -- next start -p 3003",
-    "postbuild": "prisma generate",
+    "build": "dotenv -c .env.production -- next build --no-lint",
+    "start": "dotenv -c .env.production -- next start -p 3003",
     "db:production_generate": "dotenv -c .env.production -- prisma generate",
     "db:production_push": "dotenv -c .env.production -- prisma db push",
     "db:production_studio": "dotenv -c .env.production -- npx prisma studio",
@@ -101,7 +98,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@netlify/plugin-nextjs": "^5.11.4",
+    "@netlify/plugin-nextjs": "^5.11.3",
     "@types/adm-zip": "^0.5.7",
     "@types/fluent-ffmpeg": "^2.1.27",
     "@types/fs-extra": "^11.0.4",

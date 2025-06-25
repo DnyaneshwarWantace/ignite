@@ -1,22 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Add output configuration for deployment
-  output: process.env.NETLIFY ? undefined : 'standalone',
-  
-  // Deployment optimizations
-  swcMinify: true,
-  poweredByHeader: false,
-  
-  // Disable ESLint during build for deployment
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  
-  // Disable TypeScript errors during build
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  
   images: {
     remotePatterns: [
       {
@@ -33,12 +16,6 @@ const nextConfig = {
       }
     ],
   },
-  
-  // Environment variables for build
-  env: {
-    CUSTOM_KEY: process.env.CUSTOM_KEY,
-  },
-  
   webpack: (config, { isServer }) => {
     // Exclude native modules from client-side bundles
     if (!isServer) {
@@ -84,24 +61,9 @@ const nextConfig = {
 
     return config;
   },
-  
   experimental: {
     serverComponentsExternalPackages: ['vosk-koffi', 'koffi', 'fluent-ffmpeg', 'fs-extra', 'adm-zip']
-  },
-  
-  // Add redirects for deployment
-  async redirects() {
-    return [
-      {
-        source: '/home',
-        destination: '/',
-        permanent: true,
-      },
-    ];
-  },
-  
-  // Handle trailing slashes
-  trailingSlash: false,
+  }
 };
 
 module.exports = nextConfig; 

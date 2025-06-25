@@ -13,6 +13,7 @@
     "devstart": "dotenv -c .env -- prisma db push && next start",
     "lint": "dotenv -c .env -- prisma db push && next lint",
     "build": "prisma generate && dotenv -c .env.production -- next build --no-lint",
+    "vercel-build": "npx prisma generate && next build",
     "start": "dotenv -c .env.production -- next start -p 3003",
     "db:production_generate": "dotenv -c .env.production -- prisma generate",
     "db:production_push": "dotenv -c .env.production -- prisma db push",

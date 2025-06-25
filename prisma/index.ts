@@ -1,5 +1,4 @@
 import { PrismaClient } from '@prisma/client';
-import { Pool } from '@neondatabase/serverless';
 import { PrismaNeon } from '@prisma/adapter-neon';
 
 declare global {
@@ -10,8 +9,7 @@ let prisma: PrismaClient;
 
 if (process.env.NODE_ENV === 'production') {
   const connectionString = process.env.POSTGRES_PRISMA_URL!;
-  const pool = new Pool({ connectionString });
-  const adapter = new PrismaNeon(pool);
+  const adapter = new PrismaNeon(connectionString);
   
   prisma = new PrismaClient({
     adapter,

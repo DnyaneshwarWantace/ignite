@@ -549,7 +549,7 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
                     {adDetails.imageUrl && (
                       <img 
                         src={adDetails.imageUrl} 
-                        alt={`hook ${index + 1} image`} 
+                        alt={`Pinned hook ${index + 1} image`} 
                         className="w-12 h-12 rounded object-cover" 
                       />
                     )}
@@ -632,7 +632,7 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
                     {adDetails.imageUrl && (
                       <img 
                         src={adDetails.imageUrl} 
-                        alt={`hook ${index + 1} image`} 
+                        alt={`Hook ${index + 1} image`} 
                         className="w-12 h-12 rounded object-cover" 
                       />
                     )}

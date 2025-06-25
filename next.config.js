@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
   images: {
     remotePatterns: [
       {
@@ -64,38 +63,6 @@ const nextConfig = {
   },
   experimental: {
     serverComponentsExternalPackages: ['vosk-koffi', 'koffi', 'fluent-ffmpeg', 'fs-extra', 'adm-zip']
-  },
-  // Add global runtime configuration
-  serverRuntimeConfig: {
-    // Will only be available on the server side
-    apiHandler: {
-      runtime: 'edge',
-      dynamic: 'force-dynamic'
-    }
-  },
-  // Configure how API routes are handled during build
-  async rewrites() {
-    return {
-      beforeFiles: [
-        {
-          source: '/api/:path*',
-          destination: '/_next/data/api/:path*'
-        }
-      ]
-    };
-  },
-  // Skip API route type checking during build
-  typescript: {
-    ignoreBuildErrors: true
-  },
-  // Ignore ESLint errors during build
-  eslint: {
-    ignoreDuringBuilds: true
-  },
-  // Skip linting during build
-  onDemandEntries: {
-    maxInactiveAge: 25 * 1000,
-    pagesBufferLength: 2
   }
 };
 

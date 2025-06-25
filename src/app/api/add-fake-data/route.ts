@@ -5,13 +5,11 @@ import { User } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@prisma/index";
 
-// Force runtime handling to prevent build-time issues
-export const runtime = 'edge';
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-// Separate the handler logic for better error handling
-async function addFakeBrandsHandler(request: NextRequest, response: NextResponse, user: User) {
-  try {
+export const POST = authMiddleware(
+  async (request: NextRequest, response: NextResponse, user: User) => {
+    // Add 5 fake brands
     const brandNames = [
       {
         name: "Apple",
@@ -40,17 +38,15 @@ async function addFakeBrandsHandler(request: NextRequest, response: NextResponse
       },
     ];
 
-    await Promise.all(
-      brandNames.map((brand) =>
-        prisma.brand.create({
-          data: {
-            name: brand.name,
-            logo: brand.logo,
-            totalAds: brand.totalAds,
-          },
-        })
-      )
-    );
+    brandNames.forEach(async (brand) => {
+      await prisma.brand.create({
+        data: {
+          name: brand.name,
+          logo: brand.logo,
+          totalAds: brand.totalAds,
+        },
+      });
+    });
 
     return createResponse({
       message: messages.SUCCESS,
@@ -58,25 +54,5 @@ async function addFakeBrandsHandler(request: NextRequest, response: NextResponse
         message: "5 fake brands added successfully",
       },
     });
-  } catch (error) {
-    console.error("Error adding fake brands:", error);
-    return createResponse({
-      message: messages.ERROR,
-      payload: {
-        message: "Failed to add fake brands",
-        error: error instanceof Error ? error.message : "Unknown error",
-      },
-      status: 500,
-    });
   }
-}
-
-// Export the POST handler with runtime checks
-export const POST = authMiddleware(async (request: NextRequest, response: NextResponse, user: User) => {
-  // Ensure we're not running during build time
-  if (process.env.NEXT_PHASE === 'build') {
-    return new Response(null, { status: 200 });
-  }
-  
-  return addFakeBrandsHandler(request, response, user);
-});
+);

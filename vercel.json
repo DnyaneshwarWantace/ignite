@@ -15,12 +15,6 @@
       "continue": true
     }
   ],
-  "functions": {
-    "src/app/api/**/*": {
-      "memory": 1024,
-      "maxDuration": 10
-    }
-  },
   "build": {
     "env": {
       "NEXT_PUBLIC_API_URL": "@next_public_api_url"

@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Add output configuration for deployment
-  output: 'standalone',
+  output: process.env.NETLIFY ? undefined : 'standalone',
   
   // Deployment optimizations
   swcMinify: true,

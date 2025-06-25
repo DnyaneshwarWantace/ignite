@@ -5,9 +5,14 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
+[functions]
+  external_node_modules = ["@prisma/client", "prisma"]
+
 [build.environment]
   NODE_VERSION = "18"
   NPM_VERSION = "9"
+  NETLIFY = "true"
+  NEXTAUTH_URL = "https://tubular-tarsier-6ca919.netlify.app"
 
 # Handle client-side routing
 [[redirects]]
@@ -16,22 +21,22 @@
   status = 200
   conditions = {Role = ["admin"]}
 
-# API routes
+# Handle Next.js API routes
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/:splat"
+  to = "/.netlify/functions/___netlify-handler"
   status = 200
 
-# Handle Next.js pages
+# Handle NextAuth specifically
 [[redirects]]
-  from = "/_next/*"
-  to = "/_next/:splat"
+  from = "/api/auth/*"
+  to = "/.netlify/functions/___netlify-handler"
   status = 200
 
-# Fallback for client-side routing
+# Handle all other routes through Next.js
 [[redirects]]
   from = "/*"
-  to = "/index.html"
+  to = "/.netlify/functions/___netlify-handler"
   status = 200
 
 [functions]

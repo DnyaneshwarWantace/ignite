@@ -3,8 +3,6 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-export const dynamic = "force-dynamic";
-
 // GET - Retrieve transcript by ad ID
 export async function GET(
   request: NextRequest,

@@ -3,8 +3,6 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-export const dynamic = "force-dynamic";
-
 // POST - Save transcript to database
 export async function POST(request: NextRequest) {
   try {

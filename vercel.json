@@ -14,10 +14,5 @@
       "dest": "/api/$1",
       "continue": true
     }
-  ],
-  "build": {
-    "env": {
-      "NEXT_PUBLIC_API_URL": "@next_public_api_url"
-    }
-  }
+  ]
 } 

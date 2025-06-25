@@ -5,17 +5,14 @@
 [build.environment]
   NODE_ENV = "production"
 
-# Next.js specific redirects
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
+# Static site configuration for better compatibility
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
 
-[[redirects]]
-  from = "/_next/*"
-  to = "/_next/:splat"
-  status = 200
-
+# Handle client-side routing
 [[redirects]]
   from = "/*"
   to = "/index.html"

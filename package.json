@@ -14,6 +14,7 @@
     "lint": "dotenv -c .env -- prisma db push && next lint",
     "build": "npx prisma generate && next build --no-lint",
     "build:production": "dotenv -c .env.production -- npx prisma generate && next build --no-lint",
+    "postinstall": "npx prisma generate",
     "start": "dotenv -c .env.production -- next start -p 3003",
     "db:production_generate": "dotenv -c .env.production -- prisma generate",
     "db:production_push": "dotenv -c .env.production -- prisma db push",

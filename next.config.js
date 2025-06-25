@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   images: {
     remotePatterns: [
       {
@@ -73,19 +74,15 @@ const nextConfig = {
     }
   },
   // Configure how API routes are handled during build
-  async headers() {
-    return [
-      {
-        // Apply to all API routes
-        source: '/api/:path*',
-        headers: [
-          {
-            key: 'x-custom-header',
-            value: 'api-route'
-          }
-        ]
-      }
-    ];
+  async rewrites() {
+    return {
+      beforeFiles: [
+        {
+          source: '/api/:path*',
+          destination: '/_next/data/api/:path*'
+        }
+      ]
+    };
   },
   // Skip API route type checking during build
   typescript: {

@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@prisma/index";
 
-export const dynamic = "force-dynamic";
+// Force edge runtime to prevent build-time execution
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 
 export async function GET(
   request: NextRequest,

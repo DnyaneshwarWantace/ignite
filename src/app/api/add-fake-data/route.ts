@@ -38,15 +38,18 @@ export const POST = authMiddleware(
       },
     ];
 
-    brandNames.forEach(async (brand) => {
-      await prisma.brand.create({
-        data: {
-          name: brand.name,
-          logo: brand.logo,
-          totalAds: brand.totalAds,
-        },
-      });
-    });
+    // Use Promise.all instead of forEach with async
+    await Promise.all(
+      brandNames.map(async (brand) => {
+        return prisma.brand.create({
+          data: {
+            name: brand.name,
+            logo: brand.logo,
+            totalAds: brand.totalAds,
+          },
+        });
+      })
+    );
 
     return createResponse({
       message: messages.SUCCESS,

@@ -4,7 +4,10 @@
     "@next/next/no-html-link-for-pages": "off",
     "react/no-unescaped-entities": "off",
     "@next/next/no-img-element": "off",
-    "react-hooks/exhaustive-deps": "off"
+    "react-hooks/exhaustive-deps": "off",
+    "import/no-anonymous-default-export": "off",
+    "jsx-a11y/alt-text": "warn",
+    "react-hooks/rules-of-hooks": "error"
   },
   "ignorePatterns": [
     "node_modules/",

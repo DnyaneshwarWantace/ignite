@@ -8,4 +8,6 @@ const post = Joi.object({
   name: Joi.string().required(),
 });
 
-export default { post, get };
+const folderValidation = { post, get };
+
+export default folderValidation;

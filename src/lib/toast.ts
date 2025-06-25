@@ -1,35 +1,29 @@
-import { toast as useToast } from "@/hooks/use-toast";
+import { toast } from 'sonner';
 
-export const toast = {
+export const toastService = {
   success: (message: string) => {
-    useToast({
-      title: "Success",
-      description: message,
+    toast.success(message, {
+      duration: 3000,
     });
   },
   error: (message: string) => {
-    useToast({
-      title: "Error",
-      description: message,
-      variant: "destructive",
+    toast.error(message, {
+      duration: 3000,
     });
   },
   info: (message: string) => {
-    useToast({
-      title: "Info",
-      description: message,
+    toast.info(message, {
+      duration: 3000,
     });
   },
   warning: (message: string) => {
-    useToast({
-      title: "Warning",
-      description: message,
-      variant: "destructive",
+    toast.warning(message, {
+      duration: 3000,
     });
   },
 };
 
 export const showToast = (message: string, options?: { variant?: 'success' | 'error' | 'info' | 'warning' }) => {
   const variant = options?.variant || 'info';
-  toast[variant](message);
+  toastService[variant](message);
 }; 

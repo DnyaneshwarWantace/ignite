@@ -4,6 +4,13 @@
   "buildCommand": "npm run vercel-build",
   "installCommand": "npm install",
   "env": {
-    "PRISMA_GENERATE_DATAPROXY": "true"
+    "PRISMA_GENERATE_DATAPROXY": "true",
+    "NODE_ENV": "production",
+    "NEXT_TELEMETRY_DISABLED": "1"
+  },
+  "functions": {
+    "api/**/*": {
+      "memory": 1024
+    }
   }
 } 

@@ -4,29 +4,12 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ErrorBoundary } from "@/components/wrappers/error-boundary";
 import { useCreateFolderMutation, useDeleteFolderMutation, useEditFolderMutation, useFetchAllFoldersQuery } from "@/store/slices/xray";
-import { createContext, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Pencil, Trash2, X, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-
-type FolderContextProps = {
-  handleCreateFolder: (name: string) => void;
-  handleEditFolder: ({ name, id }: { name: string; id: string }) => void;
-  handleDeleteFolder: (id: string) => void;
-  handleOpenModal: () => void;
-  handleCloseModal: () => void;
-  modal: boolean;
-};
-
-export const FolderContext = createContext<FolderContextProps>({
-  handleCreateFolder: () => {},
-  handleEditFolder: () => {},
-  handleDeleteFolder: () => {},
-  handleOpenModal: () => {},
-  handleCloseModal: () => {},
-  modal: false,
-});
+import { FolderContext } from "@/contexts/FolderContext";
 
 export default function DashboardLayout({
   children,

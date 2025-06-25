@@ -24,7 +24,7 @@ import { AlarmCheck, ArrowUpRight, Facebook, FacebookIcon, Link, Plus, Scan, Sea
 import { useRouter } from "next/navigation";
 import { useContext, useState } from "react";
 import { motion } from "framer-motion";
-import { FolderContext } from "../layout";
+import { FolderContext } from "@/contexts/FolderContext";
 
 export default function XRayPage() {
   const { data: brands, error: brandsError, isLoading: isBrandsLoading } = useFetchAllBrandsQuery();

@@ -14,7 +14,7 @@ import { useFetchAllFoldersQuery } from "@/store/slices/xray";
 import { Folder as FolderType } from "@prisma/client";
 import { Typography } from "../ui/typography";
 import { useContext } from "react";
-import { FolderContext } from "@/app/api/(main)/layout";
+import { FolderContext } from "@/contexts/FolderContext";
 import { IconButton } from "@radix-ui/themes";
 import { Skeleton } from "../ui/skeleton";
 

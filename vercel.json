@@ -8,6 +8,7 @@
     "NEXTAUTH_URL": "https://ignite-mqao2qcbq-dnyaneshwar-s-projects-b1f40a2a.vercel.app",
     "AUTH_GOOGLE_ID": "@auth_google_id",
     "AUTH_GOOGLE_SECRET": "@auth_google_secret",
-    "NEXTAUTH_SECRET": "@nextauth_secret"
+    "NEXTAUTH_SECRET": "@nextauth_secret",
+    "NEXT_PUBLIC_BACKEND_URL": "https://ignite-mqao2qcbq-dnyaneshwar-s-projects-b1f40a2a.vercel.app/api/v1"
   }
 } 

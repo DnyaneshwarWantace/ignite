@@ -101,16 +101,27 @@ export default function DiscoverPage() {
 
   // Stream ads individually (like Foreplay)
   const streamAdsIndividually = useCallback((newAds: any[]) => {
+    if (newAds.length === 0) {
+      setIsStreamingMore(false);
+      return;
+    }
+
     // Add ads to queue
     streamingQueue.current = [...streamingQueue.current, ...newAds];
     
     // Start streaming if not already streaming
-    if (!streamingTimer.current && streamingQueue.current.length > 0) {
+    if (!streamingTimer.current) {
+      setIsStreamingMore(true);
+    }
+  }, []);
+
+  // Handle the actual streaming in a separate effect
+  useEffect(() => {
+    if (streamingQueue.current.length > 0 && !streamingTimer.current) {
       const streamNext = () => {
         if (streamingQueue.current.length > 0) {
           const nextAd = streamingQueue.current.shift();
           
-          // Check for duplicates before adding
           setAllAds(prev => {
             const existingIds = new Set(prev.map(ad => ad.id));
             if (!existingIds.has(nextAd!.id)) {
@@ -130,7 +141,15 @@ export default function DiscoverPage() {
       
       streamNext();
     }
-  }, []);
+
+    // Cleanup
+    return () => {
+      if (streamingTimer.current) {
+        clearTimeout(streamingTimer.current);
+        streamingTimer.current = null;
+      }
+    };
+  }, [streamingQueue.current.length]);
 
   // Initialize first page
   useEffect(() => {
@@ -140,8 +159,10 @@ export default function DiscoverPage() {
         hasMore: firstPageData.pagination?.hasMore
       });
       
-      // Stream initial ads
+      // Queue initial ads for streaming
       streamAdsIndividually(firstPageData.ads);
+      
+      // Update pagination state
       setNextCursor(firstPageData.pagination?.nextCursor || null);
       setHasMore(firstPageData.pagination?.hasMore || false);
       setIsInitialLoading(false);

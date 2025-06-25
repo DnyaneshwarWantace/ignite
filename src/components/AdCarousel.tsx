@@ -78,7 +78,7 @@ export default function AdCarousel({ images, alt, className = "", onImageLoad }:
             <img
               key={`preload-${index}`}
               src={src}
-              alt={`Preloading ${alt} - ${index + 1} of ${images.length}`}
+              alt=""
               className="absolute opacity-0 pointer-events-none w-1 h-1"
               onLoad={() => handleImageLoad(index)}
               onError={() => {}}

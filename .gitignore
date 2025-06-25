@@ -42,3 +42,6 @@ next-env.d.ts
 /vosk-models/
 *.wav
 *.mp4
+
+# Local Netlify folder
+.netlify

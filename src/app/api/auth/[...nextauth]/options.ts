@@ -6,6 +6,7 @@ import Credentials from "next-auth/providers/credentials";
 
 // Ensure we're using the correct URL in production
 const productionUrl = 'https://ignite-zvt9.onrender.com';
+const NEXTAUTH_URL = process.env.NEXTAUTH_URL || productionUrl;
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -96,22 +97,27 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
 
     async redirect({ url, baseUrl }) {
-      // Force the base URL to be the Render URL in production
-      const productionBaseUrl = process.env.NODE_ENV === 'production' ? productionUrl : baseUrl;
+      // Always use NEXTAUTH_URL in production
+      const effectiveBaseUrl = process.env.NODE_ENV === 'production' ? NEXTAUTH_URL : baseUrl;
       
       // Handle relative URLs
       if (url.startsWith("/")) {
-        return `${productionBaseUrl}${url}`;
+        return `${effectiveBaseUrl}${url}`;
       }
       
-      // Handle absolute URLs on the same origin
-      const urlObject = new URL(url);
-      if (urlObject.origin === productionBaseUrl) {
-        return url;
+      // Handle absolute URLs
+      try {
+        const urlObject = new URL(url);
+        // If the URL is for our site, allow it
+        if (urlObject.origin === effectiveBaseUrl) {
+          return url;
+        }
+      } catch (e) {
+        console.error('Invalid URL:', url);
       }
       
-      // Default to the production URL
-      return productionBaseUrl;
+      // Default to the base URL
+      return effectiveBaseUrl;
     }
   },
   debug: process.env.NODE_ENV === "development",

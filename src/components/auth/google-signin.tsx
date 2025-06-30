@@ -3,13 +3,9 @@ import { Button } from "@/components/ui/button";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 
-// Production URL for Render
-const PRODUCTION_URL = 'https://ignite-zvt9.onrender.com';
-
 export default function GoogleBtn() {
   const searchParams = useSearchParams();
-  const defaultCallback = process.env.NODE_ENV === 'production' ? `${PRODUCTION_URL}/x-ray` : '/x-ray';
-  const callbackUrl = searchParams.get("callbackUrl") || defaultCallback;
+  const callbackUrl = searchParams.get("callbackUrl") || '/x-ray';
 
   const handleGoogleSignIn = async () => {
     try {

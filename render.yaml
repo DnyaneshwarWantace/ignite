@@ -3,10 +3,13 @@ services:
     name: ignite
     runtime: node
     buildCommand: npm run build
-    startCommand: npm start
+    startCommand: node start-render.js
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 3000
     autoDeploy: true
     branch: ignite-main
-    plan: starter 
+    plan: starter
+    healthCheckPath: / 

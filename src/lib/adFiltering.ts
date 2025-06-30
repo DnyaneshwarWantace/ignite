@@ -112,7 +112,7 @@ export const getAdPlatform = (ad: any): string[] => {
       // Fallback: Check publisherPlatform (camelCase format - just in case)
       if (platforms.length === 0 && content.publisherPlatform && Array.isArray(content.publisherPlatform)) {
         content.publisherPlatform.forEach((platform: string) => {
-          const p = platform.toLowerCase();
+        const p = platform.toLowerCase();
           if (p === 'facebook') platforms.push('Facebook');
           else if (p === 'instagram') platforms.push('Instagram');
           else if (p === 'audience_network') platforms.push('Audience Network');
@@ -120,8 +120,8 @@ export const getAdPlatform = (ad: any): string[] => {
           else if (p === 'tiktok') platforms.push('TikTok Organic');
           else if (p === 'youtube') platforms.push('Youtube');
           else if (p === 'linkedin') platforms.push('LinkedIn');
-          else platforms.push(platform); // Keep original if no match
-        });
+        else platforms.push(platform); // Keep original if no match
+      });
       }
     } catch (e) {
       // Ignore parsing errors

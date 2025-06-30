@@ -17,7 +17,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         params: {
           prompt: "select_account",
           access_type: "offline",
-          response_type: "code"
+          response_type: "code",
+          redirect_uri: `${NEXTAUTH_URL}/api/auth/callback/google`
         }
       }
     }),

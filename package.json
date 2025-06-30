@@ -107,7 +107,6 @@
   "devDependencies": {
     "@babel/preset-env": "^7.27.2",
     "@babel/register": "^7.27.1",
-    "@netlify/plugin-nextjs": "^5.11.3",
     "@prisma/client": "^5.19.1",
     "@types/adm-zip": "^0.5.7",
     "@types/fluent-ffmpeg": "^2.1.27",

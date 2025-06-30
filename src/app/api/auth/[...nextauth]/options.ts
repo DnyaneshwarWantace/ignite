@@ -4,11 +4,21 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import prisma from "@prisma/index";
 import Credentials from "next-auth/providers/credentials";
 
+// Ensure we're using the correct URL in production
+const productionUrl = 'https://ignite-zvt9.onrender.com';
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     GoogleProvider({
       clientId: process.env.AUTH_GOOGLE_ID as string,
       clientSecret: process.env.AUTH_GOOGLE_SECRET as string,
+      authorization: {
+        params: {
+          prompt: "select_account",
+          access_type: "offline",
+          response_type: "code"
+        }
+      }
     }),
     Credentials({
       credentials: {
@@ -86,12 +96,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
 
     async redirect({ url, baseUrl }) {
-      // Allows relative callback URLs
-      if (url.startsWith("/")) return `${baseUrl}${url}`
-      // Allows callback URLs on the same origin
-      else if (new URL(url).origin === baseUrl) return url
-      // Redirect to homepage if URL is not allowed
-      return baseUrl
+      // Force the base URL to be the Render URL in production
+      const productionBaseUrl = process.env.NODE_ENV === 'production' ? productionUrl : baseUrl;
+      
+      // Handle relative URLs
+      if (url.startsWith("/")) {
+        return `${productionBaseUrl}${url}`;
+      }
+      
+      // Handle absolute URLs on the same origin
+      const urlObject = new URL(url);
+      if (urlObject.origin === productionBaseUrl) {
+        return url;
+      }
+      
+      // Default to the production URL
+      return productionBaseUrl;
     }
   },
   debug: process.env.NODE_ENV === "development",

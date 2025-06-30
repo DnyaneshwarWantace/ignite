@@ -3,15 +3,18 @@ const { parse } = require('url')
 const next = require('next')
 
 const dev = process.env.NODE_ENV !== 'production'
-const hostname = '0.0.0.0'
-const port = process.env.PORT || 3000
+const hostname = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost'
+const port = parseInt(process.env.PORT || '3000', 10)
+
+console.log(`Starting server in ${dev ? 'development' : 'production'} mode`)
+console.log(`Binding to ${hostname}:${port}`)
 
 // When using middleware `hostname` and `port` must be provided below
 const app = next({ dev, hostname, port })
 const handle = app.getRequestHandler()
 
 app.prepare().then(() => {
-  createServer(async (req, res) => {
+  const server = createServer(async (req, res) => {
     try {
       // Be sure to pass `true` as the second argument to `url.parse`.
       // This tells it to parse the query portion of the URL.
@@ -23,11 +26,14 @@ app.prepare().then(() => {
       res.end('internal server error')
     }
   })
-    .once('error', (err) => {
-      console.error(err)
-      process.exit(1)
-    })
-    .listen(port, () => {
-      console.log(`> Ready on http://${hostname}:${port}`)
-    })
+
+  server.once('error', (err) => {
+    console.error('Server error:', err)
+    process.exit(1)
+  })
+
+  server.listen(port, hostname, () => {
+    console.log(`> Ready on http://${hostname}:${port}`)
+    console.log(`> Environment: ${process.env.NODE_ENV || 'development'}`)
+  })
 }) 

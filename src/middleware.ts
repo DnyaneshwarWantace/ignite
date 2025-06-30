@@ -1,22 +1,56 @@
-import { auth } from "@/app/api/auth/[...nextauth]/options";
-import { DEFAULT_REDIRECT, PUBLIC_ROUTES, ROOT } from "@/lib/routes";
+import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-export default auth((req) => {
-  const { nextUrl, headers } = req;
+const PUBLIC_ROUTES = ["/login", "/auth/register", "/api/auth"];
+const DEFAULT_REDIRECT = "/x-ray";
+const ROOT = "/login";
 
-  const isAuthenticated = !!req.auth;
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
 
-  const isPublicRoute = PUBLIC_ROUTES.includes(nextUrl.pathname);
+  // Check if it's a public route
+  const isPublicRoute = PUBLIC_ROUTES.some(route => 
+    pathname.startsWith(route)
+  );
 
-  if (isPublicRoute && isAuthenticated)
-    return Response.redirect(new URL(DEFAULT_REDIRECT, nextUrl));
+  // Skip middleware for static files and API routes (except auth)
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api") ||
+    pathname.includes(".") ||
+    pathname.startsWith("/favicon")
+  ) {
+    return NextResponse.next();
+  }
 
-  if (!isAuthenticated && !isPublicRoute)
-    return Response.redirect(new URL(ROOT, nextUrl));
-});
+  try {
+    // Get the token using next-auth/jwt
+    const token = await getToken({ 
+      req: request, 
+      secret: process.env.NEXTAUTH_SECRET || "fallback-secret"
+    });
+
+    const isAuthenticated = !!token;
+
+    // Redirect authenticated users away from public routes
+    if (isPublicRoute && isAuthenticated) {
+      return NextResponse.redirect(new URL(DEFAULT_REDIRECT, request.url));
+    }
+
+    // Redirect unauthenticated users to login
+    if (!isAuthenticated && !isPublicRoute) {
+      return NextResponse.redirect(new URL(ROOT, request.url));
+    }
+
+    return NextResponse.next();
+  } catch (error) {
+    console.error("Middleware error:", error);
+    // On error, allow the request to continue
+    return NextResponse.next();
+  }
+}
 
 export const config = {
-  // Matcher to include all routes except necessary Next.js system paths
   matcher: [
     "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.png|.*\\.jpg|.*\\.jpeg|.*\\.svg).*)",
   ],

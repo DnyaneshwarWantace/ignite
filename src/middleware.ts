@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { jwtVerify } from "jose";
 
 const PUBLIC_ROUTES = ["/login", "/auth/register", "/api/auth"];
 const DEFAULT_REDIRECT = "/x-ray";
@@ -24,13 +24,25 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    // Get the token using next-auth/jwt
-    const token = await getToken({ 
-      req: request, 
-      secret: process.env.NEXTAUTH_SECRET || "fallback-secret"
-    });
-
-    const isAuthenticated = !!token;
+    // Get the session token from the cookies
+    const sessionToken = request.cookies.get("next-auth.session-token")?.value;
+    
+    let isAuthenticated = false;
+    
+    if (sessionToken) {
+      try {
+        // Verify the JWT token
+        const secret = new TextEncoder().encode(
+          process.env.NEXTAUTH_SECRET || "fallback-secret"
+        );
+        
+        await jwtVerify(sessionToken, secret);
+        isAuthenticated = true;
+      } catch (e) {
+        // Token verification failed
+        isAuthenticated = false;
+      }
+    }
 
     // Redirect authenticated users away from public routes
     if (isPublicRoute && isAuthenticated) {

@@ -1,69 +1,55 @@
-import { NextRequest, NextResponse } from "next/server";
-import { jwtVerify } from "jose";
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
-const PUBLIC_ROUTES = ["/login", "/auth/register", "/api/auth"];
-const DEFAULT_REDIRECT = "/x-ray";
-const ROOT = "/login";
+// Define routes that don't require authentication
+const PUBLIC_FILE = /\.(.*)$/
+const PUBLIC_ROUTES = ['/login', '/auth/register', '/api/auth']
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
 
-  // Check if it's a public route
-  const isPublicRoute = PUBLIC_ROUTES.some(route => 
-    pathname.startsWith(route)
-  );
-
-  // Skip middleware for static files and API routes (except auth)
+  // Allow public files and API routes
   if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
-    pathname.includes(".") ||
-    pathname.startsWith("/favicon")
+    PUBLIC_FILE.test(pathname) ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/api/') ||
+    pathname.startsWith('/static/')
   ) {
-    return NextResponse.next();
+    return NextResponse.next()
   }
 
-  try {
-    // Get the session token from the cookies
-    const sessionToken = request.cookies.get("next-auth.session-token")?.value;
-    
-    let isAuthenticated = false;
-    
-    if (sessionToken) {
-      try {
-        // Verify the JWT token
-        const secret = new TextEncoder().encode(
-          process.env.NEXTAUTH_SECRET || "fallback-secret"
-        );
-        
-        await jwtVerify(sessionToken, secret);
-        isAuthenticated = true;
-      } catch (e) {
-        // Token verification failed
-        isAuthenticated = false;
-      }
-    }
+  // Check if the route is public
+  const isPublicRoute = PUBLIC_ROUTES.some(path => pathname.startsWith(path))
 
-    // Redirect authenticated users away from public routes
-    if (isPublicRoute && isAuthenticated) {
-      return NextResponse.redirect(new URL(DEFAULT_REDIRECT, request.url));
-    }
+  // Get session token
+  const token = request.cookies.get('next-auth.session-token')
 
-    // Redirect unauthenticated users to login
-    if (!isAuthenticated && !isPublicRoute) {
-      return NextResponse.redirect(new URL(ROOT, request.url));
-    }
-
-    return NextResponse.next();
-  } catch (error) {
-    console.error("Middleware error:", error);
-    // On error, allow the request to continue
-    return NextResponse.next();
+  // Redirect logic
+  if (!token && !isPublicRoute) {
+    // Redirect to login if no token and trying to access protected route
+    const url = new URL('/login', request.url)
+    return NextResponse.redirect(url)
   }
+
+  if (token && isPublicRoute) {
+    // Redirect to dashboard if has token and trying to access public route
+    const url = new URL('/x-ray', request.url)
+    return NextResponse.redirect(url)
+  }
+
+  return NextResponse.next()
 }
 
+// Configure which routes should run the middleware
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.png|.*\\.jpg|.*\\.jpeg|.*\\.svg).*)",
+    /*
+     * Match all paths except:
+     * 1. /api/ (API routes)
+     * 2. /_next/ (Next.js internals)
+     * 3. /static (public files)
+     * 4. all files in the public folder
+     */
+    '/((?!api/|_next/|static/|favicon.ico|robots.txt|sitemap.xml).*)',
   ],
-};
+}

@@ -84,6 +84,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       return token;
     },
+
+    async redirect({ url, baseUrl }) {
+      // Allows relative callback URLs
+      if (url.startsWith("/")) return `${baseUrl}${url}`
+      // Allows callback URLs on the same origin
+      else if (new URL(url).origin === baseUrl) return url
+      // Redirect to homepage if URL is not allowed
+      return baseUrl
+    }
   },
   debug: process.env.NODE_ENV === "development",
   adapter: PrismaAdapter(prisma),

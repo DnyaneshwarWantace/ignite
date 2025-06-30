@@ -1,15 +1,28 @@
 "use client";
+import { Button } from "@/components/ui/button";
 import { signIn } from "next-auth/react";
-import { Button } from "../ui/button";
+import { useSearchParams } from "next/navigation";
 
 export default function GoogleBtn() {
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/x-ray";
+
+  const handleGoogleSignIn = async () => {
+    try {
+      await signIn("google", {
+        callbackUrl: callbackUrl,
+      });
+    } catch (error) {
+      console.error("Google sign in error:", error);
+    }
+  };
+
   return (
     <Button
-      onClick={() => {
-        signIn("google", { redirectTo: "/x-ray" });
-      }}
       variant="outline"
+      type="button"
       className="w-full"
+      onClick={handleGoogleSignIn}
     >
       <svg
         className="mr-2 h-4 w-4"
@@ -34,7 +47,7 @@ export default function GoogleBtn() {
         />
         <path d="M1 1h22v22H1z" fill="none" />
       </svg>
-      Sign in with Google
+      Continue with Google
     </Button>
   );
 }

@@ -9,6 +9,14 @@ services:
         value: production
       - key: PORT
         value: 3000
+      - key: NEXTAUTH_URL
+        value: https://ignite-zvt9.onrender.com
+      - key: NEXTAUTH_SECRET
+        generateValue: true
+      - key: AUTH_GOOGLE_ID
+        sync: false
+      - key: AUTH_GOOGLE_SECRET
+        sync: false
     autoDeploy: true
     branch: ignite-main
     plan: starter

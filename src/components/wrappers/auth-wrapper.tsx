@@ -1,51 +1,45 @@
 'use client'
 
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useEffect } from 'react'
 
 interface AuthWrapperProps {
   children: React.ReactNode
-  requireAuth?: boolean
-  redirectTo?: string
+  requireAuth: boolean
 }
 
-export function AuthWrapper({ 
-  children, 
-  requireAuth = true, 
-  redirectTo = '/login' 
-}: AuthWrapperProps) {
+export function AuthWrapper({ children, requireAuth }: AuthWrapperProps) {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
     if (status === 'loading') return // Still loading
 
     if (requireAuth && !session) {
-      // Redirect to login if authentication is required but user is not logged in
-      router.push(redirectTo)
-      return
-    }
-
-    if (!requireAuth && session) {
-      // Redirect to dashboard if user is logged in but trying to access public routes
+      // Redirect to login with callback URL
+      router.push(`/login?callbackUrl=${encodeURIComponent(pathname)}`)
+    } else if (!requireAuth && session) {
+      // Redirect authenticated users away from login
       router.push('/x-ray')
-      return
     }
-  }, [session, status, requireAuth, redirectTo, router])
+  }, [session, status, requireAuth, router, pathname])
 
   // Show loading state while checking authentication
   if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-primary"></div>
       </div>
     )
   }
 
-  // Don't render children if redirecting
-  if (requireAuth && !session) return null
-  if (!requireAuth && session) return null
+  // Show children only if authentication requirements are met
+  if ((requireAuth && session) || (!requireAuth && !session)) {
+    return <>{children}</>
+  }
 
-  return <>{children}</>
+  // Return null while redirecting
+  return null
 } 

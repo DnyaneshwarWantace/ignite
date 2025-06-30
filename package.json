@@ -13,6 +13,7 @@
     "devstart": "dotenv -c .env -- prisma db push && next start",
     "lint": "next lint",
     "build": "prisma generate && next build",
+    "build:render": "NODE_ENV=production prisma generate && NODE_ENV=production next build",
     "start": "node start-render.js",
     "start:dev": "node server.js",
     "start:render": "next start -H 0.0.0.0 -p $PORT",

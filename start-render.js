@@ -1,3 +1,6 @@
+// Set NODE_ENV to production explicitly for Render
+process.env.NODE_ENV = 'production'
+
 const { createServer } = require('http')
 const { parse } = require('url')
 const next = require('next')

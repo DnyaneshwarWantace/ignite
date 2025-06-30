@@ -24,9 +24,6 @@
       "@/app": ["./src/app"],
       "@/auth": ["./auth"],
       "@/lib": ["./src/lib"],
-      "@/rootlib/*": ["./lib/*"],
-      "@/scripts/*": ["./scripts/*"],
-      "@/contexts/*": ["./src/contexts/*"],
       "@apiUtils/*": ["./src/apiUtils/*"],
       "@middleware": ["./src/app/api/v1/middleware.ts"]
     }

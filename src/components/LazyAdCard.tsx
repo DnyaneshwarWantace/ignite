@@ -275,42 +275,38 @@ export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActio
             startDate = new Date(possibleDate);
           }
           
-          // Validate the date
-          const facebookFoundingDate = new Date('2004-01-01').getTime();
-          const now = new Date();
-          
-          if (startDate.getTime() > facebookFoundingDate && startDate.getTime() <= now.getTime()) {
-            // If ad is inactive and we have an end date, calculate total run time
-            if (!adStatus.isActive && adStatus.endDate) {
-              const endDate = new Date(typeof adStatus.endDate === 'number' ? adStatus.endDate * 1000 : adStatus.endDate);
+          // If ad is inactive, use the last_active_date or inactive_since date
+          if (!adStatus.isActive) {
+            const inactiveDate = contentObj.last_active_date || 
+                               contentObj.inactive_since || 
+                               contentObj.snapshot?.last_active_date || 
+                               contentObj.snapshot?.inactive_since;
+            
+            if (inactiveDate) {
+              const endDate = new Date(inactiveDate);
               const diffTime = endDate.getTime() - startDate.getTime();
-              const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-              return `${diffDays}D`;
-            } else {
-              // For active ads or inactive ads without end date, show time since start
-              const diffTime = now.getTime() - startDate.getTime();
               const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
               return `${diffDays}D`;
             }
           }
+          
+          // For active ads or if no inactive date found
+          const now = new Date();
+          const diffTime = now.getTime() - startDate.getTime();
+          const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+          return `${diffDays}D`;
         }
       } catch (e) {
         console.error('Error calculating days running:', e);
       }
     }
     
-    // Fallback to using createdAt if content parsing fails
+    // Fallback to using createdAt
     const now = new Date();
     const created = new Date(createdAt);
-    
-    // Ensure the date is valid and not in the future
-    if (created.getTime() <= now.getTime()) {
-      const diffTime = now.getTime() - created.getTime();
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      return `${diffDays}D`;
-    }
-    
-    return '0D'; // Default if no valid date found
+    const diffTime = now.getTime() - created.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return `${diffDays}D`;
   };
 
   const cleanText = (text: string) => {

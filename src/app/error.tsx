@@ -12,27 +12,27 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
   }, [error]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="max-w-md w-full">
-        <div className="text-center space-y-6">
+    <div className="min-h-screen w-full flex items-center justify-center bg-background">
+      <div className="w-full max-w-md mx-auto px-4">
+        <div className="flex flex-col items-center justify-center text-center space-y-6">
           <div className="flex justify-center">
             <AlertCircle className="h-16 w-16 text-red-500" />
           </div>
           
-          <div className="space-y-2">
-            <Typography variant="h1" className="text-3xl font-bold text-foreground sm:text-4xl">
+          <div className="space-y-2 w-full text-center">
+            <Typography variant="h1" className="text-3xl font-bold text-foreground sm:text-4xl text-center">
               Something went wrong!
             </Typography>
-            <Typography variant="p" className="text-muted-foreground">
+            <Typography variant="p" className="text-muted-foreground text-center">
               An unexpected error occurred. Please try again or go back to the homepage.
             </Typography>
           </div>
 
-          <div className="flex flex-col sm:flex-row justify-center gap-3 pt-4">
+          <div className="flex flex-col sm:flex-row justify-center items-center gap-3 pt-4 w-full">
             <Button 
               onClick={() => reset()} 
               variant="default"
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 w-full sm:w-auto justify-center"
             >
               <RotateCcw className="h-4 w-4" />
               Try Again
@@ -40,7 +40,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
             <Button 
               onClick={() => (window.location.href = "/")} 
               variant="outline"
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 w-full sm:w-auto justify-center"
             >
               <Home className="h-4 w-4" />
               Go Home
@@ -48,8 +48,8 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
           </div>
           
           {error.digest && (
-            <div className="pt-4 border-t border-border">
-              <Typography variant="p" className="text-sm text-muted-foreground">
+            <div className="pt-4 border-t border-border w-full text-center">
+              <Typography variant="p" className="text-sm text-muted-foreground text-center">
                 Error ID: {error.digest}
               </Typography>
             </div>

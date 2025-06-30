@@ -315,29 +315,94 @@ export default function AdCard({
 
   // Helper function to extract ad details for the modal
   const getAdDetailsForModal = () => {
-    // Determine format
-    let format: "Video" | "Image" | "Carousel" = "Image";
+    // Determine format from content or props
+    let format: "Video" | "Image" | "Carousel" = "Image"; // Default
+    if (content) {
+      try {
+        const contentObj = typeof content === 'string' ? JSON.parse(content) : content;
+        const displayFormat = contentObj.snapshot?.display_format;
+        if (displayFormat) {
+          const formatLower = displayFormat.toLowerCase();
+          if (formatLower === 'video') {
+            format = "Video";
+          } else if (formatLower === 'dco') {
+            format = "Carousel"; // DCO = Dynamic Creative Optimization (Carousel)
+          } else if (formatLower === 'carousel') {
+            format = "Carousel";
+          } else if (formatLower === 'image') {
+            format = "Image";
+          }
+        } else {
+          // Fallback to prop-based detection
+          if (isVideo) {
+            format = "Video";
+          }
+        }
+      } catch (e) {
+        // Fallback to prop-based detection
+        if (isVideo) {
+          format = "Video";
+        }
+      }
+    } else {
+      // Fallback to prop-based detection
     if (isVideo) {
       format = "Video";
+      }
     }
 
     // Extract niche/category from description or use default
     const niche = "Service Business"; // You can make this dynamic based on actual data
 
-    // Extract platforms from URL or use defaults
-    const platforms = ["Facebook", "Instagram"]; // You can make this dynamic
+    // Extract platforms from ad content
+    let platforms = ["Facebook"]; // Default fallback
+    if (content) {
+      try {
+        const contentObj = typeof content === 'string' ? JSON.parse(content) : content;
+        if (contentObj.publisher_platform && Array.isArray(contentObj.publisher_platform)) {
+          platforms = contentObj.publisher_platform.map((platform: string) => {
+            const p = platform.toLowerCase();
+            if (p === 'facebook') return 'Facebook';
+            else if (p === 'instagram') return 'Instagram';
+            else if (p === 'audience_network') return 'Audience Network';
+            else if (p === 'messenger') return 'Messenger';
+            else if (p === 'tiktok') return 'TikTok';
+            else if (p === 'youtube') return 'YouTube';
+            else if (p === 'linkedin') return 'LinkedIn';
+            else return platform; // Keep original if no match
+          });
+        }
+      } catch (e) {
+        console.error('Error parsing platforms from ad content:', e);
+      }
+    }
 
-    // Determine status (you can make this dynamic based on actual data)
-    const status: "Still Running" | "Stopped" | "Scheduled" = "Still Running";
+    // Determine status from ad content or prop
+    let status: "Still Running" | "Stopped" | "Scheduled" = "Still Running"; // Default
+    if (content) {
+      try {
+        const contentObj = typeof content === 'string' ? JSON.parse(content) : content;
+        if (contentObj.hasOwnProperty('is_active')) {
+          status = contentObj.is_active ? "Still Running" : "Stopped";
+        } else if (contentObj.hasOwnProperty('isActive')) {
+          status = contentObj.isActive ? "Still Running" : "Stopped";
+        } else {
+          // Fallback to prop
+          status = isActive ? "Still Running" : "Stopped";
+        }
+      } catch (e) {
+        // Fallback to prop if parsing fails
+        status = isActive ? "Still Running" : "Stopped";
+      }
+    } else {
+      status = isActive ? "Still Running" : "Stopped";
+    }
 
-    // Calculate start date (you can make this dynamic based on actual data)
-    // Calculate start date from content with validation
+    // Calculate start date from content
     let startDate = "Unknown";
     if (content) {
       try {
         const contentObj = typeof content === 'string' ? JSON.parse(content) : content;
-        
-        // Try different possible date fields
         const possibleDate = contentObj.startDateString || 
                            contentObj.start_date || 
                            contentObj.start_date_string ||
@@ -348,34 +413,43 @@ export default function AdCard({
                            contentObj.snapshot?.created_time;
         
         if (possibleDate) {
-          const dateObj = new Date(possibleDate);
-          const timestamp = dateObj.getTime();
+          let date: Date;
           
-          // Validate date is after Facebook's founding (2004) and not in the future
-          const facebookFoundingDate = new Date('2004-01-01').getTime();
+          // Handle Unix timestamp (in seconds)
+          if (typeof possibleDate === 'number') {
+            // Convert seconds to milliseconds if it's a Unix timestamp
+            date = new Date(possibleDate * 1000);
+          } else {
+            date = new Date(possibleDate);
+          }
+
+          // Validate the date is reasonable (after 2020 and not in future)
+          const minDate = new Date('2020-01-01').getTime();
           const now = new Date().getTime();
           
-          if (timestamp > facebookFoundingDate && timestamp <= now) {
-            // Format the date as "MMM DD, YYYY"
-            startDate = dateObj.toLocaleDateString('en-US', {
+          if (date.getTime() > minDate && date.getTime() <= now) {
+            startDate = date.toLocaleDateString('en-US', { 
               month: 'short',
               day: 'numeric',
               year: 'numeric'
             });
-          } else if (typeof possibleDate === 'number' && possibleDate > 1000000000) {
-            // Handle Unix timestamp (convert from seconds to milliseconds)
-            const dateFromTimestamp = new Date(possibleDate * 1000);
-            if (dateFromTimestamp.getTime() > facebookFoundingDate && dateFromTimestamp.getTime() <= now) {
-              startDate = dateFromTimestamp.toLocaleDateString('en-US', {
+          } else {
+            // If date is invalid, try to get it from createdAt field
+            const createdAt = contentObj.createdAt || contentObj.created_at || contentObj.created_time;
+            if (createdAt) {
+              date = new Date(createdAt);
+              if (date.getTime() > minDate && date.getTime() <= now) {
+                startDate = date.toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
                 year: 'numeric'
               });
+              }
             }
           }
         }
       } catch (e) {
-        console.error('Error parsing ad content for start date:', e);
+        console.error('Error parsing content for start date:', e);
       }
     }
 
@@ -593,7 +667,7 @@ export default function AdCard({
                   : 'bg-red-100 border-red-300 text-red-700'
               }`}
             >
-              <Clock className="w-3 h-3 mr-1" />
+              <Clock className={`w-3 h-3 mr-1 ${isActive ? 'text-green-700' : 'text-red-700'}`} />
               {timePosted}
               <span className={`ml-1 w-2 h-2 rounded-full inline-block ${
                 isActive ? 'bg-green-500' : 'bg-red-500'

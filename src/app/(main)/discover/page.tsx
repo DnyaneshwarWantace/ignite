@@ -58,15 +58,15 @@ export default function DiscoverPage() {
   const searchParams = useSearchParams();
   const adIdFromUrl = searchParams.get('adId');
   
-  const [filters, updateFilters] = useState<any>({
-    format: [],
-    platform: [],
-    status: [],
-    language: [],
-    niche: [],
+  const [filters, updateFilters] = useState<FilterState>({
+    format: [] as string[],
+    platform: [] as string[],
+    status: [] as string[],
+    language: [] as string[],
+    niche: [] as string[],
     date: null,
     search: "",
-    sort: null,
+    sort: null
   });
 
   // Individual ad streaming state
@@ -85,7 +85,7 @@ export default function DiscoverPage() {
   const apiSearchTerm = searchTerm.length >= 3 ? searchTerm : '';
 
   // Initial load
-  const initialLimit = useMemo(() => getInitialLoadCount(), []);
+  const initialLimit = useMemo(() => 1000, []); // Load up to 1000 ads to show all matching results
   
   const { data: firstPageData, isLoading: firstPageLoading, error } = useFetchDiscoverAdsQuery({
     search: apiSearchTerm || undefined,
@@ -99,51 +99,46 @@ export default function DiscoverPage() {
     skip: isShortSearch
   });
 
-  // Stream ads individually (like Foreplay)
+  // Stream ads individually for smooth loading
   const streamAdsIndividually = useCallback((newAds: any[]) => {
-    if (newAds.length === 0) {
-      setIsStreamingMore(false);
-      return;
-    }
-
-    // Add ads to queue
-    streamingQueue.current = [...streamingQueue.current, ...newAds];
+    if (!newAds?.length) return;
     
-    // Start streaming if not already streaming
-    if (!streamingTimer.current) {
-      setIsStreamingMore(true);
-    }
+    // Add new ads to the queue
+    streamingQueue.current = [...streamingQueue.current, ...newAds];
+    setIsStreamingMore(true);
   }, []);
 
   // Handle the actual streaming in a separate effect
   useEffect(() => {
-    if (streamingQueue.current.length > 0 && !streamingTimer.current) {
-      const streamNext = () => {
-        if (streamingQueue.current.length > 0) {
-          const nextAd = streamingQueue.current.shift();
-          
-          setAllAds(prev => {
-            const existingIds = new Set(prev.map(ad => ad.id));
-            if (!existingIds.has(nextAd!.id)) {
-              return [...prev, nextAd!];
-            }
-            return prev;
-          });
-          
-          // Continue streaming with slight delay for smooth animation
-          streamingTimer.current = setTimeout(streamNext, 50); // 50ms delay between ads
-        } else {
-          // Streaming complete
-          streamingTimer.current = null;
-          setIsStreamingMore(false);
+    let isMounted = true;
+
+    const streamNext = () => {
+      if (!isMounted || !streamingQueue.current.length) {
+        setIsStreamingMore(false);
+        return;
+      }
+
+      const nextAd = streamingQueue.current[0];
+      streamingQueue.current = streamingQueue.current.slice(1);
+
+      setAllAds(prev => {
+        const existingIds = new Set(prev.map(ad => ad.id));
+        if (!existingIds.has(nextAd.id)) {
+          return [...prev, nextAd];
         }
-      };
-      
+        return prev;
+      });
+
+      // Continue streaming with slight delay for smooth animation
+      streamingTimer.current = setTimeout(streamNext, 50);
+    };
+
+    if (streamingQueue.current.length > 0 && !streamingTimer.current) {
       streamNext();
     }
 
-    // Cleanup
     return () => {
+      isMounted = false;
       if (streamingTimer.current) {
         clearTimeout(streamingTimer.current);
         streamingTimer.current = null;
@@ -154,11 +149,6 @@ export default function DiscoverPage() {
   // Initialize first page
   useEffect(() => {
     if (firstPageData?.ads && !isShortSearch && isInitialLoading) {
-      console.log('Initial page loaded:', {
-        adsCount: firstPageData.ads.length,
-        hasMore: firstPageData.pagination?.hasMore
-      });
-      
       // Queue initial ads for streaming
       streamAdsIndividually(firstPageData.ads);
       
@@ -216,6 +206,10 @@ export default function DiscoverPage() {
       }
 
       const data = await response.json();
+      if (!data.payload || !data.payload.ads) {
+        throw new Error('Invalid response format');
+      }
+
       const newAds = data.payload.ads;
       
       if (newAds.length > 0) {
@@ -232,10 +226,21 @@ export default function DiscoverPage() {
       console.error('Error loading more ads:', error);
       showToast('Failed to load more ads', { variant: 'error' });
       setIsStreamingMore(false);
+      setHasMore(false); // Stop infinite loading on error
     } finally {
       loadingInProgress.current = false;
     }
-  }, [nextCursor, hasMore, allAds, apiSearchTerm, filters, initialLimit, streamAdsIndividually]);
+  }, [nextCursor, hasMore, apiSearchTerm, filters, initialLimit, streamAdsIndividually]);
+
+  // Handle errors
+  useEffect(() => {
+    if (error) {
+      console.error('Discover API Error:', error);
+      showToast('Failed to load ads', { variant: 'error' });
+      setIsInitialLoading(false);
+      setHasMore(false);
+    }
+  }, [error]);
 
   // Intersection observer for continuous loading
   const { ref: infiniteScrollRef, inView } = useInView({
@@ -314,12 +319,12 @@ export default function DiscoverPage() {
         }
       >
         <div className="min-h-[60vh] flex items-center justify-center">
-          <div className="text-center">
-            <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
-            <Typography variant="h3" className="mt-4 text-foreground">
+          <div className="w-full max-w-md mx-auto px-4 flex flex-col items-center justify-center text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <Typography variant="h3" className="mt-4 text-foreground text-center">
               Loading ads...
             </Typography>
-            <Typography variant="p" className="mt-2 text-muted-foreground">
+            <Typography variant="p" className="mt-2 text-muted-foreground text-center">
               Please wait while we fetch the latest ads for you
             </Typography>
           </div>
@@ -466,7 +471,7 @@ export default function DiscoverPage() {
                               return `https://${url}`;
                             }
                           }
-                    } catch (e) {
+                        } catch (e) {
                           console.error('Error parsing ad content for URL:', e);
                         }
                       }
@@ -493,12 +498,12 @@ export default function DiscoverPage() {
                     <div className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
                     <div className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
                     <div className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-          </div>
+                  </div>
                 ) : (
                   <div className="text-center opacity-20">
                     <Typography variant="p" className="text-gray-400 text-xs">
                       {streamingQueue.current.length > 0 ? 'Adding ads...' : 'Scroll for more'}
-            </Typography>
+                    </Typography>
                   </div>
                 )}
               </div>

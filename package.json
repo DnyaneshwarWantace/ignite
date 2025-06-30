@@ -98,6 +98,8 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@babel/preset-env": "^7.27.2",
+    "@babel/register": "^7.27.1",
     "@netlify/plugin-nextjs": "^5.11.3",
     "@types/adm-zip": "^0.5.7",
     "@types/fluent-ffmpeg": "^2.1.27",
@@ -108,6 +110,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/uuid": "^10.0.0",
+    "babel-plugin-module-resolver": "^5.0.2",
     "dotenv-cli": "^8.0.0",
     "eslint": "^8",
     "eslint-config-next": "14.2.13",

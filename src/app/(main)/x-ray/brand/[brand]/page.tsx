@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Typography } from "@/components/ui/typography";
 import { Flex } from "@radix-ui/themes";
-import { Link, Presentation, Loader2 } from "lucide-react";
+import { Link, Presentation, Loader2, AlertCircle } from "lucide-react";
 import React, { useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { Chip } from "@/components/ui/chip";
@@ -412,21 +412,24 @@ export default function Brand({ params }: { params: { brand: string } }) {
       return (
         <PageWrapper top={selectedBrand && <FolderNavigator folder={selectedFolder} {...(selectedBrand ?? {})} />}>
           <div className="min-h-[60vh] flex items-center justify-center">
-            <div className="text-center max-w-md">
-              <Typography variant="h3" className="text-red-500 mb-4">
+            <div className="w-full max-w-md mx-auto px-4 flex flex-col items-center justify-center text-center">
+              <div className="flex justify-center mb-4">
+                <AlertCircle className="h-16 w-16 text-red-500" />
+              </div>
+              <Typography variant="h3" className="text-red-500 mb-4 text-center">
                 Authentication Required
               </Typography>
-              <Typography variant="p" className="text-muted-foreground mb-6">
+              <Typography variant="p" className="text-muted-foreground mb-6 text-center">
                 You need to be logged in to view brand data.
               </Typography>
               <Button 
                 onClick={() => window.location.href = '/login'}
-                className="bg-purple-500 text-white hover:bg-purple-600"
+                className="bg-purple-500 text-white hover:bg-purple-600 w-full sm:w-auto justify-center"
               >
                 Go to Login
               </Button>
-              <div className="mt-4">
-                <Typography variant="p" className="text-muted-foreground text-sm">
+              <div className="mt-4 w-full text-center">
+                <Typography variant="p" className="text-muted-foreground text-sm text-center">
                   Brand ID: {params.brand}
                 </Typography>
               </div>

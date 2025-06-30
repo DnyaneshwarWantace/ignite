@@ -794,30 +794,15 @@ export default function AdPreviewModal({ isOpen, onClose, ad }: AdPreviewModalPr
                       imageSrc={ad.imageSrc}
                       videoUrl={ad.videoUrl}
                       videoSdUrl={ad.videoSdUrl}
-                      isVideo={ad.isVideo || false}
-                      ctaText={ad.ctaText || 'Learn More'}
-                      url={ad.landingPageUrl ? (() => {
-                        try {
-                          const urlObj = new URL(ad.landingPageUrl.startsWith('http') ? ad.landingPageUrl : `https://${ad.landingPageUrl}`);
-                          return urlObj.hostname.replace('www.', '').toUpperCase();
-                        } catch (e) {
-                          return ad.landingPageUrl.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '').toUpperCase();
-                        }
-                      })() : 'NO URL'}
-                      url_desc={ad.landingPageUrl ? `Visit ${ad.brand}` : 'No landing page available'}
-                      adId={ad.adId || ad.id}
-                      landingPageUrl={ad.landingPageUrl}
-                      content={ad.content}
+                      isVideo={ad.isVideo}
+                      ctaText={ad.ctaText || "Learn More"}
+                      url={ad.landingPageUrl ? new URL(ad.landingPageUrl).hostname : ""}
+                      url_desc={ad.landingPageUrl || ""}
+                      onCtaClick={() => handleLandingPageClick()}
+                      onSaveAd={() => {}}
                       hideActions={true}
-                      onCtaClick={() => {
-                        if (ad.landingPageUrl) {
-                          window.open(ad.landingPageUrl.startsWith('http') ? ad.landingPageUrl : `https://${ad.landingPageUrl}`, '_blank');
-                        }
-                      }}
-                      onSaveAd={() => {
-                        console.log('Save ad:', ad.id);
-                      }}
-                      expand={true}
+                      isActive={ad.status === "Still Running"}
+                      content={ad.content}
                     />
                   </div>
                 </div>

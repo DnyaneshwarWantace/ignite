@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import validation from "./validation";
 import { scrapeCompanyAds, extractPageIdFromInput } from "@apiUtils/adScraper";
 import { v2 as cloudinary } from 'cloudinary';
-import { startAutoTracking } from "@/rootlib/auto-tracker";
+import { startAutoTracking } from "@/lib/auto-tracker";
 
 export const dynamic = "force-dynamic";
 
@@ -126,6 +126,13 @@ export const POST = authMiddleware(
       });
     }
 
+    // Ensure we have a valid folder
+    if (!targetFolder) {
+      return createError({
+        message: "Failed to find or create target folder",
+      });
+    }
+
     try {
       // Get existing ads count for this brand for informational purposes
       let existingAdsCount = 0;
@@ -167,7 +174,8 @@ export const POST = authMiddleware(
           videoUrl: undefined,
           text: 'This is a mock ad created for testing purposes',
           headline: 'Test Ad',
-          description: 'Mock ad description'
+          description: 'Mock ad description',
+          created_time: new Date().toISOString()
         };
         
         // Use mock ad for testing
@@ -193,18 +201,30 @@ export const POST = authMiddleware(
             logo: scrapedAds[0]?.imageUrl || "",
             totalAds: scrapedAds.length,
             pageId: extractedPageId,
+            folders: {
+              connect: {
+                id: targetFolder.id
+              }
+            }
           },
         });
       } else {
-        // Get current ad count for this brand
+        // Update total ads count with actual count
         const currentAdCount = await prisma.ad.count({
           where: { brandId: brand.id },
         });
         
-        // Update total ads count with actual count
+        // Update brand and connect to folder if not already connected
         await prisma.brand.update({
           where: { id: brand.id },
-          data: { totalAds: currentAdCount + scrapedAds.length },
+          data: { 
+            totalAds: currentAdCount + scrapedAds.length,
+            folders: {
+              connect: {
+                id: targetFolder.id
+              }
+            }
+          },
         });
       }
 
@@ -252,7 +272,8 @@ export const POST = authMiddleware(
                 description: scrapedAd.description,
                 brandId: brand.id,
                 mediaStatus: 'pending', // Set pending for media processing
-                mediaRetryCount: 0
+                mediaRetryCount: 0,
+                createdAt: scrapedAd.created_time ? new Date(scrapedAd.created_time) : new Date()
               },
             });
             savedAds.push(savedAd);
@@ -274,60 +295,36 @@ export const POST = authMiddleware(
                 mediaStatus: existingAd.mediaStatus || 'pending',
                 localImageUrl: existingAd.localImageUrl,
                 localVideoUrl: existingAd.localVideoUrl,
-                mediaRetryCount: 0
+                mediaRetryCount: 0,
+                createdAt: scrapedAd.created_time ? new Date(scrapedAd.created_time) : new Date()
               },
             });
             savedAds.push(savedAd);
-            console.log(`🔗 Ad linked to new brand: ${scrapedAd.id} - mediaStatus: ${existingAd.mediaStatus}`);
-          } else {
-            // Ad already exists for this brand - skip
-            console.log(`⏭️  Skipping duplicate ad for same brand: ${scrapedAd.id}`);
+            console.log(`✅ Ad linked to brand: ${scrapedAd.id} - mediaStatus: ${savedAd.mediaStatus}`);
           }
-        } catch (adError) {
-          console.error(`Error saving ad ${scrapedAd.id}:`, adError);
-          // Continue with other ads even if one fails
+        } catch (e) {
+          console.error(`Error processing ad ${scrapedAd.id}:`, e);
         }
-      }
-
-    // Add brand to folder
-      const existingFolderBrand = await prisma.folder.findFirst({
-        where: {
-          id: targetFolder?.id,
-          brands: {
-            some: {
-              id: brand.id,
-            },
-          },
-        },
-      });
-
-      if (!existingFolderBrand) {
-    await prisma.folder.update({
-      where: {
-        id: targetFolder?.id,
-      },
-      data: {
-        brands: {
-          connect: {
-                id: brand.id,
-          },
-        },
-      },
-    });
       }
 
     // Log that ads were added (background worker will pick them up automatically)
     if (savedAds.length > 0) {
       console.log(`✅ Added ${savedAds.length} new ads with mediaStatus='pending' - background worker will process them automatically`);
-      
-      // Start auto-tracking for this page (only starts if not already running)
-      try {
-        await startAutoTracking();
-        console.log(`🚀 Auto-tracking service started/verified for page ${extractedPageId}`);
-      } catch (autoTrackError) {
-        console.error('Error starting auto-tracking:', autoTrackError);
-        // Don't fail the request if auto-tracking fails to start
-      }
+        
+        // Check if auto-tracking is already running before starting it
+        try {
+          const { getTrackingStatus } = require('@/lib/auto-tracker');
+          const status = getTrackingStatus();
+          
+          if (!status.isRunning) {
+            console.log(`ℹ️ Auto-tracking not running, will be started by server initialization`);
+          } else {
+            console.log(`ℹ️ Auto-tracking already running with ${status.intervalMinutes} minute intervals`);
+          }
+        } catch (autoTrackError) {
+          console.error('Error checking auto-tracking status:', autoTrackError);
+          // Don't fail the request if auto-tracking check fails
+        }
       }
 
     return createResponse({
@@ -347,12 +344,11 @@ export const POST = authMiddleware(
         }
       },
     });
-
-    } catch (error) {
-      console.error("Error scraping ads:", error);
+    } catch (e: any) {
+      console.error("Error processing request:", e);
       return createError({
-        message: "Failed to scrape ads. Please check the page ID and try again.",
-        payload: { error: (error as Error).message },
+        message: "An error occurred while processing the request",
+        payload: { error: e.message },
       });
     }
   }

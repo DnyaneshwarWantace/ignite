@@ -14,7 +14,19 @@ export const GET = authMiddleware(
     
     try {
       const { searchParams } = new URL(request.url);
-      const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50); // Allow up to 50 ads per request
+      
+      // Validate limit parameter - remove the 50 ads limit for filtering
+      const rawLimit = searchParams.get('limit');
+      if (rawLimit && isNaN(parseInt(rawLimit))) {
+        return createError({
+          message: "Invalid limit parameter. Must be a number.",
+          status: 400,
+        });
+      }
+      // For filtering, allow unlimited results or high limit
+      const limit = parseInt(rawLimit || '1000'); // Default to 1000 to show all matching ads
+
+      // Get other parameters
       const search = searchParams.get('search') || '';
       const format = searchParams.get('format') || '';
       const platform = searchParams.get('platform') || '';
@@ -22,67 +34,41 @@ export const GET = authMiddleware(
       const language = searchParams.get('language') || '';
       const niche = searchParams.get('niche') || '';
       
-      // Keyset pagination parameters
-      const cursorCreatedAt = searchParams.get('cursorCreatedAt');
-      const cursorId = searchParams.get('cursorId');
-      
       console.log('Discover API params:', { 
-        limit, search, format, platform, status, language, niche,
-        cursorCreatedAt, cursorId
+        limit, search, format, platform, status, language, niche
       });
 
       // Build where clause for search and filters
       const whereClause: any = {};
       const andConditions: any[] = [];
       
-      // Keyset pagination condition
-      if (cursorCreatedAt && cursorId) {
-        andConditions.push({
-          OR: [
-            {
-              createdAt: {
-                lt: new Date(cursorCreatedAt)
-              }
-            },
-            {
-              AND: [
-                {
-                  createdAt: new Date(cursorCreatedAt)
-                },
-                {
-                  id: {
-                    lt: cursorId
-                  }
-                }
-              ]
-            }
-          ]
-        });
-      }
-      
-      // Search filter
+      // Search filter (case insensitive)
       if (search) {
         andConditions.push({
           OR: [
             {
               text: {
-                contains: search
+                contains: search,
+                mode: 'insensitive'
               }
             },
             {
               headline: {
-                contains: search
+                contains: search,
+                mode: 'insensitive'
               }
             },
             {
               content: {
-                contains: search
+                contains: search,
+                mode: 'insensitive'
               }
             },
             {
               brand: {
                 name: {
-                  contains: search
+                  contains: search,
+                  mode: 'insensitive'
                 }
               }
             }
@@ -90,96 +76,86 @@ export const GET = authMiddleware(
         });
       }
 
-      // Format filter (improved implementation)
+      // Format filter (strict matching based on actual data structure)
       if (format) {
         const formats = format.split(',');
         const formatConditions = formats.map(f => {
           if (f === 'Video') {
             return {
               OR: [
-                { type: { contains: 'video' } },
-                { content: { contains: '"videos":[{' } },
-                { content: { contains: '"video_hd_url"' } },
-                { content: { contains: '"video_sd_url"' } }
+                { type: 'video' },
+                { content: { contains: '"display_format":"VIDEO"', mode: 'insensitive' } }
               ]
             };
           } else if (f === 'Carousal' || f === 'Carousel') {
             return {
               OR: [
-                { type: { contains: 'carousel' } },
-                { content: { contains: '"cards":[{' } },
-                { content: { contains: '"display_format":"carousel"' } }
+                { type: 'carousel' },
+                { content: { contains: '"display_format":"DCO"', mode: 'insensitive' } }
               ]
             };
           } else if (f === 'Image') {
             return {
               OR: [
-                { type: { contains: 'image' } },
-                { content: { contains: '"images":[{' } },
-                { content: { contains: '"original_image_url"' } }
+                { type: 'image' },
+                { content: { contains: '"display_format":"IMAGE"', mode: 'insensitive' } }
               ]
             };
           }
-          return { type: { contains: f.toLowerCase() } };
+          return { type: f.toLowerCase() };
         });
         
         if (formatConditions.length > 0) {
-          andConditions.push({ OR: formatConditions });
+          if (formatConditions.length === 1) {
+            // Single format filter
+            andConditions.push(formatConditions[0]);
+          } else {
+            // Multiple format filter (OR condition)
+            andConditions.push({ OR: formatConditions });
+          }
         }
       }
 
-      // Platform filter (improved implementation)
+      // Platform filter (strict matching based on actual data structure)
       if (platform) {
         const platforms = platform.split(',');
         const platformConditions = platforms.map(p => {
           const platformLower = p.toLowerCase();
           if (platformLower === 'facebook') {
             return {
-              OR: [
-                { content: { contains: '"publisher_platform":["facebook"' } },
-                { content: { contains: '"publisher_platform":["Facebook"' } },
-                { content: { contains: 'facebook' } }
-              ]
+              content: { contains: '"FACEBOOK"', mode: 'insensitive' }
             };
           } else if (platformLower === 'instagram') {
             return {
-              OR: [
-                { content: { contains: '"publisher_platform":["instagram"' } },
-                { content: { contains: '"publisher_platform":["Instagram"' } },
-                { content: { contains: 'instagram' } }
-              ]
+              content: { contains: '"INSTAGRAM"', mode: 'insensitive' }
             };
           } else if (platformLower === 'tiktok organic' || platformLower === 'tiktok') {
             return {
-              OR: [
-                { content: { contains: 'tiktok' } },
-                { content: { contains: 'TikTok' } }
-              ]
+              content: { contains: '"TIKTOK"', mode: 'insensitive' }
             };
           } else if (platformLower === 'youtube') {
             return {
-              OR: [
-                { content: { contains: 'youtube' } },
-                { content: { contains: 'YouTube' } }
-              ]
+              content: { contains: '"YOUTUBE"', mode: 'insensitive' }
             };
           } else if (platformLower === 'linkedin') {
             return {
-              OR: [
-                { content: { contains: 'linkedin' } },
-                { content: { contains: 'LinkedIn' } }
-              ]
+              content: { contains: '"LINKEDIN"', mode: 'insensitive' }
             };
           }
-          return { content: { contains: platformLower } };
-        });
+        }).filter(Boolean);
         
         if (platformConditions.length > 0) {
-          andConditions.push({ OR: platformConditions });
+          if (platformConditions.length === 1) {
+            // Single platform filter
+            andConditions.push(platformConditions[0]);
+          } else {
+            // Multiple platform filter (OR condition)
+            andConditions.push({ OR: platformConditions });
+          }
         }
       }
 
-      // Status filter (basic implementation)
+      // Status filter (using correct field names)
       if (status) {
         const statuses = status.split(',');
         const statusConditions = statuses.map(s => {
@@ -187,52 +163,58 @@ export const GET = authMiddleware(
             return {
               OR: [
                 { content: { contains: '"is_active":true' } },
-                { content: { contains: '"active":true' } }
+                { content: { contains: '"isActive":true' } }
               ]
             };
           } else if (s === 'Not Running') {
             return {
               OR: [
                 { content: { contains: '"is_active":false' } },
-                { content: { contains: '"active":false' } }
+                { content: { contains: '"isActive":false' } }
               ]
             };
           }
-          return { content: { contains: s.toLowerCase() } };
-        });
-        
+        }).filter(Boolean);
+
         if (statusConditions.length > 0) {
-          andConditions.push({ OR: statusConditions });
+          if (statusConditions.length === 1) {
+            // Single status filter
+            andConditions.push(statusConditions[0]);
+          } else {
+            // Multiple status filter (OR condition)
+            andConditions.push({ OR: statusConditions });
+          }
         }
       }
 
-      // Language and niche filters (basic keyword-based implementation)
+      // Language filter (improved)
       if (language) {
         const languages = language.split(',');
-        const languageConditions = languages.map(l => ({
+        const languageConditions = languages.map(lang => ({
           OR: [
-            { content: { contains: l.toLowerCase() } },
-            { text: { contains: l.toLowerCase() } },
-            { headline: { contains: l.toLowerCase() } }
+            { content: { contains: lang, mode: 'insensitive' } },
+            { text: { contains: lang, mode: 'insensitive' } },
+            { headline: { contains: lang, mode: 'insensitive' } }
           ]
         }));
-        
+
         if (languageConditions.length > 0) {
           andConditions.push({ OR: languageConditions });
         }
       }
 
+      // Niche filter (improved)
       if (niche) {
         const niches = niche.split(',');
         const nicheConditions = niches.map(n => ({
           OR: [
-            { content: { contains: n.toLowerCase() } },
-            { text: { contains: n.toLowerCase() } },
-            { headline: { contains: n.toLowerCase() } },
-            { brand: { name: { contains: n.toLowerCase() } } }
+            { content: { contains: n, mode: 'insensitive' } },
+            { text: { contains: n, mode: 'insensitive' } },
+            { headline: { contains: n, mode: 'insensitive' } },
+            { brand: { name: { contains: n, mode: 'insensitive' } } }
           ]
         }));
-        
+
         if (nicheConditions.length > 0) {
           andConditions.push({ OR: nicheConditions });
         }
@@ -243,79 +225,86 @@ export const GET = authMiddleware(
         whereClause.AND = andConditions;
       }
 
-      // Fetch ads with keyset pagination
+      console.log('Final where clause:', JSON.stringify(whereClause, null, 2));
+      console.log('Filter parameters:', { format, platform, status, language, niche });
+      console.log('Total conditions:', andConditions.length);
+
+      // Execute query
       const ads = await prisma.ad.findMany({
-          where: whereClause,
-          select: {
-            id: true,
-            libraryId: true,
-            type: true,
-            content: true,
-            imageUrl: true,
-            videoUrl: true,
-            text: true,
-            headline: true,
-            description: true,
-            createdAt: true,
-            updatedAt: true,
-            brandId: true,
-            // Cloudinary media fields
-            localImageUrl: true,
-            localVideoUrl: true,
-            mediaStatus: true,
-            mediaDownloadedAt: true,
-            brand: {
-              select: {
-                id: true,
-                name: true,
-                logo: true,
-                pageId: true
-              }
-            }
+        where: whereClause,
+        include: {
+          brand: {
+            select: {
+              id: true,
+              name: true,
+              logo: true,
+            },
           },
+        },
         orderBy: [
           { createdAt: 'desc' },
           { id: 'desc' }
         ],
-        take: limit + 1 // Get one extra to know if there are more
+        take: limit
       });
 
-      // Check if there are more items
-      const hasMore = ads.length > limit;
-      const adsToReturn = hasMore ? ads.slice(0, -1) : ads;
+      console.log(`Found ${ads.length} ads with filters`);
       
-      // Get cursor for next page
-      let nextCursor = null;
-      if (hasMore && adsToReturn.length > 0) {
-        const lastAd = adsToReturn[adsToReturn.length - 1];
-        nextCursor = {
-          createdAt: lastAd.createdAt.toISOString(),
-          id: lastAd.id
-        };
+      // Debug: Show actual ad content to understand the data structure
+      if (ads.length > 0) {
+        console.log('=== DEBUGGING AD CONTENT ===');
+        ads.slice(0, 3).forEach((ad, index) => {
+          console.log(`\nAd ${index + 1}:`);
+          console.log('Type:', ad.type);
+          try {
+            const content = JSON.parse(ad.content);
+            console.log('Display Format:', content.snapshot?.display_format);
+            console.log('Publisher Platform:', content.publisher_platform);
+            console.log('Is Active:', content.is_active);
+            console.log('Has Videos:', !!content.snapshot?.videos?.length);
+            console.log('Has Images:', !!content.snapshot?.images?.length);
+            console.log('Has Cards:', !!content.snapshot?.cards?.length);
+          } catch (e) {
+            console.log('Could not parse content');
+          }
+        });
+        console.log('=== END DEBUGGING ===\n');
       }
-
-      console.log('Discover API response:', { 
-        adsCount: adsToReturn.length, 
-        hasMore,
-        nextCursor,
-        filtersApplied: { search, format, platform, status, language, niche }
-      });
 
       return createResponse({
         message: messages.SUCCESS,
         payload: {
-          ads: adsToReturn,
+          ads: ads,
           pagination: {
-            hasMore,
-            nextCursor,
-            limit
+            hasMore: ads.length === limit,
+            nextCursor: null,
+            limit,
+            total: ads.length
           }
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching discover ads:', error);
+      
+      // Handle specific Prisma errors
+      if (error.code === 'P2023') {
+        return createError({
+          message: "Invalid ID format in cursor.",
+          status: 400,
+        });
+      }
+      
+      if (error.code === 'P2025') {
+        return createError({
+          message: "Record not found.",
+          status: 404,
+        });
+      }
+      
       return createError({
         message: "Failed to fetch ads",
+        status: 500,
+        payload: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   }

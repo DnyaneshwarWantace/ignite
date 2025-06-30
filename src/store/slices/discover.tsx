@@ -72,11 +72,11 @@ export const discoverApi = createApi({
         const { search, format, platform, status, language, niche, limit, cursorCreatedAt, cursorId } = queryArgs;
         return JSON.stringify({
           search: search || '',
-          format: format?.sort() || [],
-          platform: platform?.sort() || [],
-          status: status?.sort() || [],
-          language: language?.sort() || [],
-          niche: niche?.sort() || [],
+          format: format ? [...format].sort() : [],
+          platform: platform ? [...platform].sort() : [],
+          status: status ? [...status].sort() : [],
+          language: language ? [...language].sort() : [],
+          niche: niche ? [...niche].sort() : [],
           limit: limit || 30,
           cursor: cursorCreatedAt && cursorId ? `${cursorCreatedAt}_${cursorId}` : null
         });

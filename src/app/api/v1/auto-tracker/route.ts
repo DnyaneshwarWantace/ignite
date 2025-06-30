@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { startAutoTracking, stopAutoTracking, getTrackingStatus, trackSpecificPage } from "../../../../../lib/auto-tracker";
+import { startAutoTracking, stopAutoTracking, getTrackingStatus, trackSpecificPage } from "@/lib/auto-tracker";
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,42 +19,27 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { action, pageId } = await request.json();
-    
-    switch (action) {
-      case 'start':
-        await startAutoTracking();
-        return NextResponse.json({
-          success: true,
-          message: 'Auto-tracking started'
-        });
-        
-      case 'stop':
-        stopAutoTracking();
-        return NextResponse.json({
-          success: true,
-          message: 'Auto-tracking stopped'
-        });
-        
-      case 'track_page':
-        if (!pageId) {
-          return NextResponse.json({
-            success: false,
-            error: 'pageId is required for track_page action'
-          }, { status: 400 });
-        }
-        
-        await trackSpecificPage(pageId);
-        return NextResponse.json({
-          success: true,
-          message: `Tracking completed for page ${pageId}`
-        });
-        
-      default:
-        return NextResponse.json({
-          success: false,
-          error: 'Invalid action. Use start, stop, or track_page'
-        }, { status: 400 });
+    // Get URL parameters
+    const { searchParams } = new URL(request.url);
+    const pageId = searchParams.get('pageId');
+
+    if (pageId) {
+      // If pageId is provided, track specific page
+      await trackSpecificPage(pageId);
+      return NextResponse.json({
+        success: true,
+        message: `Tracked page ${pageId}`
+      });
+    } else {
+      // Otherwise start auto-tracking
+      const started = await startAutoTracking();
+      const status = getTrackingStatus();
+      
+      return NextResponse.json({
+        success: true,
+        started,
+        status
+      });
     }
   } catch (error) {
     return NextResponse.json({

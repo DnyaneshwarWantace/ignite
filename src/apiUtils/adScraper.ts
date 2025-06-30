@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const SCRAPE_CREATORS_API_KEY = 'eHxqHYUpDKclcLlIpUmfXBOvBZb2';
+const SCRAPE_CREATORS_API_KEY = process.env.SCRAPE_CREATORS_API_KEY || process.env.NEXT_PUBLIC_SCRAPE_CREATORS_API_KEY;
 const SCRAPE_CREATORS_BASE_URL = 'https://api.scrapecreators.com/v1/facebook/adLibrary';
 
 interface ScrapedAd {
@@ -12,10 +12,15 @@ interface ScrapedAd {
   text?: string;
   headline?: string;
   description?: string;
+  created_time: string;
 }
 
-export async function scrapeCompanyAds(pageId: string, limit: number = 2000, offset: number = 0): Promise<ScrapedAd[]> {
+export async function scrapeCompanyAds(pageId: string, limit: number = 50, offset: number = 0): Promise<ScrapedAd[]> {
   try {
+    if (!SCRAPE_CREATORS_API_KEY) {
+      throw new Error('ScrapeCreators API key not found. Please set SCRAPE_CREATORS_API_KEY in your environment variables.');
+    }
+
     console.log(`Calling ScrapeCreators API for pageId: ${pageId} with limit: ${limit}, offset: ${offset}`);
     
     let allAds: any[] = [];
@@ -110,7 +115,8 @@ export async function scrapeCompanyAds(pageId: string, limit: number = 2000, off
         videoUrl: extractVideoUrl(ad),
         text: body.text || snapshot.caption || '',
         headline: snapshot.title || '',
-        description: snapshot.link_description || ''
+        description: snapshot.link_description || '',
+        created_time: ad.created_time || ''
       };
     });
   } catch (error: any) {
@@ -144,7 +150,8 @@ export async function scrapeIndividualAd(libraryId: string): Promise<ScrapedAd |
       videoUrl: extractVideoUrl(data),
       text: data.ad_creative_body || data.text || '',
       headline: data.ad_creative_link_title || data.headline || '',
-      description: data.ad_creative_link_description || data.description || ''
+      description: data.ad_creative_link_description || data.description || '',
+      created_time: data.created_time || ''
     };
   } catch (error) {
     console.error('Error scraping individual ad:', error);

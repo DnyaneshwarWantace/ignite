@@ -11,53 +11,41 @@ export const authMiddleware =
     // Check user is logged in
     if (request.url.includes("/api/v1/")) {
       try {
+        const protocol = request.headers.get("x-forwarded-proto") || (process.env.NODE_ENV === "development" ? "http" : "https");
+        const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "localhost:3000";
+        const baseUrl = `${protocol}://${host}`;
+        
+        console.log("Auth middleware - Base URL:", baseUrl);
+        console.log("Auth middleware - Cookie:", request.headers.get("cookie"));
+        
+        // Try to get real user first
+        loggedInUser = await getLoggedInUser(baseUrl, request.headers.get("cookie"));
+
         // In development mode, create a mock user if no session exists
-        if (process.env.NODE_ENV === "development") {
-          // Try to get real user first
-          const protocol = request.headers.get("x-forwarded-proto") || "http";
-          const host = request.headers.get("x-forwarded-host") || 
-                      request.headers.get("host") || 
-                      "localhost:3000";
-          const baseUrl = `${protocol}://${host}`;
-          
-          console.log("Auth middleware - Base URL:", baseUrl);
-          console.log("Auth middleware - Cookie:", request.headers.get("cookie"));
-          
-          loggedInUser = await getLoggedInUser(baseUrl, request.headers.get("cookie"));
-
-          // If no real user in development, create a mock user
-          if (!loggedInUser) {
-            console.log("Auth middleware - No session found, creating mock user for development");
-            loggedInUser = {
-              id: "dev-user-id",
-              email: "dev@example.com",
-              name: "Development User",
-              createdAt: new Date(),
-              updatedAt: new Date(),
-              emailVerified: null,
-              image: null,
-            };
-          }
-        } else {
-          // Production mode - require real authentication
-          const protocol = request.headers.get("x-forwarded-proto") || "https";
-          const host = request.headers.get("x-forwarded-host") || 
-                      request.headers.get("host");
-          const baseUrl = `${protocol}://${host}`;
-          
-          loggedInUser = await getLoggedInUser(baseUrl, request.headers.get("cookie"));
-
-        if (!loggedInUser) {
+        if (!loggedInUser && process.env.NODE_ENV === "development") {
+          console.log("Auth middleware - No session found, creating mock user for development");
+          loggedInUser = {
+            id: "dev-user-id",
+            email: "dev@example.com",
+            name: "Development User",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            emailVerified: null,
+            image: null,
+          };
+        }
+        
+        // In production, require real authentication
+        if (!loggedInUser && process.env.NODE_ENV !== "development") {
           return createError({
             message: messages.UNAUTHORIZED,
             status: statuscodes.UNAUTHORIZED,
           });
-          }
         }
       } catch (err) {
         console.error("Auth middleware error:", err);
+        // In development, fall back to mock user on error
         if (process.env.NODE_ENV === "development") {
-          // In development, fall back to mock user on error
           loggedInUser = {
             id: "dev-user-id",
             email: "dev@example.com",
@@ -68,10 +56,10 @@ export const authMiddleware =
             image: null,
           };
         } else {
-        return createError({
-          message: messages.UNAUTHORIZED,
-          status: statuscodes.UNAUTHORIZED,
-        });
+          return createError({
+            message: messages.UNAUTHORIZED,
+            status: statuscodes.UNAUTHORIZED,
+          });
         }
       }
     }

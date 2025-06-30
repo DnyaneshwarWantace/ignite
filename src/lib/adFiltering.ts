@@ -57,10 +57,21 @@ export const getAdFormat = (ad: any): string => {
     if (type === 'image') return 'Image';
   }
   
-  // Fallback detection from content
+  // Extract from content JSON
   if (ad.content) {
     try {
       const content = JSON.parse(ad.content);
+      
+      // Check display_format in snapshot
+      if (content.snapshot?.display_format) {
+        const format = content.snapshot.display_format.toLowerCase();
+        if (format === 'video') return 'Video';
+        if (format === 'dco') return 'Carousal'; // DCO = Dynamic Creative Optimization (Carousel)
+        if (format === 'carousel') return 'Carousal';
+        if (format === 'image') return 'Image';
+      }
+      
+      // Fallback detection from content structure
       const snapshot = content.snapshot || {};
       
       if (snapshot.videos && snapshot.videos.length > 0) return 'Video';
@@ -78,29 +89,47 @@ export const getAdFormat = (ad: any): string => {
 export const getAdPlatform = (ad: any): string[] => {
   const platforms: string[] = [];
   
-  // Try to get platforms from content
+  // Extract from content JSON
   if (ad.content) {
     try {
       const content = JSON.parse(ad.content);
-      const publisherPlatforms = content.publisher_platform || [];
       
-      // Map platform names to match FilterRow options
-      publisherPlatforms.forEach((platform: string) => {
-        const p = platform.toLowerCase();
-        if (p.includes('facebook')) platforms.push('Facebook');
-        else if (p.includes('instagram')) platforms.push('Instagram');
-        else if (p.includes('tiktok')) platforms.push('TikTok Organic');
-        else if (p.includes('youtube')) platforms.push('Youtube');
-        else if (p.includes('linkedin')) platforms.push('LinkedIn');
-        else platforms.push(platform); // Keep original if no match
-      });
+      // Check publisher_platform (this is the actual field name)
+      if (content.publisher_platform && Array.isArray(content.publisher_platform)) {
+        content.publisher_platform.forEach((platform: string) => {
+          const p = platform.toLowerCase();
+          if (p === 'facebook') platforms.push('Facebook');
+          else if (p === 'instagram') platforms.push('Instagram');
+          else if (p === 'audience_network') platforms.push('Audience Network');
+          else if (p === 'messenger') platforms.push('Messenger');
+          else if (p === 'tiktok') platforms.push('TikTok Organic');
+          else if (p === 'youtube') platforms.push('Youtube');
+          else if (p === 'linkedin') platforms.push('LinkedIn');
+          else platforms.push(platform); // Keep original if no match
+        });
+      }
+      
+      // Fallback: Check publisherPlatform (camelCase format - just in case)
+      if (platforms.length === 0 && content.publisherPlatform && Array.isArray(content.publisherPlatform)) {
+        content.publisherPlatform.forEach((platform: string) => {
+          const p = platform.toLowerCase();
+          if (p === 'facebook') platforms.push('Facebook');
+          else if (p === 'instagram') platforms.push('Instagram');
+          else if (p === 'audience_network') platforms.push('Audience Network');
+          else if (p === 'messenger') platforms.push('Messenger');
+          else if (p === 'tiktok') platforms.push('TikTok Organic');
+          else if (p === 'youtube') platforms.push('Youtube');
+          else if (p === 'linkedin') platforms.push('LinkedIn');
+          else platforms.push(platform); // Keep original if no match
+        });
+      }
     } catch (e) {
       // Ignore parsing errors
     }
   }
   
   // Try to get platform from direct ad properties
-  if (ad.platform) {
+  if (platforms.length === 0 && ad.platform) {
     const p = ad.platform.toLowerCase();
     if (p.includes('facebook')) platforms.push('Facebook');
     else if (p.includes('instagram')) platforms.push('Instagram');
@@ -123,11 +152,15 @@ export const getAdStatus = (ad: any): string[] => {
     try {
       const content = JSON.parse(ad.content);
       
-      // Check various status fields
-      const isActive = content.is_active !== false; // Default to true unless explicitly false
+      // Check is_active field (this is the actual field name)
+      if (content.hasOwnProperty('is_active')) {
+        return content.is_active ? ['Running'] : ['Not Running'];
+      }
       
-      if (isActive) return ['Running'];
-      return ['Not Running'];
+      // Fallback: Check isActive field (camelCase format - just in case)
+      if (content.hasOwnProperty('isActive')) {
+        return content.isActive ? ['Running'] : ['Not Running'];
+      }
       
     } catch (e) {
       // Ignore parsing errors

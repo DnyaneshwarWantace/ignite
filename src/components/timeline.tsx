@@ -355,7 +355,6 @@ export default function Timeline({ timelineData = [], ads = [] }: TimelineProps)
   return (
       <Flex direction={"column"} gap="4">
         <FilterRow
-          ads={ads}
           onFormatUpdate={(v) => updateFilters({ ...filters, format: v })}
           onPlatformUpdate={(v) => updateFilters({ ...filters, platform: v })}
           onStatusUpdate={(v) => updateFilters({ ...filters, status: v })}
@@ -551,7 +550,6 @@ export default function Timeline({ timelineData = [], ads = [] }: TimelineProps)
   return (
     <Flex direction={"column"} gap="4">
       <FilterRow
-        ads={ads}
         onFormatUpdate={(v) => updateFilters({ ...filters, format: v })}
         onPlatformUpdate={(v) => updateFilters({ ...filters, platform: v })}
         onStatusUpdate={(v) => updateFilters({ ...filters, status: v })}

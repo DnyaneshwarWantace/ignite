@@ -5,8 +5,8 @@ import prisma from "@prisma/index";
 import Credentials from "next-auth/providers/credentials";
 
 // Ensure we're using the correct URL in production
-const productionUrl = 'https://ignite-zvt9.onrender.com';
-const NEXTAUTH_URL = process.env.NEXTAUTH_URL || productionUrl;
+const productionUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+const NEXTAUTH_URL = productionUrl;
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [

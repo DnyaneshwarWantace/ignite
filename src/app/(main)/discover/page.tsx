@@ -96,7 +96,7 @@ export default function DiscoverPage() {
     niche: filters.niche?.length > 0 ? filters.niche : undefined,
     limit: initialLimit,
   }, {
-    skip: isShortSearch
+    skip: isShortSearch && !filters.format?.length && !filters.platform?.length && !filters.status?.length && !filters.language?.length && !filters.niche?.length
   });
 
   // Stream ads individually for smooth loading
@@ -272,16 +272,16 @@ export default function DiscoverPage() {
     }
     
     if (isShortSearch) {
-      const filterState: FilterState = {
+    const filterState: FilterState = {
         search: filters.search || '',
-        format: filters.format || [],
-        platform: filters.platform || [],
-        status: filters.status || [],
-        language: filters.language || [],
-        niche: filters.niche || [],
-        date: filters.date,
-        sort: filters.sort
-      };
+      format: filters.format || [],
+      platform: filters.platform || [],
+      status: filters.status || [],
+      language: filters.language || [],
+      niche: filters.niche || [],
+      date: filters.date,
+      sort: filters.sort
+    };
       return filterAds(allAds, filterState);
     }
     

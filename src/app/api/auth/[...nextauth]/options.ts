@@ -64,6 +64,36 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!user.name || user.name === "") {
           user.name = user.email?.split("@")[0] || "User";
         }
+
+        // Save or update user in database
+        if (user.email) {
+          const existingUser = await prisma.user.findUnique({
+            where: { email: user.email }
+          });
+
+          if (!existingUser) {
+            // Create new user
+            const newUser = await prisma.user.create({
+              data: {
+                email: user.email,
+                name: user.name,
+                image: user.image || null,
+              }
+            });
+            user.id = newUser.id;
+          } else {
+            // Update existing user
+            await prisma.user.update({
+              where: { email: user.email },
+              data: {
+                name: user.name,
+                image: user.image || null,
+              }
+            });
+            user.id = existingUser.id;
+          }
+        }
+
         return true;
       } catch (error) {
         console.error("SignIn callback error:", error);

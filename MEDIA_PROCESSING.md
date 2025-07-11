@@ -74,7 +74,7 @@ npm run media-worker
 
 ### Option 2: API Endpoint
 ```bash
-curl -X POST http://194.233.76.212/api/v1/media/worker \
+curl -X POST https://ignite-ldg4.onrender.com/api/v1/media/worker \
   -H "Content-Type: application/json" \
   -d '{"intervalMinutes": 2}'
 ```

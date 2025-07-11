@@ -5,7 +5,7 @@ import { transcribeVideoFromUrl } from '@/lib/vosk-transcription';
 const prisma = new PrismaClient();
 
 // Your transcription backend URL - update this to match your Vosk server
-const TRANSCRIPTION_SERVICE_URL = process.env.TRANSCRIPTION_SERVICE_URL || 'http://194.233.76.212';
+const TRANSCRIPTION_SERVICE_URL = process.env.TRANSCRIPTION_SERVICE_URL || 'https://ignite-ldg4.onrender.com';
 
 export async function POST(request: NextRequest) {
   try {

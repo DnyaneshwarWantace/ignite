@@ -89,20 +89,13 @@ export const POST = authMiddleware(
 
       // If no default folder exists, create one
       if (!targetFolder) {
-        try {
-          targetFolder = await prisma.folder.create({
-            data: {
-              name: "Default",
-              userId: user.id,
-            },
-          });
-          console.log("Created new Default folder for user:", user.id);
-        } catch (error) {
-          console.error("Error creating default folder:", error);
-          return createError({
-            message: "Failed to create default folder. Please try logging out and logging back in.",
-          });
-        }
+        targetFolder = await prisma.folder.create({
+          data: {
+            name: "Default",
+            userId: user.id,
+          },
+        });
+        console.log("Created new Default folder for user:", user.id);
       } else {
         console.log("Using existing Default folder:", targetFolder.id);
       }

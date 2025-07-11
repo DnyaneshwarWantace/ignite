@@ -86,5 +86,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
   debug: process.env.NODE_ENV === "development",
-  adapter: PrismaAdapter(prisma),
+  // Remove adapter for now to use JWT strategy only
+  // adapter: PrismaAdapter(prisma),
+  secret: process.env.NEXTAUTH_SECRET,
 });

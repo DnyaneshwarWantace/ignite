@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "framework": "nextjs",
+  "buildCommand": "prisma generate && next build",
+  "installCommand": "npm install",
+  "env": {
+    "NEXT_TELEMETRY_DISABLED": "1",
+    "NEXTAUTH_URL": "https://ignite-mqao2qcbq-dnyaneshwar-s-projects-b1f40a2a.vercel.app",
+    "AUTH_GOOGLE_ID": "@auth_google_id",
+    "AUTH_GOOGLE_SECRET": "@auth_google_secret",
+    "NEXTAUTH_SECRET": "@nextauth_secret"
+  }
+} 

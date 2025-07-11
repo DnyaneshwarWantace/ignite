@@ -1,0 +1,143 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  folders   Folder[]
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  password          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+model Folder {
+  id   String @id @default(cuid())
+  name String
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  brands Brand[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Brand {
+  id       String @id @default(cuid())
+  name     String
+  logo     String
+  totalAds Int    @default(0)
+  pageId   String?
+
+  folders Folder[]
+  ads     Ad[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Ad {
+  id          String @id @default(cuid())
+  libraryId   String @unique
+  type        String // video, image, carousel
+  content     String // JSON string containing ad data
+  imageUrl    String?
+  videoUrl    String?
+  text        String?
+  headline    String?
+  description String?
+  
+  // Local media URLs (after downloading to Cloudinary)
+  localImageUrl    String?
+  localVideoUrl    String?
+  
+  // Processing status for media download
+  mediaStatus      String @default("pending") // pending, processing, success, failed
+  mediaDownloadedAt DateTime?
+  mediaError       String? // Error message if download failed
+  mediaRetryCount  Int @default(0) // Number of retry attempts
+  
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brandId String
+
+  transcript AdTranscript?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AdTranscript {
+  id         String  @id @default(cuid())
+  adId       String  @unique
+  transcript String  // The full transcript text
+  language   String  @default("en-us") // Language used for transcription
+  confidence Float   @default(0.0) // Confidence score from transcription service
+  wordCount  Int     @default(0) // Number of words in transcript
+  duration   Float   @default(0.0) // Duration of audio/video in seconds
+  service    String  @default("Vosk") // Service used for transcription (Vosk, etc.)
+  metadata   String  @default("{}") // JSON string for additional metadata
+  
+  ad Ad @relation(fields: [adId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

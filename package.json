@@ -13,7 +13,7 @@
     "devstart": "dotenv -c .env -- prisma db push && next start",
     "lint": "next lint",
     "build": "prisma generate && next build",
-    "start": "dotenv -c .env.production -- next start -p 3003",
+    "start": "dotenv -c .env.production -- next start",
     "db:production_generate": "dotenv -c .env.production -- prisma generate",
     "db:production_push": "dotenv -c .env.production -- prisma db push",
     "db:production_studio": "dotenv -c .env.production -- npx prisma studio",

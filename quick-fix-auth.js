@@ -62,7 +62,7 @@ try {
 console.log('');
 console.log('📋 Next Steps:');
 console.log('1. Restart your server: npm run build && npm start');
-console.log('2. Test the application at http://localhost:3000');
+console.log('2. Test the application at http://194.233.76.212');
 console.log('3. If it works, update NEXTAUTH_SECRET with a proper secret');
 console.log('4. Restore middleware if needed: mv src/middleware.ts.backup src/middleware.ts');
 console.log('');

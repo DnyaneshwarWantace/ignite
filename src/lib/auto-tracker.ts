@@ -9,7 +9,7 @@ let lastCycleEndTime: Date | null = null;
 let nextCycleTime: Date | null = null;
 
 // Configuration
-const TRACKING_INTERVAL = 30 * 60 * 1000; // 30 minutes
+const TRACKING_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours (24 * 60 * 60 * 1000 milliseconds)
 const MAX_PAGINATION_PAGES = 20; // Safety limit for pagination
 
 // Logging with timestamp

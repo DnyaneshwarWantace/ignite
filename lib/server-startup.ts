@@ -12,7 +12,7 @@ export async function initializeAutoTracking() {
     console.log('🚀 Initializing auto-tracking service...');
     
     // Dynamic import to avoid module loading issues
-    const { startAutoTracking } = require('./auto-tracker');
+    const { startAutoTracking } = require('./auto-tracker.ts');
     
     // Start auto-tracking with a delay to ensure database is ready
     setTimeout(async () => {
@@ -32,8 +32,8 @@ export async function initializeAutoTracking() {
 }
 
 export async function initializeServerSideMediaWorker() {
-  // Only initialize once and only in development
-  if (mediaWorkerInitialized || process.env.NODE_ENV === 'production') {
+  // Only initialize once
+  if (mediaWorkerInitialized) {
     return;
   }
 
@@ -41,7 +41,7 @@ export async function initializeServerSideMediaWorker() {
     console.log('🚀 Initializing server-side media worker...');
     
     // Dynamic import to avoid module loading issues
-    const { processPendingMedia } = require('../scripts/media-worker');
+    const { processPendingMedia } = require('../scripts/media-worker.js');
     
     // Process pending media immediately on startup
     setTimeout(async () => {
@@ -85,8 +85,8 @@ export async function initializeServerSideMediaWorker() {
   }
 }
 
-// Auto-initialize in development
-if (process.env.NODE_ENV === 'development' && typeof window === 'undefined') {
+// Auto-initialize in both development and production
+if (typeof window === 'undefined') {
   initializeServerSideMediaWorker();
   initializeAutoTracking();
 }

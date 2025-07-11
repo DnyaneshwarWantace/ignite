@@ -1,10 +1,24 @@
 export async function register() {
-  // Only run in development and on server side
-  if (process.env.NODE_ENV === 'development' && typeof window === 'undefined') {
-    console.log('🔧 Next.js instrumentation: Starting media worker...');
+  // Only run on server side (both development and production)
+  if (typeof window === 'undefined') {
+    console.log('🔧 Next.js instrumentation: Starting services...');
  
-    // Import and initialize the media worker
-    const { initializeServerSideMediaWorker } = await import('./lib/server-startup');
-    await initializeServerSideMediaWorker();
+    // Import and initialize the media worker and auto-tracking
+    const { initializeServerSideMediaWorker, initializeAutoTracking } = await import('./lib/server-startup');
+    
+    // Initialize services with error handling
+    try {
+      await initializeServerSideMediaWorker();
+      console.log('✅ Media worker initialized');
+    } catch (error) {
+      console.error('❌ Failed to initialize media worker:', error);
+    }
+    
+    try {
+      await initializeAutoTracking();
+      console.log('✅ Auto-tracking initialized');
+    } catch (error) {
+      console.error('❌ Failed to initialize auto-tracking:', error);
+    }
   }
 }

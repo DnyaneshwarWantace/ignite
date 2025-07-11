@@ -33,7 +33,7 @@ export default function AdvanceFilter({ items = [], label, onChange }: { items: 
       // Call onChange with the new selection only after user interaction
       if (onChange && hasInteracted.current) {
         onChange(newSelection);
-      }
+    }
       
       return newSelection;
     });

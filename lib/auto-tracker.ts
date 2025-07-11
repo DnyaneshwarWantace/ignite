@@ -4,7 +4,7 @@ import prisma from '@prisma/index';
 let trackingInterval: NodeJS.Timeout | null = null;
 
 // Configuration
-const TRACKING_INTERVAL = 15 * 60 * 1000; // 15 minutes
+const TRACKING_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours (24 * 60 * 60 * 1000 milliseconds)
 const MAX_PAGINATION_PAGES = 20; // Safety limit for pagination
 
 // Logging with timestamp

@@ -13,7 +13,7 @@ export async function initializeAutoTracking() {
     console.log('🚀 Initializing auto-tracking service...');
     
     // Dynamic import to avoid module loading issues
-    const { startAutoTracking, getTrackingStatus } = require('./auto-tracker');
+    const { startAutoTracking, getTrackingStatus } = require('./auto-tracker.ts');
     
     // Check if auto-tracking is already running
     const status = getTrackingStatus();

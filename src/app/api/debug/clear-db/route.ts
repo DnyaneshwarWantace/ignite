@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   try {
     // Stop any running services
-    const { stopAutoTracking } = await import('@/rootlib/auto-tracker');
+    const { stopAutoTracking } = await import('@/lib/auto-tracker');
     stopAutoTracking();
 
     // Clear all data in reverse order of dependencies

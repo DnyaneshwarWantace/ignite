@@ -37,19 +37,19 @@ You can also control the media worker via API endpoints:
 
 **Start the worker:**
 ```bash
-curl -X POST http://194.233.76.212/api/v1/media/worker \
+curl -X POST http://localhost:3000/api/v1/media/worker \
   -H "Content-Type: application/json" \
   -d '{"intervalMinutes": 2}'
 ```
 
 **Check status:**
 ```bash
-curl http://194.233.76.212/api/v1/media/worker
+curl http://localhost:3000/api/v1/media/worker
 ```
 
 **Stop the worker:**
 ```bash
-curl -X DELETE http://194.233.76.212/api/v1/media/worker
+curl -X DELETE http://localhost:3000/api/v1/media/worker
 ```
 
 ## How It Works

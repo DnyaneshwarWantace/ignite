@@ -3,7 +3,7 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_BACKEND_URL || "http://194.233.76.212/api/v1",
+  baseURL: process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000/api/v1",
   headers: {
     "Content-Type": "application/json",
   },

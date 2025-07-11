@@ -10,7 +10,7 @@ export async function startMediaWorkerOnServerStart() {
     console.log('🚀 Auto-starting media worker...');
     
     // Start the media worker via API endpoint
-    const response = await fetch('http://194.233.76.212/api/v1/media/worker', {
+    const response = await fetch('http://localhost:3000/api/v1/media/worker', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -1,7 +1,7 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { showToast } from "@/lib/toastUtils";
 
-const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://194.233.76.212/api/v1";
+const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000/api/v1";
 
 export const discoverApi = createApi({
   reducerPath: "discoverApi",

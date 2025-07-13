@@ -61,7 +61,7 @@ const getInitialLoadCount = () => {
 export default function DiscoverPage() {
   const searchParams = useSearchParams();
   const adIdFromUrl = searchParams.get('adId');
-
+  
   // Progressive caching state
   const [cachedAds, setCachedAds] = useState<any[]>([]);
   const [nextCursor, setNextCursor] = useState<{createdAt: string, id: string} | null>(null);
@@ -77,7 +77,7 @@ export default function DiscoverPage() {
 
   // Initial load - increase to get more diverse content
   const initialLimit = useMemo(() => Math.max(getInitialLoadCount(), 50), []);
-  
+
   // Create a stable filter key that changes when filters change
   const filterKey = useMemo(() => {
     return JSON.stringify({
@@ -132,7 +132,7 @@ export default function DiscoverPage() {
     if (shouldUseServerFiltering) {
       // Use server-filtered results
       return serverData?.ads || [];
-    } else {
+        } else {
       // Use client-side filtering on cached data
       return adFiltering.filterAds(cachedAds, filters);
     }
@@ -395,7 +395,7 @@ export default function DiscoverPage() {
           onSearchUpdate={handleSearchUpdate}
           onSortUpdate={handleSortUpdate}
         />
-
+        
         {/* Filter info */}
         {isFilterApplied && (
           <div className="text-sm text-muted-foreground">
@@ -406,7 +406,7 @@ export default function DiscoverPage() {
             )}
           </div>
         )}
-
+        
         <Flex wrap={"wrap"} gap={"6"} className="w-full">
         {filteredAds.length === 0 && !isLoading ? (
           <div className="w-full min-h-[50vh] flex flex-col justify-center items-center px-4">

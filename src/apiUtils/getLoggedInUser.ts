@@ -22,10 +22,10 @@ const getLoggedInUser = async (baseURL?: string, cookie?: any) => {
     if (session && session.user && session.user.id) {
       console.log("getLoggedInUser - Looking for user with ID:", session.user.id);
       let loggedInUser = await prisma.user.findUnique({
-        where: {
+      where: {
           id: session.user.id,
-        },
-      });
+      },
+    });
       
       // If user doesn't exist in database but exists in session, create them
       if (!loggedInUser && session.user.email) {
@@ -52,8 +52,8 @@ const getLoggedInUser = async (baseURL?: string, cookie?: any) => {
       }
       
       console.log("getLoggedInUser - Found user:", loggedInUser ? "Yes" : "No");
-      return loggedInUser;
-    } else {
+    return loggedInUser;
+  } else {
       console.log("getLoggedInUser - No valid session or user ID");
       return null;
     }

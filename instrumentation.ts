@@ -8,7 +8,7 @@ export async function register() {
     
     // Initialize services with error handling
     try {
-      await initializeServerSideMediaWorker();
+    await initializeServerSideMediaWorker();
       console.log('✅ Media worker initialized');
     } catch (error) {
       console.error('❌ Failed to initialize media worker:', error);

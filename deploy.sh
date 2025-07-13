@@ -34,7 +34,7 @@ if [ $? -eq 0 ]; then
     echo "📋 Next steps:"
     echo "1. Start the application: npm start"
     echo "2. Or use PM2: pm2 start npm --name 'ignite' -- start"
-    echo "3. Check auto-tracking status: curl https://ignite-ldg4.onrender.com/api/v1/auto-tracker"
+    echo "3. Check auto-tracking status: curl https://ignite-jade.vercel.app/api/v1/auto-tracker"
     echo ""
     echo "📊 Auto-tracking will run every 24 hours automatically"
     echo "📊 Media processing will run every 2 minutes"

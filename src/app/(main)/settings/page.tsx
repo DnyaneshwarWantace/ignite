@@ -44,6 +44,12 @@ export default function SettingsPage() {
           title="Settings"
           subtitle="Manage your account and preferences"
           link="#"
+          btnComp={
+            <Button variant="outline" size="sm" className="flex border-primary/50 text-primary font-bold">
+              <Settings className="mr-2 h-4 w-4" />
+              Help
+            </Button>
+          }
         />
       }
     >
@@ -65,7 +71,7 @@ export default function SettingsPage() {
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1">
-                <Typography variant="h4" className="font-semibold">
+                <Typography variant="h3" className="font-semibold">
                   {session?.user?.name || "User"}
                 </Typography>
                 <Typography variant="p" className="text-muted-foreground">
@@ -93,7 +99,7 @@ export default function SettingsPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <Typography variant="h5">Email Notifications</Typography>
+                <Typography variant="h3">Email Notifications</Typography>
                 <Typography variant="p" className="text-muted-foreground">
                   Receive notifications about new ads and updates
                 </Typography>
@@ -108,7 +114,7 @@ export default function SettingsPage() {
             
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <Typography variant="h5">Dark Mode</Typography>
+                <Typography variant="h3">Dark Mode</Typography>
                 <Typography variant="p" className="text-muted-foreground">
                   Switch between light and dark themes
                 </Typography>
@@ -123,7 +129,7 @@ export default function SettingsPage() {
             
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <Typography variant="h5">Auto Tracking</Typography>
+                <Typography variant="h3">Auto Tracking</Typography>
                 <Typography variant="p" className="text-muted-foreground">
                   Automatically track new ads from your brands
                 </Typography>

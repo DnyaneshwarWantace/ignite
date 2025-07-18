@@ -121,3 +121,36 @@
   height: 2rem;
   background: linear-gradient(to top, white, transparent);
 }
+
+/* Ad Card Overflow Fixes */
+.ad-card .brand-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ad-card .url-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ad-card .url-desc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ad-card .cta-button {
+  white-space: nowrap;
+  min-width: fit-content;
+}
+
+/* Ensure proper flex behavior */
+.ad-card .card-header {
+  gap: 0.5rem;
+}
+
+.ad-card .cta-section {
+  gap: 0.5rem;
+}

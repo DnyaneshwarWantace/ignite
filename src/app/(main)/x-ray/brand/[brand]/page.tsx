@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Typography } from "@/components/ui/typography";
 import { Flex } from "@radix-ui/themes";
 import { Link, Presentation, Loader2, AlertCircle } from "lucide-react";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { Chip } from "@/components/ui/chip";
 import LazyAdCard from "@/components/LazyAdCard";
@@ -44,6 +44,7 @@ export default function Brand({ params }: { params: { brand: string } }) {
     search: "",
     sort: null,
   });
+  const [activeTab, setActiveTab] = useState<string>("ad");
 
   // Fetch brand details, ads, and analytics
   const { data: brandDetails, isFetching: brandLoading, isError: brandError, error: brandErrorDetails }: any = useFetchBrandQuery({ id: params.brand });
@@ -466,7 +467,7 @@ export default function Brand({ params }: { params: { brand: string } }) {
 
   return (
     <PageWrapper top={selectedBrand && <FolderNavigator folder={selectedFolder} {...(selectedBrand ?? {})} />}>
-      <Tabs defaultValue="ad">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="ad">Ad Library</TabsTrigger>
           <TabsTrigger value="ct">Creative Tests</TabsTrigger>
@@ -602,7 +603,7 @@ export default function Brand({ params }: { params: { brand: string } }) {
                               </Typography>
                             )}
 
-                            <Button variant={"outline"}>View All Pages</Button>
+                            <Button variant={"outline"} onClick={() => setActiveTab('lp')}>View All Pages</Button>
                           </Flex>
                         </CardContent>
                       </Card>
@@ -653,7 +654,7 @@ export default function Brand({ params }: { params: { brand: string } }) {
                               </Typography>
                             )}
 
-                            <Button variant={"outline"}>View All Hooks</Button>
+                            <Button variant={"outline"} onClick={() => setActiveTab('hs')}>View All Hooks</Button>
                           </Flex>
                         </CardContent>
                       </Card>
@@ -806,10 +807,24 @@ export default function Brand({ params }: { params: { brand: string } }) {
           <LandingPageViewer landingPages={analytics.landingPages || []} />
         </TabsContent>
         <TabsContent value="hs">
-          <XrayHooks hooks={analytics.topHooks || []} ads={currentAds} />
+          <Suspense fallback={
+            <div className="text-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin mx-auto mb-3 text-blue-600" />
+              <p className="text-sm text-muted-foreground">Loading Hooks...</p>
+            </div>
+          }>
+            <XrayHooks hooks={analytics.topHooks || []} ads={currentAds.slice(0, 200)} />
+          </Suspense>
         </TabsContent>
         <TabsContent value="tl">
-          <Timeline timelineData={analytics.timeline || []} ads={currentAds} />
+          <Suspense fallback={
+            <div className="text-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin mx-auto mb-3 text-blue-600" />
+              <p className="text-sm text-muted-foreground">Loading Timeline...</p>
+            </div>
+          }>
+            <Timeline timelineData={analytics.timeline || []} ads={currentAds.slice(0, 500)} />
+          </Suspense>
         </TabsContent>
       </Tabs>
     </PageWrapper>

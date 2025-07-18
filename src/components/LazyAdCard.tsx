@@ -600,9 +600,13 @@ export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActio
         url={landingPageUrl ? (() => {
           try {
             const urlObj = new URL(landingPageUrl.startsWith('http') ? landingPageUrl : `https://${landingPageUrl}`);
-            return urlObj.hostname.replace('www.', '').toUpperCase();
+            const hostname = urlObj.hostname.replace('www.', '').toUpperCase();
+            // Truncate very long hostnames
+            return hostname.length > 25 ? hostname.substring(0, 22) + '...' : hostname;
           } catch (e) {
-            return landingPageUrl.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '').toUpperCase();
+            const hostname = landingPageUrl.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '').toUpperCase();
+            // Truncate very long hostnames
+            return hostname.length > 25 ? hostname.substring(0, 22) + '...' : hostname;
           }
         })() : 'NO URL'}
         url_desc={landingPageUrl ? `Visit ${brandName}` : 'No landing page available'}

@@ -1,16 +1,15 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback, useTransition } from "react";
 import { VideoIcon, ImageIcon, MoreHorizontal, Calendar, Download, Pin, Copy, ExternalLink, ChevronRight, Clock, TrendingUp } from "lucide-react";
 import { Flex } from "@radix-ui/themes";
 import { Button } from "./ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { showToast } from "@/lib/toastUtils";
 import FilterRow from "./FilterRow";
-import { FilterState, createInitialFilterState, filterAds, getSearchableText, getAdFormat, getAdPlatform, getAdStatus, getAdLanguage, getAdNiche } from "@/lib/adFiltering";
+import { FilterState, createInitialFilterState } from "@/lib/adFiltering";
 
-// Interface for timeline items
 interface TimelineItem {
   id: string;
   image: string;
@@ -28,7 +27,6 @@ interface TimelineItem {
   dayOfMonth: number;
 }
 
-// Interface for month data
 interface MonthData {
   year: number;
   month: number;
@@ -51,64 +49,101 @@ export default function Timeline({ timelineData = [], ads = [] }: TimelineProps)
   const [pinnedAds, setPinnedAds] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<'overview' | 'month'>('overview');
   const [filters, updateFilters] = useState<FilterState>(createInitialFilterState());
+  const [isPending, startTransition] = useTransition();
 
-  // Function to clean template variables from text
-  const cleanTemplateVariables = (text: string, fallback: string = ""): string => {
+  // Limit data to prevent freezing
+  const limitedAds = useMemo(() => ads.slice(0, 200), [ads]);
+
+  // Simple text cleaning function
+  const cleanText = useCallback((text: string, fallback: string = ""): string => {
     if (!text) return fallback;
-    
-    let cleanText = text
-      .replace(/\{\{[^}]+\}\}/g, "") // Remove all template variables
-      .replace(/\s+/g, ' ');
-    
-    cleanText = cleanText.trim();
-    return cleanText || fallback;
-  };
+    return text
+      .replace(/\{\{[^}]+\}\}/g, "")
+      .replace(/\s+/g, ' ')
+      .trim() || fallback;
+  }, []);
 
-  // Function to get ad type icon
-  const getAdTypeIcon = (adType: string) => {
-    switch (adType.toLowerCase()) {
-      case 'video':
-        return <VideoIcon className="w-4 h-4 text-blue-600" />;
-      case 'image':
-        return <ImageIcon className="w-4 h-4 text-green-600" />;
-      case 'carousel':
-        return <MoreHorizontal className="w-4 h-4 text-purple-600" />;
-      default:
-        return <ImageIcon className="w-4 h-4 text-gray-600" />;
+  // Simple ad type detection
+  const getAdType = useCallback((ad: any): string => {
+    try {
+      const content = typeof ad.content === 'string' ? JSON.parse(ad.content) : ad.content;
+      const snapshot = content.snapshot || {};
+      const videos = snapshot.videos || [];
+      const images = snapshot.images || [];
+      
+      if (videos.length > 0) return 'video';
+      if (images.length > 1) return 'carousel';
+      if (images.length === 1) return 'image';
+      return 'unknown';
+    } catch {
+      return 'unknown';
     }
-  };
+  }, []);
 
-  // Process ads data to create timeline items
+  // Simple image extraction
+  const getAdImage = useCallback((ad: any): string | null => {
+    try {
+      const content = typeof ad.content === 'string' ? JSON.parse(ad.content) : ad.content;
+      const snapshot = content.snapshot || {};
+      const videos = snapshot.videos || [];
+      const images = snapshot.images || [];
+      
+      // Try to get first image
+      if (images.length > 0) {
+        const firstImage = images[0];
+        return firstImage.original_image_url || firstImage.resized_image_url || firstImage.url;
+      }
+      
+      // Try video preview
+      if (videos.length > 0) {
+        const firstVideo = videos[0];
+        return firstVideo.video_preview_image_url;
+      }
+      
+      // Fallback
+      return ad.localImageUrl || ad.imageUrl || snapshot.image_url;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // Process ads data to create timeline items with performance optimization
   const timelineItems: TimelineItem[] = useMemo(() => {
-    if (!ads || ads.length === 0) return [];
+    if (!limitedAds || limitedAds.length === 0) return [];
 
-    return ads.map((ad: any) => {
+    return limitedAds.map((ad: any) => {
       try {
-        const content = JSON.parse(ad.content);
+        const content = typeof ad.content === 'string' ? JSON.parse(ad.content) : ad.content;
         const snapshot = content.snapshot || {};
-        const videos = snapshot.videos || [];
-        const images = snapshot.images || [];
-        const firstVideo = videos[0] || {};
-        const firstImage = images[0] || {};
 
         // Extract image URL
-        const imageUrl = 
-          firstVideo.video_preview_image_url ||
-          firstImage.original_image_url ||
-          firstImage.resized_image_url ||
-          ad.imageUrl ||
-          snapshot.image_url ||
-          null;
+        const imageUrl = getAdImage(ad);
 
         // Determine ad type
-        let adType = ad.type || "unknown";
-        if (videos.length > 0) adType = "video";
-        else if (images.length > 1) adType = "carousel";
-        else if (images.length === 1) adType = "image";
+        const adType = getAdType(ad);
 
-        // Extract dates
-        const startDate = new Date(typeof content.start_date === 'number' ? content.start_date * 1000 : content.start_date || content.start_date_string);
-        const endDate = content.end_date ? new Date(typeof content.end_date === 'number' ? content.end_date * 1000 : content.end_date) : null;
+        // Extract dates with error handling
+        let startDate: Date;
+        try {
+          startDate = new Date(typeof content.start_date === 'number' ? content.start_date * 1000 : content.start_date || content.start_date_string);
+          if (isNaN(startDate.getTime())) {
+            startDate = new Date();
+          }
+        } catch {
+          startDate = new Date();
+        }
+
+        let endDate: Date | null = null;
+        if (content.end_date) {
+          try {
+            endDate = new Date(typeof content.end_date === 'number' ? content.end_date * 1000 : content.end_date);
+            if (isNaN(endDate.getTime())) {
+              endDate = null;
+            }
+          } catch {
+            endDate = null;
+          }
+        }
         
         // Calculate duration
         const now = new Date();
@@ -116,8 +151,7 @@ export default function Timeline({ timelineData = [], ads = [] }: TimelineProps)
         const duration = Math.floor((endTime.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 
         // Extract CTA text and URL
-        const rawCtaText = snapshot.cta_text || snapshot.call_to_action?.value || "Learn More";
-        const ctaText = cleanTemplateVariables(rawCtaText, "Learn More");
+        const ctaText = cleanText(snapshot.cta_text || snapshot.call_to_action?.value || "Learn More", "Learn More");
         const ctaUrl = snapshot.link_url || content.link_url || content.url || "";
 
         // Check if ad is active
@@ -127,7 +161,7 @@ export default function Timeline({ timelineData = [], ads = [] }: TimelineProps)
         const platform = content.publisher_platform?.[0] || "FACEBOOK";
 
         // Extract headline
-        const headline = cleanTemplateVariables(
+        const headline = cleanText(
           snapshot.title || 
           snapshot.body?.text || 
           ad.headline || 
@@ -141,7 +175,7 @@ export default function Timeline({ timelineData = [], ads = [] }: TimelineProps)
           image: imageUrl,
           startDate,
           endDate,
-          duration: Math.max(duration, 1), // Minimum 1 day
+          duration: Math.max(duration, 1),
           type: adType,
           headline: headline.substring(0, 60) + (headline.length > 60 ? '...' : ''),
           ctaText,
@@ -156,73 +190,30 @@ export default function Timeline({ timelineData = [], ads = [] }: TimelineProps)
         return null;
       }
     }).filter(Boolean) as TimelineItem[];
-  }, [ads]);
+  }, [limitedAds, cleanText, getAdImage, getAdType]);
 
-  // Apply comprehensive filtering to timeline items
+  // Apply simple filtering to timeline items
   const filteredTimelineItems = useMemo(() => {
     if (!timelineItems || timelineItems.length === 0) return [];
     
-    // First filter the original ads data using the shared filtering utility
-    const filteredAds = filterAds(ads, filters);
-    
-    // If no ads match the filters, return empty timeline
-    if (filteredAds.length === 0 && (
-      filters.format.length > 0 || 
-      filters.platform.length > 0 || 
-      filters.status.length > 0 || 
-      filters.language.length > 0 || 
-      filters.niche.length > 0
-    )) {
-      return [];
-    }
-    
-    // Get the IDs of filtered ads
-    const filteredAdIds = new Set(filteredAds.map((ad: any) => ad.id));
-    
-    // Filter timeline items based on filtered ads
     let filtered = timelineItems;
     
-    // Apply ad-based filters first
-    if (filters.format.length > 0 || filters.platform.length > 0 || filters.status.length > 0 || 
-        filters.language.length > 0 || filters.niche.length > 0) {
-      filtered = filtered.filter((item: TimelineItem) => filteredAdIds.has(item.id));
-    }
-    
-    // Apply search filter to timeline-specific fields
+    // Apply search filter
     if (filters.search && filters.search.trim() !== '') {
       const searchTerm = filters.search.toLowerCase().trim();
       filtered = filtered.filter((item: TimelineItem) => {
-        // Search in headline
-        if (item.headline.toLowerCase().includes(searchTerm)) {
-          return true;
-        }
-        
-        // Search in CTA text
-        if (item.ctaText.toLowerCase().includes(searchTerm)) {
-          return true;
-        }
-        
-        // Search in platform
-        if (item.platform.toLowerCase().includes(searchTerm)) {
-          return true;
-        }
-        
-        // Search in ad type
-        if (item.type.toLowerCase().includes(searchTerm)) {
-          return true;
-        }
-        
-        // Search in ad ID
-        if (item.id.toLowerCase().includes(searchTerm)) {
-          return true;
-        }
-        
-        return false;
+        return (
+          item.headline.toLowerCase().includes(searchTerm) ||
+          item.ctaText.toLowerCase().includes(searchTerm) ||
+          item.platform.toLowerCase().includes(searchTerm) ||
+          item.type.toLowerCase().includes(searchTerm) ||
+          item.id.toLowerCase().includes(searchTerm)
+        );
       });
     }
     
-    return filtered;
-  }, [timelineItems, filters, ads]);
+    return filtered.slice(0, 100); // Limit results
+  }, [timelineItems, filters.search]);
 
   // Group filtered timeline items by month
   const monthsData: MonthData[] = useMemo(() => {
@@ -276,19 +267,36 @@ export default function Timeline({ timelineData = [], ads = [] }: TimelineProps)
 
   const currentMonthData = monthsData.find(m => m.monthKey === selectedMonth) || monthsData[0];
 
-  const togglePin = (adId: string) => {
-    const newPinnedAds = new Set(pinnedAds);
-    if (newPinnedAds.has(adId)) {
-      newPinnedAds.delete(adId);
-      showToast("Ad unpinned from timeline", { variant: "success" });
-    } else {
-      newPinnedAds.add(adId);
-      showToast("Ad pinned to timeline", { variant: "success" });
+  // Get ad type icon
+  const getAdTypeIcon = useCallback((adType: string) => {
+    switch (adType.toLowerCase()) {
+      case 'video':
+        return <VideoIcon className="w-4 h-4 text-blue-600" />;
+      case 'image':
+        return <ImageIcon className="w-4 h-4 text-green-600" />;
+      case 'carousel':
+        return <MoreHorizontal className="w-4 h-4 text-purple-600" />;
+      default:
+        return <ImageIcon className="w-4 h-4 text-gray-600" />;
     }
-    setPinnedAds(newPinnedAds);
-  };
+  }, []);
 
-  const handleCtaClick = (ctaUrl: string, ctaText: string) => {
+  // Event handlers
+  const togglePin = useCallback((adId: string) => {
+    startTransition(() => {
+      const newPinnedAds = new Set(pinnedAds);
+      if (newPinnedAds.has(adId)) {
+        newPinnedAds.delete(adId);
+        showToast("Ad unpinned from timeline", { variant: "success" });
+      } else {
+        newPinnedAds.add(adId);
+        showToast("Ad pinned to timeline", { variant: "success" });
+      }
+      setPinnedAds(newPinnedAds);
+    });
+  }, [pinnedAds]);
+
+  const handleCtaClick = useCallback((ctaUrl: string, ctaText: string) => {
     if (!ctaUrl) {
       showToast("No landing page URL available", { variant: "error" });
       return;
@@ -302,9 +310,9 @@ export default function Timeline({ timelineData = [], ads = [] }: TimelineProps)
     } catch (err) {
       showToast("Failed to open landing page", { variant: "error" });
     }
-  };
+  }, []);
 
-  const copyAdDetails = async (ad: TimelineItem) => {
+  const copyAdDetails = useCallback(async (ad: TimelineItem) => {
     const details = `${ad.headline}\nPlatform: ${ad.platform}\nDuration: ${ad.duration} days\nCTA: ${ad.ctaText}\nURL: ${ad.ctaUrl}`;
     try {
       await navigator.clipboard.writeText(details);
@@ -312,9 +320,9 @@ export default function Timeline({ timelineData = [], ads = [] }: TimelineProps)
     } catch (err) {
       showToast("Failed to copy ad details", { variant: "error" });
     }
-  };
+  }, []);
 
-  const exportCSV = () => {
+  const exportCSV = useCallback(() => {
     if (filteredTimelineItems.length === 0) {
       showToast("No timeline data to export", { variant: "error" });
       return;
@@ -346,13 +354,25 @@ export default function Timeline({ timelineData = [], ads = [] }: TimelineProps)
     window.URL.revokeObjectURL(url);
     
     showToast("Timeline exported successfully!", { variant: "success" });
-  };
+  }, [filteredTimelineItems, pinnedAds]);
 
   // Pinned ads section
   const pinnedAdsList = filteredTimelineItems.filter(ad => pinnedAds.has(ad.id));
 
+  // Loading state for large datasets
+  if (ads.length > 500) {
+    return (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-3"></div>
+        <p className="text-sm text-muted-foreground">
+          Loading timeline data ({ads.length} ads)...
+        </p>
+      </div>
+    );
+  }
+
   if (viewMode === 'overview') {
-  return (
+    return (
       <Flex direction={"column"} gap="4">
         <FilterRow
           onFormatUpdate={(v) => updateFilters({ ...filters, format: v })}
@@ -386,7 +406,9 @@ export default function Timeline({ timelineData = [], ads = [] }: TimelineProps)
             <Flex direction={"column"} gap={"3"} className="mb-6">
               {pinnedAdsList.map((ad) => (
                 <Flex key={`pinned-${ad.id}`} gap={"3"} align={"center"}>
-                  <img src={ad.image} alt="Ad" className="w-10 h-10 rounded object-cover" />
+                  {ad.image && (
+                    <img src={ad.image} alt="Ad" className="w-10 h-10 rounded object-cover" />
+                  )}
                   {getAdTypeIcon(ad.type)}
                   <button
                     onClick={() => togglePin(ad.id)}
@@ -492,12 +514,14 @@ export default function Timeline({ timelineData = [], ads = [] }: TimelineProps)
                       View Details
                       <ChevronRight className="h-4 w-4" />
                     </Button>
-      </div>
+                  </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {monthData.ads.slice(0, 6).map((ad) => (
                       <div key={ad.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                        <img src={ad.image} alt="Ad" className="w-10 h-10 rounded object-cover" />
+                        {ad.image && (
+                          <img src={ad.image} alt="Ad" className="w-10 h-10 rounded object-cover" />
+                        )}
                         {getAdTypeIcon(ad.type)}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{ad.headline}</p>
@@ -529,14 +553,14 @@ export default function Timeline({ timelineData = [], ads = [] }: TimelineProps)
                             </button>
                           )}
                         </div>
-            </div>
-          ))}
+                      </div>
+                    ))}
                     {monthData.adCount > 6 && (
                       <div className="flex items-center justify-center p-3 bg-gray-100 rounded-lg text-sm text-gray-600 border-2 border-dashed border-gray-300">
                         +{monthData.adCount - 6} more ads
                       </div>
                     )}
-              </div>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -603,7 +627,9 @@ export default function Timeline({ timelineData = [], ads = [] }: TimelineProps)
             <Card key={ad.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <Flex gap={"3"} align={"center"}>
-                  <img src={ad.image} alt="Ad" className="w-12 h-12 rounded object-cover" />
+                  {ad.image && (
+                    <img src={ad.image} alt="Ad" className="w-12 h-12 rounded object-cover" />
+                  )}
                   {getAdTypeIcon(ad.type)}
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm mb-1">{ad.headline}</p>
@@ -657,6 +683,6 @@ export default function Timeline({ timelineData = [], ads = [] }: TimelineProps)
           ))}
         </div>
       )}
-        </Flex>
+    </Flex>
   );
 }

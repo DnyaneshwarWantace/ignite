@@ -598,13 +598,13 @@ export default function AdCard({
   return (
     <Card className="w-full overflow-hidden bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 ad-card">
       <CardHeader className="flex flex-row items-center justify-between p-4 card-header">
-        <div className="flex items-center space-x-2 brand-info">
-          <Avatar className="w-8 h-8">
+        <div className="flex items-center space-x-2 brand-info flex-1 min-w-0">
+          <Avatar className="w-8 h-8 flex-shrink-0">
             <AvatarImage src={avatarSrc} alt={companyName} />
             <AvatarFallback>{companyName[0]}</AvatarFallback>
           </Avatar>
-          <div>
-            <Typography variant="title" className="font-medium text-sm brand-name">
+          <div className="flex-1 min-w-0">
+            <Typography variant="title" className="font-medium text-sm brand-name truncate block">
               {companyName}
             </Typography>
             <Badge 
@@ -623,7 +623,7 @@ export default function AdCard({
             </Badge>
           </div>
         </div>
-        <div className="flex items-center space-x-2 action-buttons">
+        <div className="flex items-center space-x-2 action-buttons flex-shrink-0">
           {!hideActions && (
             <>
           <Button variant={"outline"} size={"icon"} onClick={handleCopyLink}>
@@ -786,15 +786,15 @@ export default function AdCard({
       <CardFooter className="flex justify-center pb-2 card-footer">
         <Flex direction={"column"} gap="4">
           <Flex direction={"row"} gap={"4"} className="bg-gray-50 p-2 rounded-md cta-section">
-            <Box className="url-info">
-              <Typography variant="title" className="font-medium text-sm url-title">
+            <Box className="url-info flex-1 min-w-0">
+              <Typography variant="title" className="font-medium text-sm url-title truncate block">
                 {url}
               </Typography>
-              <Typography variant="title" className="text-sm truncate text-ellipsis max-w-[200px] url-desc">
+              <Typography variant="title" className="text-sm truncate text-ellipsis block url-desc">
                 {url_desc}
               </Typography>
             </Box>
-            <Button onClick={onCtaClick} variant={"outline"} className="flex-1 mr-2 cta-button">
+            <Button onClick={onCtaClick} variant={"outline"} className="flex-shrink-0 cta-button">
               {ctaText}
             </Button>
           </Flex>

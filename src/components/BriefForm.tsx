@@ -4,7 +4,7 @@ import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { ArrowLeft, Link } from "lucide-react";
+import { ArrowLeft, Link, Bookmark, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -14,9 +14,21 @@ import { Textarea } from "@/components/ui/textarea";
 import { BriefSchema } from "@/lib/schemas";
 import { InputWithIcon } from "./ui/input-with-icon";
 import { Separator } from "./ui/separator";
+import SelectAdsModal from "./select-ads-modal";
+import { useAnalyzeAdsMutation, useGenerateConceptsMutation } from "@/store/slices/xray";
 
-export default function BriefForm() {
+interface BriefFormProps {
+  onConceptsGenerated?: (concepts: any[], briefData?: any) => void;
+}
+
+export default function BriefForm({ onConceptsGenerated }: BriefFormProps) {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showAdSelector, setShowAdSelector] = useState(false);
+  const [selectedAds, setSelectedAds] = useState<any[]>([]);
+  
+  const [analyzeAds, { isLoading: isAnalyzing }] = useAnalyzeAdsMutation();
+  const [generateConcepts, { isLoading: isGeneratingConcepts }] = useGenerateConceptsMutation();
+  
   const form = useForm<z.infer<typeof BriefSchema>>({
     resolver: zodResolver(BriefSchema),
     defaultValues: {
@@ -32,17 +44,125 @@ export default function BriefForm() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof BriefSchema>) {
+  const handleAdsSelected = async (ads: any[]) => {
+    setSelectedAds(ads);
+    setShowAdSelector(false);
+    
+    if (ads.length > 0) {
+      try {
+        const result = await analyzeAds(ads);
+        if (result.data?.payload?.briefData) {
+          const briefData = result.data.payload.briefData;
+          
+          // Auto-fill the form with analyzed data
+          form.setValue('briefName', briefData.briefName || '');
+          form.setValue('brandName', briefData.brandName || '');
+          form.setValue('productName', briefData.productName || '');
+          form.setValue('adObjective', briefData.adObjective || '');
+          form.setValue('productDescription', briefData.productDescription || '');
+          form.setValue('usp', briefData.usp || '');
+          form.setValue('targetAudience', briefData.targetAudience || '');
+          form.setValue('toneOfVoice', briefData.toneOfVoice || '');
+          form.setValue('customerAwarenessLevel', briefData.customerAwarenessLevel || '');
+          form.setValue('marketSophistication', briefData.marketSophistication || '');
+          form.setValue('productionLevel', briefData.productionLevel || '');
+        }
+      } catch (error) {
+        console.error('Error analyzing ads:', error);
+      }
+    }
+  };
+
+  async function onSubmit(values: z.infer<typeof BriefSchema>) {
     console.log(values);
-    // Handle form submission
+    
+    // Generate concepts when form is submitted
+    try {
+      const result = await generateConcepts(values);
+      if (result.data?.payload?.concepts) {
+        console.log('Generated concepts:', result.data.payload.concepts);
+        // Pass generated concepts and brief data to parent component
+        if (onConceptsGenerated) {
+          onConceptsGenerated(result.data.payload.concepts, values);
+        }
+      }
+    } catch (error) {
+      console.error('Error generating concepts:', error);
+    }
   }
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 overflow-y-scroll">
         <div className="space-y-4 bg-primary/10 p-4">
           <div>
-            <h2 className="text-sm font-medium">Landing Page Analyzer</h2>
-            <p className="text-sm text-muted-foreground">Analyze your landing page or website to generate the fields below</p>
+            <h2 className="text-sm font-medium">AI-Powered Brief Generator</h2>
+            <p className="text-sm text-muted-foreground">Select ads from your saved ads to auto-fill your brief with AI analysis</p>
+          </div>
+          
+          {/* Ad Selection Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bookmark className="h-4 w-4" />
+                <span className="text-sm font-medium">Selected Ads ({selectedAds.length}/5)</span>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAdSelector(true)}
+                disabled={isAnalyzing}
+              >
+                {selectedAds.length === 0 ? "Select Ads" : "Change Selection"}
+              </Button>
+            </div>
+            
+            {selectedAds.length > 0 && (
+              <div className="space-y-2">
+                {selectedAds.map((ad, index) => {
+                  const adData = JSON.parse(ad.adData || '{}');
+                  return (
+                    <div key={ad.id} className="flex items-center justify-between p-2 bg-white rounded border">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">
+                          {adData.companyName || 'Unknown Brand'}
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {adData.title || adData.description || 'No description'}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                <Button
+                  type="button"
+                  variant="default"
+                  onClick={handleAdsSelected}
+                  disabled={isAnalyzing}
+                  className="w-full"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Analyzing Ads...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Analyze & Auto-Fill Brief
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Landing Page Analyzer (optional) */}
+          <div>
+            <h2 className="text-sm font-medium">Landing Page Analyzer (Optional)</h2>
+            <p className="text-sm text-muted-foreground">Alternatively, analyze your landing page to auto-fill the fields below</p>
           </div>
           <div className="flex flex-col gap-3">
             <FormField
@@ -56,8 +176,8 @@ export default function BriefForm() {
                 </FormItem>
               )}
             />
-            <Button type="button" variant={"default"} onClick={() => setIsGenerating(true)} disabled={isGenerating}>
-              {isGenerating ? "Generating..." : "Generate"}
+            <Button type="button" variant={"outline"} onClick={() => setIsGenerating(true)} disabled={isGenerating}>
+              {isGenerating ? "Generating..." : "Generate from URL"}
             </Button>
           </div>
         </div>
@@ -109,7 +229,7 @@ export default function BriefForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Ad Objective *</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger className="text-md">
                         <SelectValue placeholder="Select Ad Objective" />
@@ -178,7 +298,7 @@ export default function BriefForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Tone of voice *</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl className="text-md">
                       <SelectTrigger>
                         <SelectValue placeholder="Select a tone of voice" />
@@ -209,7 +329,7 @@ export default function BriefForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Customer Awareness Level</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger className="text-md">
                         <SelectValue placeholder="Select level" />
@@ -231,7 +351,7 @@ export default function BriefForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Market Sophistication</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger className="text-md">
                         <SelectValue placeholder="Select Sophistication" />
@@ -252,7 +372,7 @@ export default function BriefForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Production Level</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger className="text-md">
                         <SelectValue placeholder="Select Sophistication" />
@@ -271,9 +391,32 @@ export default function BriefForm() {
         </div>
         <div className="flex justify-end space-x-4 p-4 border-t">
           <Button variant={"outline"}>Cancel</Button>
-          <Button variant={"default"}>Save</Button>
+          <Button 
+            variant={"default"} 
+            type="submit"
+            disabled={isGeneratingConcepts}
+          >
+            {isGeneratingConcepts ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Generating Concepts...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4 mr-2" />
+                Save & Generate Concepts
+              </>
+            )}
+          </Button>
         </div>
       </form>
+
+      {/* Ad Selection Modal */}
+      <SelectAdsModal
+        isOpen={showAdSelector}
+        onClose={() => setShowAdSelector(false)}
+        onAdsSelected={handleAdsSelected}
+      />
     </Form>
   );
 }

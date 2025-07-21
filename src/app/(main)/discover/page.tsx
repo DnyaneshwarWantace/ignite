@@ -42,17 +42,17 @@ const createInitialFilterState = (): FilterState => ({
 
 // Breakpoint columns for masonry
 const breakpointColumnsObj = {
-  default: 4,
-  1400: 3,
-  1100: 2,
-  700: 1,
+  default: 4, // Big screens (1400px+): 4 ads
+  1600: 3,    // Laptop screens (1024px-1400px): 3 ads
+  1100: 2,    // Medium screens: 2 ads
+  700: 1,     // Small screens: 1 ad
 };
 
 // Get initial load count based on screen size
 const getInitialLoadCount = () => {
   if (typeof window === "undefined") return 50;
   const width = window.innerWidth;
-  if (width >= 1400) return 60; // 4 columns
+  if (width >= 1500) return 60; // 4 columns
   if (width >= 1100) return 45; // 3 columns
   if (width >= 700) return 30;  // 2 columns
   return 20; // 1 column

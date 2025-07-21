@@ -25,6 +25,8 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   folders   Folder[]
+  savedAdFolders SavedAdFolder[]
+  savedAds SavedAd[]
 }
 
 model Account {
@@ -80,6 +82,19 @@ model Folder {
   updatedAt DateTime @updatedAt
 }
 
+model SavedAdFolder {
+  id   String @id @default(cuid())
+  name String
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  savedAds SavedAd[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Brand {
   id       String @id @default(cuid())
   name     String
@@ -119,6 +134,21 @@ model Ad {
   brandId String
 
   transcript AdTranscript?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SavedAd {
+  id          String @id @default(cuid())
+  adId        String // Reference to the original ad
+  adData      String // JSON string containing the ad data when saved
+  folderId    String?
+  
+  folder      SavedAdFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

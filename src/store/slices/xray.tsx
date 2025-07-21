@@ -1,7 +1,7 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { showToast } from "@/lib/toastUtils";
 import { createSlice } from "@reduxjs/toolkit";
-const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL! + "/x-ray";
+const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000/api/v1";
 
 export const xrayApi = createApi({
   reducerPath: "xrayApi",
@@ -13,10 +13,10 @@ export const xrayApi = createApi({
       return headers;
     },
   }),
-  tagTypes: ["Folders"],
+  tagTypes: ["Folders", "SavedAds", "SavedAdFolders"],
   endpoints: (builder) => ({
     fetchAllBrands: builder.query<any[], void>({
-      query: () => "/brands",
+      query: () => "/x-ray/brands",
       transformResponse: (response: { payload: { brands: any[] } }) => response.payload.brands,
 
       transformErrorResponse: (error: any) => {
@@ -25,7 +25,7 @@ export const xrayApi = createApi({
       },
     }),
     fetchBrand: builder.query<any, { id: string }>({
-      query: ({ id }) => `/brands/${id}`,
+      query: ({ id }) => `/x-ray/brands/${id}`,
       transformResponse: (response: { payload: { brand: any } }) => response.payload.brand,
 
       transformErrorResponse: (error: any) => {
@@ -44,7 +44,7 @@ export const xrayApi = createApi({
         params.append('page', page.toString());
         params.append('limit', limit.toString());
         
-        return `/brands/${id}/ads?${params.toString()}`;
+        return `/x-ray/brands/${id}/ads?${params.toString()}`;
       },
       transformResponse: (response: { payload: { ads: any[]; pagination: any } }) => response.payload,
 
@@ -54,7 +54,7 @@ export const xrayApi = createApi({
       },
     }),
     fetchBrandAnalytics: builder.query<any, { id: string }>({
-      query: ({ id }) => `/brands/${id}/analytics`,
+      query: ({ id }) => `/x-ray/brands/${id}/analytics`,
       transformResponse: (response: { payload: { brand: any; analytics: any } }) => response.payload,
 
       transformErrorResponse: (error: any) => {
@@ -131,7 +131,7 @@ export const xrayApi = createApi({
       },
     }),
     fetchAllFolders: builder.query<any[], void>({
-      query: () => "/folders",
+      query: () => "/x-ray/folders",
       transformResponse: (response: { payload: { folders: any[] } }) => response.payload.folders,
       providesTags: ["Folders"],
       transformErrorResponse: (error: any) => {
@@ -140,7 +140,7 @@ export const xrayApi = createApi({
       },
     }),
     fetchFolder: builder.query<any[], { id: string }>({
-      query: ({ id }) => `/folders/${id}`,
+      query: ({ id }) => `/x-ray/folders/${id}`,
       transformResponse: (response: { payload: { folder: any } }) => response.payload.folder,
 
       transformErrorResponse: (error: any) => {
@@ -148,9 +148,126 @@ export const xrayApi = createApi({
         showToast("Failed to fetch folder.", { variant: "error" });
       },
     }),
+    fetchSavedAds: builder.query<any, { folderId?: string; page?: number; limit?: number }>({
+      query: ({ folderId, page = 1, limit = 20 }) => ({
+        url: `/x-ray/saved-ads?folderId=${folderId || '0'}&page=${page}&limit=${limit}`,
+      }),
+      transformResponse: (response: { payload: any }) => response.payload,
+      providesTags: ["SavedAds"],
+      transformErrorResponse: (error: any) => {
+        console.error(error);
+        showToast("Failed to fetch saved ads.", { variant: "error" });
+      },
+    }),
+    saveAd: builder.mutation<any, { adId: string; folderId?: string; adData?: string }>({
+      query: ({ adId, folderId, adData }) => ({
+        url: "/x-ray/saved-ads",
+        method: "POST",
+        body: { adId, folderId, adData },
+      }),
+      invalidatesTags: ["SavedAds", "SavedAdFolders"],
+      onQueryStarted: async (arg, { dispatch, queryFulfilled }) => {
+        try {
+          const { data } = await queryFulfilled;
+
+          if (data.message === "success") {
+            showToast("Ad saved successfully", { variant: "success" });
+          }
+        } catch (err) {
+          showToast("Failed to save ad", { variant: "error" });
+        }
+      },
+    }),
+    fetchSavedAdFolders: builder.query<any[], void>({
+      query: () => "/x-ray/saved-ad-folders",
+      transformResponse: (response: { payload: { folders: any[] } }) => response.payload.folders,
+      providesTags: ["SavedAdFolders"],
+      transformErrorResponse: (error: any) => {
+        console.error(error);
+        showToast("Failed to fetch saved ad folders.", { variant: "error" });
+      },
+    }),
+    checkIfAdSaved: builder.query<boolean, string>({
+      query: (adId) => `/x-ray/saved-ads/check/${adId}`,
+      transformResponse: (response: { payload: { isSaved: boolean } }) => response.payload.isSaved,
+      providesTags: (result, error, adId) => [{ type: "SavedAds", id: adId }],
+    }),
+    createSavedAdFolder: builder.mutation<any, string>({
+      query: (name) => ({
+        url: "/x-ray/saved-ad-folders",
+        method: "POST",
+        body: { name },
+      }),
+      invalidatesTags: ["SavedAdFolders"],
+      onQueryStarted: async (arg, { dispatch, queryFulfilled }) => {
+        try {
+          const { data } = await queryFulfilled;
+
+          if (data.message === "success") {
+            showToast("Folder created successfully", { variant: "success" });
+          }
+        } catch (err) {
+          showToast("Failed to create folder", { variant: "error" });
+        }
+      },
+    }),
+    analyzeAds: builder.mutation<any, any[]>({
+      query: (ads) => ({
+        url: "/writer/analyze-ads",
+        method: "POST",
+        body: { ads },
+      }),
+      onQueryStarted: async (arg, { dispatch, queryFulfilled }) => {
+        try {
+          const { data } = await queryFulfilled;
+
+          if (data.message === "success") {
+            showToast(`Analyzed ${data.payload.analyzedAdsCount} ads successfully`, { variant: "success" });
+          }
+        } catch (err) {
+          showToast("Failed to analyze ads", { variant: "error" });
+        }
+      },
+    }),
+    generateConcepts: builder.mutation<any, any>({
+      query: (briefData) => ({
+        url: "/writer/generate-concepts",
+        method: "POST",
+        body: { briefData },
+      }),
+      onQueryStarted: async (arg, { dispatch, queryFulfilled }) => {
+        try {
+          const { data } = await queryFulfilled;
+
+          if (data.message === "success") {
+            showToast(`Generated ${data.payload.concepts.length} unique concepts successfully`, { variant: "success" });
+          }
+        } catch (err) {
+          showToast("Failed to generate concepts", { variant: "error" });
+        }
+      },
+    }),
+    generateHooks: builder.mutation<any, any>({
+      query: ({ concepts, briefData }) => ({
+        url: "/writer/generate-hooks",
+        method: "POST",
+        body: { concepts, briefData },
+      }),
+      onQueryStarted: async (arg, { dispatch, queryFulfilled }) => {
+        try {
+          const { data } = await queryFulfilled;
+
+          if (data.message === "success") {
+            showToast(`Generated hooks for ${data.payload.hooksData.length} concepts successfully`, { variant: "success" });
+          }
+        } catch (err) {
+          showToast("Failed to generate hooks", { variant: "error" });
+        }
+      },
+    }),
     createFolder: builder.mutation<any, any>({
       query: (name) => ({
-        url: "/folders",
+        url: "/x-ray/folders",
         method: "POST",
         body: { name },
       }),
@@ -169,7 +286,7 @@ export const xrayApi = createApi({
     }),
     editFolder: builder.mutation<any, any>({
       query: ({ name, id }: { name: string; id: string }) => ({
-        url: `/folders/${id}`,
+        url: `/x-ray/folders/${id}`,
         method: "PATCH",
         body: { name },
       }),
@@ -188,7 +305,7 @@ export const xrayApi = createApi({
     }),
     deleteFolder: builder.mutation<any, any>({
       query: ({ id }) => ({
-        url: `/folders/${id}`,
+        url: `/x-ray/folders/${id}`,
         method: "DELETE",
       }),
       invalidatesTags: ["Folders"],
@@ -221,6 +338,14 @@ export const {
   useDeleteFolderMutation,
   useEditFolderMutation,
   useFetchFolderQuery,
+  useFetchSavedAdsQuery,
+  useSaveAdMutation,
+  useFetchSavedAdFoldersQuery,
+  useCreateSavedAdFolderMutation,
+  useCheckIfAdSavedQuery,
+  useAnalyzeAdsMutation,
+  useGenerateConceptsMutation,
+  useGenerateHooksMutation,
 } = xrayApi;
 
 export const xray_slice = createSlice({

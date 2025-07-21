@@ -691,12 +691,12 @@ export default function Brand({ params }: { params: { brand: string } }) {
               {currentAds.length > 0 ? (
                   <Masonry
                     breakpointCols={{
-                      default: 3,
-                      1280: 3,
-                      1024: 2,
-                      768: 2,
-                      640: 1,
-                      480: 1
+                      default: 4, // Big screens (1600px+): 4 ads
+                      1600: 3,    // Laptop screens (1024px-1600px): 3 ads
+                      1100: 2,    // Medium screens: 2 ads
+                      768: 2,     // Small-medium screens: 2 ads
+                      640: 1,     // Small screens: 1 ad
+                      480: 1      // Very small screens: 1 ad
                     }}
                     className="flex w-auto -ml-4"
                     columnClassName="pl-4 bg-clip-padding"
@@ -773,8 +773,7 @@ export default function Brand({ params }: { params: { brand: string } }) {
                         }
                       }}
                       onSaveAd={() => {
-                        // TODO: Implement save ad functionality
-                        console.log('Save ad:', ad.id);
+                        // This will be handled by the SaveAdModal component
                       }}
                           expand={true}
                           hideActions={false}

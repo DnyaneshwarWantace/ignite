@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useInView } from 'react-intersection-observer';
 import AdCard from './ad-card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useCheckIfAdSavedQuery } from '@/store/slices/xray';
 
 interface LazyAdCardProps {
   ad: any;
@@ -18,10 +19,15 @@ export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActio
   const [isRetrying, setIsRetrying] = useState(false);
   const loadingTimeout = useRef<NodeJS.Timeout | null>(null);
   
+  // Check if this ad is already saved
+  const { data: isSaved = false } = useCheckIfAdSavedQuery(ad.id, {
+    skip: !ad.id // Skip if no ad ID
+  });
+  
   const { ref, inView } = useInView({
-    threshold: 0.1,
-    triggerOnce: false, // Allow multiple attempts for older ads
-    rootMargin: '200px' // Load earlier to give more time
+    threshold: 0.5, // Only trigger when 50% of the ad is visible
+    triggerOnce: true, // Only trigger once to prevent flickering
+    rootMargin: '100px' // Smaller margin to reduce premature loading
   });
 
   // Helper functions (same as in discover page) - updated to use local URLs
@@ -574,9 +580,14 @@ export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActio
               </div>
             </div>
             <Skeleton className="h-4 w-full mb-2" />
-            <Skeleton className="h-4 w-3/4 mb-3" />
-            <Skeleton className="h-48 w-full rounded-lg mb-3" />
-            <Skeleton className="h-12 w-full rounded-lg" />
+            <Skeleton className="h-4 w-3/4 mb-2" />
+            <Skeleton className="h-4 w-1/2 mb-3" />
+            <Skeleton className="h-64 w-full rounded-lg mb-3" />
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-2/3" />
+            </div>
+            <Skeleton className="h-10 w-full rounded-lg mt-3" />
           </div>
         </div>
       </div>
@@ -620,6 +631,7 @@ export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActio
         onSaveAd={onSaveAd}
         expand={expand}
         hideActions={hideActions}
+        isSaved={isSaved}
       />
     </div>
   );

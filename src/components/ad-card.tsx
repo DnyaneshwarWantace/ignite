@@ -3,7 +3,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, Clock, Dot, Link, MoreVertical, Scaling, Play, Pause, Volume2, VolumeX, ExternalLink, Copy, Download } from "lucide-react";
+import { ChevronDown, Clock, Dot, Link, MoreVertical, Scaling, Play, Pause, Volume2, VolumeX, ExternalLink, Copy, Download, Bookmark, Check, Eye } from "lucide-react";
 import { Box, Flex } from "@radix-ui/themes";
 import { Chip } from "./ui/chip";
 import { Typography } from "./ui/typography";
@@ -12,6 +12,9 @@ import { motion } from "framer-motion";
 import { toast } from "@/lib/toast";
 import AdPreviewModal from "./ad-preview-modal";
 import AdCarousel from "./AdCarousel";
+import SaveAdModal from "./save-ad-modal";
+import ImageAnalysisModal from "./image-analysis-modal";
+import { useCheckIfAdSavedQuery } from "@/store/slices/xray";
 
 // Global video manager to ensure only one video plays at a time
 class VideoManager {
@@ -103,6 +106,7 @@ interface AG1AdCardProps {
   isActive?: boolean; // Whether the ad is currently active/running
   onCtaClick: () => void;
   onSaveAd: () => void;
+  isSaved?: boolean; // Whether the ad is already saved
 }
 
 export default function AdCard({
@@ -129,12 +133,15 @@ export default function AdCard({
   isMediaLoading = false,
   mediaLoadFailed = false,
   isActive = true,
+  isSaved = false,
 }: AG1AdCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true); // Videos start muted
   const [showControls, setShowControls] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
 
   // Extract real content from cards if available
   let displayTitle = title;
@@ -592,6 +599,27 @@ export default function AdCard({
     }
   };
 
+  // Get the best image URL for analysis (prefer Cloudinary URLs)
+  const getAnalysisImageUrl = () => {
+    if (imageValidation.finalImages.length > 0) {
+      // Prefer Cloudinary URLs for better analysis
+      const cloudinaryUrl = imageValidation.finalImages.find(url => 
+        url.includes('res.cloudinary.com')
+      );
+      return cloudinaryUrl || imageValidation.finalImages[0];
+    }
+    return null;
+  };
+
+  const handleAnalyzeImage = () => {
+    const imageUrl = getAnalysisImageUrl();
+    if (imageUrl) {
+      setShowAnalysisModal(true);
+    } else {
+      toast.error('No image available for analysis');
+    }
+  };
+
   // Remove dummy image fallback - just use the original image or nothing
   const displayImageSrc = imageError ? null : imageSrc;
 
@@ -798,18 +826,74 @@ export default function AdCard({
               {ctaText}
             </Button>
           </Flex>
-          <Flex direction={"row"} className="saved-ad-section">
-            <Button className="w-full flex justify-between items-center" variant="outline" onClick={onSaveAd}>
-              <span>Saved Ad</span>
-              <ChevronDown className="w-4 h-4 ml-2" />
-            </Button>
-          </Flex>
+          {!hideActions && (
+            <>
+              {/* Analyze button - only show if there are images */}
+              {imageValidation.hasValidImage && (
+                <Flex direction={"row"} className="analyze-ad-section">
+                  <Button 
+                    className="w-full flex justify-center items-center" 
+                    variant="outline" 
+                    onClick={handleAnalyzeImage}
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    <span>Analyze with AI</span>
+                  </Button>
+                </Flex>
+              )}
+              
+              {/* Save button */}
+              <Flex direction={"row"} className="saved-ad-section">
+                {isSaved ? (
+                  <Button className="w-full flex justify-center items-center" variant="outline" disabled>
+                    <Check className="w-4 h-4 mr-2 text-green-600" />
+                    <span className="text-green-600">Saved</span>
+                  </Button>
+                ) : (
+                  <Button className="w-full flex justify-between items-center" variant="outline" onClick={() => setShowSaveModal(true)}>
+                    <span>Save Ad</span>
+                    <ChevronDown className="w-4 h-4 ml-2" />
+                  </Button>
+                )}
+              </Flex>
+            </>
+          )}
         </Flex>
       </CardFooter>
       <AdPreviewModal
         isOpen={showPreviewModal}
         onClose={() => setShowPreviewModal(false)}
         ad={getAdDetailsForModal()}
+      />
+      <SaveAdModal
+        isOpen={showSaveModal}
+        onClose={() => setShowSaveModal(false)}
+        adId={adId || ""}
+        adTitle={title}
+        adData={{
+          id: adId,
+          title,
+          description,
+          companyName,
+          imageSrc,
+          imageSrcs,
+          videoUrl,
+          videoSdUrl,
+          isVideo,
+          ctaText,
+          url,
+          url_desc,
+          landingPageUrl,
+          content,
+          avatarSrc,
+          timePosted
+        }}
+      />
+      <ImageAnalysisModal
+        isOpen={showAnalysisModal}
+        onClose={() => setShowAnalysisModal(false)}
+        imageUrl={getAnalysisImageUrl() || ""}
+        imageTitle={displayTitle || `${companyName} Ad`}
       />
     </Card>
   );

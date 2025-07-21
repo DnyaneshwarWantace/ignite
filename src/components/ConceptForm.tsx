@@ -11,23 +11,37 @@ import * as Theme from "@radix-ui/themes";
 interface ConceptFormProps {
   conceptNumber: number;
   conceptName: string;
+  conceptDescription?: string;
   coreDesires: string[];
   coreDesireDescription: string;
   emotionsToEvoke: string[];
   emotionDescription: string;
-  desireOptions: string[];
-  emotionOptions: string[];
+  targetAudienceSegment?: string;
+  uniqueAngle?: string;
+  visualStyle?: string;
+  toneOfVoice?: string;
+  keyMessage?: string;
+  callToAction?: string;
+  desireOptions?: string[];
+  emotionOptions?: string[];
 }
 
 export default function ConceptForm({
   conceptNumber,
   conceptName,
+  conceptDescription,
   coreDesires,
   coreDesireDescription,
   emotionsToEvoke,
   emotionDescription,
-  desireOptions,
-  emotionOptions,
+  targetAudienceSegment,
+  uniqueAngle,
+  visualStyle,
+  toneOfVoice,
+  keyMessage,
+  callToAction,
+  desireOptions = [],
+  emotionOptions = [],
 }: ConceptFormProps) {
   return (
     <Theme.Theme appearance="light" accentColor="blue" grayColor="sand" radius="large" scaling="95%">
@@ -43,17 +57,37 @@ export default function ConceptForm({
             <Input id="concept-name" value={conceptName} readOnly />
           </div>
 
+          {conceptDescription && (
+            <div className="space-y-2">
+              <Label htmlFor="concept-description" className="font-normal">
+                Concept Description
+              </Label>
+              <Textarea id="concept-description" value={conceptDescription} readOnly rows={4} />
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="core-desire" className="font-normal">
               Core Desire *
             </Label>
-            <MultiSelect
-              id="core-desire"
-              options={desireOptions.map((option) => ({ label: option, value: option }))}
-              defaultValue={coreDesires}
-              onValueChange={(values) => console.log("Core Desires changed:", values)}
-              placeholder="Select core desires"
-            />
+            {desireOptions && desireOptions.length > 0 ? (
+              <>
+                <MultiSelect
+                  id="core-desire"
+                  options={desireOptions.map((option) => ({ label: option, value: option }))}
+                  value={desireOptions} // Auto-select all AI-generated options
+                  onValueChange={(values) => console.log("Core Desires changed:", values)}
+                  placeholder="Select from AI-generated options"
+                />
+                <p className="text-xs text-muted-foreground">
+                  💡 AI generated 5 relevant options for this concept. All options are pre-selected. Deselect as needed.
+                </p>
+              </>
+            ) : (
+              <div className="text-sm text-muted-foreground p-2 border rounded">
+                {coreDesires.join(', ')}
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -79,13 +113,24 @@ export default function ConceptForm({
             <Label htmlFor="emotions" className="font-normal">
               Emotion to Evoke *
             </Label>
-            <MultiSelect
-              id="emotions"
-              options={emotionOptions.map((option) => ({ label: option, value: option }))}
-              defaultValue={emotionsToEvoke}
-              onValueChange={(values) => console.log("Emotions changed:", values)}
-              placeholder="Select emotions to evoke"
-            />
+            {emotionOptions && emotionOptions.length > 0 ? (
+              <>
+                <MultiSelect
+                  id="emotions"
+                  options={emotionOptions.map((option) => ({ label: option, value: option }))}
+                  value={emotionOptions} // Auto-select all AI-generated options
+                  onValueChange={(values) => console.log("Emotions changed:", values)}
+                  placeholder="Select from AI-generated options"
+                />
+                <p className="text-xs text-muted-foreground">
+                  💡 AI generated 5 relevant options for this concept. All options are pre-selected. Deselect as needed.
+                </p>
+              </>
+            ) : (
+              <div className="text-sm text-muted-foreground p-2 border rounded">
+                {emotionsToEvoke.join(', ')}
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -106,6 +151,60 @@ export default function ConceptForm({
             </div>
             <Textarea id="emotion-description" value={emotionDescription} readOnly />
           </div>
+
+          {targetAudienceSegment && (
+            <div className="space-y-2">
+              <Label htmlFor="target-audience" className="font-normal">
+                Target Audience
+              </Label>
+              <Input id="target-audience" value={targetAudienceSegment} readOnly />
+            </div>
+          )}
+
+          {uniqueAngle && (
+            <div className="space-y-2">
+              <Label htmlFor="unique-angle" className="font-normal">
+                Unique Angle
+              </Label>
+              <Input id="unique-angle" value={uniqueAngle} readOnly />
+            </div>
+          )}
+
+          {visualStyle && (
+            <div className="space-y-2">
+              <Label htmlFor="visual-style" className="font-normal">
+                Visual Style
+              </Label>
+              <Input id="visual-style" value={visualStyle} readOnly />
+            </div>
+          )}
+
+          {toneOfVoice && (
+            <div className="space-y-2">
+              <Label htmlFor="tone-of-voice" className="font-normal">
+                Tone of Voice
+              </Label>
+              <Input id="tone-of-voice" value={toneOfVoice} readOnly />
+            </div>
+          )}
+
+          {keyMessage && (
+            <div className="space-y-2">
+              <Label htmlFor="key-message" className="font-normal">
+                Key Message
+              </Label>
+              <Input id="key-message" value={keyMessage} readOnly />
+            </div>
+          )}
+
+          {callToAction && (
+            <div className="space-y-2">
+              <Label htmlFor="call-to-action" className="font-normal">
+                Call to Action
+              </Label>
+              <Input id="call-to-action" value={callToAction} readOnly />
+            </div>
+          )}
         </CardContent>
       </Card>
     </Theme.Theme>

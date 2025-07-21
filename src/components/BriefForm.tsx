@@ -137,8 +137,8 @@ export default function BriefForm({ onConceptsGenerated }: BriefFormProps) {
                 <Button
                   type="button"
                   variant="default"
-                  onClick={handleAdsSelected}
-                  disabled={isAnalyzing}
+                  onClick={() => handleAdsSelected(selectedAds)}
+                  disabled={isAnalyzing || selectedAds.length === 0}
                   className="w-full"
                 >
                   {isAnalyzing ? (

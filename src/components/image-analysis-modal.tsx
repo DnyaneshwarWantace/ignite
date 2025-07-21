@@ -190,7 +190,7 @@ export default function ImageAnalysisModal({ isOpen, onClose, imageUrl, imageTit
                   <Typography variant="subtitle">
                     AI is analyzing your image...
                   </Typography>
-                  <Typography variant="caption" className="text-muted-foreground">
+                  <Typography variant="subtitle" className="text-muted-foreground text-xs">
                     This may take a few moments
                   </Typography>
                 </div>
@@ -200,7 +200,7 @@ export default function ImageAnalysisModal({ isOpen, onClose, imageUrl, imageTit
                 <div className="bg-gray-50 rounded-lg p-4 max-h-[60vh] overflow-y-auto">
                   <div className="prose prose-sm max-w-none">
                     {analysis.split('\n').map((paragraph, index) => (
-                      <Typography key={index} variant="body" className="mb-3 last:mb-0">
+                      <Typography key={index} variant="p" className="mb-3 last:mb-0">
                         {paragraph}
                       </Typography>
                     ))}

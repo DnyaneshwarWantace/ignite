@@ -132,13 +132,13 @@ Return ONLY valid JSON array with exactly ${concepts.length} concept objects.
         }
         
         // Validate each concept and its hooks
-        hooksData = hooksData.map((concept, conceptIndex) => {
+        hooksData = hooksData.map((concept: any, conceptIndex: number) => {
           if (!concept.hooks || !Array.isArray(concept.hooks)) {
             throw new Error(`Concept ${conceptIndex + 1} missing hooks array`);
           }
           
           // Ensure each hook has all required fields
-          concept.hooks = concept.hooks.map((hook, hookIndex) => {
+          concept.hooks = concept.hooks.map((hook: any, hookIndex: number) => {
             if (!hook.hookNumber) hook.hookNumber = hookIndex + 1;
             if (!hook.hookType) {
               const types = ['Question', 'Problem', 'Curiosity', 'Story', 'Statistic'];

@@ -9,7 +9,7 @@ Add these environment variables to your production server (`.env.local` or serve
 DATABASE_URL="postgresql://neondb_owner:npg_OTdtgJk18qeG@ep-rapid-paper-a1phvwlf-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 # NextAuth Configuration (REQUIRED for production)
-NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_URL="https://ignite-jade.vercel.app"
 NEXTAUTH_SECRET="your-super-secret-key-here-make-it-long-and-random"
 
 # Google OAuth (if using)
@@ -17,7 +17,7 @@ AUTH_GOOGLE_ID="403934823504-qjuou59jk3kfc7bv6ejuko8h3dktu8db.apps.googleusercon
 AUTH_GOOGLE_SECRET="your-google-client-secret"
 
 # API Configuration
-NEXT_PUBLIC_BACKEND_URL="http://localhost:3000/api/v1"
+NEXT_PUBLIC_BACKEND_URL="https://ignite-jade.vercel.app/api/v1"
 
 # Cloudinary Configuration
 CLOUDINARY_CLOUD_NAME="dwzdr8ei9"
@@ -56,8 +56,8 @@ If you need to deploy quickly, you can temporarily disable authentication by upd
 After setting up the environment variables:
 
 1. Restart your server
-2. Visit `http://localhost:3000/api/auth/session` - should return JSON instead of 500 error
-3. Try logging in at `http://localhost:3000/login`
+2. Visit `https://ignite-jade.vercel.app/api/auth/session` - should return JSON instead of 500 error
+3. Try logging in at `https://ignite-jade.vercel.app/login`
 
 ## Common Issues and Solutions
 

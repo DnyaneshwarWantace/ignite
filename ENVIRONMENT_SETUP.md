@@ -22,10 +22,10 @@ This guide provides a comprehensive list of all environment variables needed for
 NODE_ENV=development
 NEXT_PUBLIC_APP_NAME=Ignite
 NEXT_PUBLIC_APP_VERSION=1.0.0
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=https://ignite-jade.vercel.app
 
 # Backend API Configuration
-NEXT_PUBLIC_BACKEND_URL=http://localhost:3000/api
+NEXT_PUBLIC_BACKEND_URL=https://ignite-jade.vercel.app/api
 
 # ============================================================================
 # DATABASE CONFIGURATION (PostgreSQL)
@@ -48,7 +48,7 @@ PRISMA_GENERATE_DATAPROXY=false
 # AUTHENTICATION (NextAuth.js) - REQUIRED
 # ============================================================================
 # NextAuth configuration
-NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_URL=https://ignite-jade.vercel.app
 NEXTAUTH_SECRET=your-super-secret-nextauth-secret-key-min-32-chars
 
 # JWT configuration
@@ -124,7 +124,7 @@ RATE_LIMIT_WINDOW_MS=900000
 RATE_LIMIT_MAX_REQUESTS=100
 
 # CORS configuration
-CORS_ORIGIN=http://localhost:3000
+CORS_ORIGIN=https://ignite-jade.vercel.app
 CORS_CREDENTIALS=true
 
 # Security headers
@@ -319,8 +319,8 @@ openssl rand -base64 32  # For NEXTAUTH_SECRET
 openssl rand -base64 32  # For JWT_SECRET
 
 # Set URLs
-NEXTAUTH_URL=http://localhost:3000
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXTAUTH_URL=https://ignite-jade.vercel.app
+NEXT_PUBLIC_APP_URL=https://ignite-jade.vercel.app
 ```
 
 ### 3. Facebook App Setup

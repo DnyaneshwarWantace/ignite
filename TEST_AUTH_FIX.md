@@ -9,7 +9,7 @@
 ## 🧪 **How to Test:**
 
 ### Step 1: Test Authentication
-1. Visit `http://localhost:3000`
+1. Visit `https://ignite-jade.vercel.app`
 2. Click "Sign In" 
 3. Sign in with Google
 4. Should redirect to `/x-ray` page successfully

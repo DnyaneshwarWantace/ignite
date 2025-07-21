@@ -14,7 +14,7 @@ const envContent = `# Temporary production environment variables
 DATABASE_URL="postgresql://neondb_owner:npg_OTdtgJk18qeG@ep-rapid-paper-a1phvwlf-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 # NextAuth Configuration (Temporary)
-NEXTAUTH_URL="https://ignite-jade.vercel.app"
+NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="temporary-secret-key-for-testing-123456789"
 
 # Google OAuth
@@ -22,7 +22,7 @@ AUTH_GOOGLE_ID="403934823504-qjuou59jk3kfc7bv6ejuko8h3dktu8db.apps.googleusercon
 AUTH_GOOGLE_SECRET="your-google-client-secret"
 
 # API Configuration
-NEXT_PUBLIC_BACKEND_URL="https://ignite-jade.vercel.app/api/v1"
+NEXT_PUBLIC_BACKEND_URL="http://localhost:3000/api/v1"
 
 # Cloudinary Configuration
 CLOUDINARY_CLOUD_NAME="dwzdr8ei9"
@@ -62,7 +62,7 @@ try {
 console.log('');
 console.log('📋 Next Steps:');
 console.log('1. Restart your server: npm run build && npm start');
-console.log('2. Test the application at https://ignite-jade.vercel.app');
+console.log('2. Test the application at http://localhost:3000');
 console.log('3. If it works, update NEXTAUTH_SECRET with a proper secret');
 console.log('4. Restore middleware if needed: mv src/middleware.ts.backup src/middleware.ts');
 console.log('');

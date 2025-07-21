@@ -63,7 +63,7 @@ export const xrayApi = createApi({
       },
     }),
     fetchAllBrandAds: builder.query<any, { id: string }>({
-      query: ({ id }) => `/brands/${id}/all-ads`,
+      query: ({ id }) => `/x-ray/brands/${id}/all-ads`,
       transformResponse: (response: { payload: { ads: any[]; totalCount: number; activeCount: number; inactiveCount: number } }) => response.payload,
       transformErrorResponse: (error: any) => {
         console.error(error);
@@ -73,7 +73,7 @@ export const xrayApi = createApi({
 
     refreshBrandAnalytics: builder.mutation<any, { id: string }>({
       query: ({ id }) => ({
-        url: `/brands/${id}/refresh`,
+        url: `/x-ray/brands/${id}/refresh`,
         method: "POST",
       }),
       invalidatesTags: ["Folders"],
@@ -92,7 +92,7 @@ export const xrayApi = createApi({
     }),
     add2folderDirectly: builder.mutation<any, any>({
       query: (brands) => ({
-        url: "/brands/add-to-folder-directly",
+        url: "/x-ray/brands/add-to-folder-directly",
         method: "POST",
         body: brands,
       }),
@@ -112,7 +112,7 @@ export const xrayApi = createApi({
     }),
     add2folderManually: builder.mutation<any, any>({
       query: (brands) => ({
-        url: "/brands/add-to-folder-manually",
+        url: "/x-ray/brands/add-to-folder-manually",
         method: "POST",
         body: brands,
       }),

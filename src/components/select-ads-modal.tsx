@@ -96,145 +96,150 @@ export default function SelectAdsModal({ isOpen, onClose, onAdsSelected }: Selec
                 </div>
               ) : hasAnyAds ? (
                 <div className="overflow-y-auto max-h-[60vh] space-y-4">
-                  {/* Default Folder Ads */}
-                  {defaultAds?.ads && defaultAds.ads.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-3 p-2 bg-gray-50 rounded-lg">
-                        <Bookmark className="h-4 w-4" />
-                        <span className="text-sm font-medium">Default Folder</span>
-                        <span className="text-xs text-muted-foreground">({defaultAds.ads.length} ads)</span>
-                      </div>
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {defaultAds.ads
-                          .filter((ad: any) => {
-                            const adData = JSON.parse(ad.adData || '{}');
-                            return adData.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                   adData.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                   adData.description?.toLowerCase().includes(searchTerm.toLowerCase());
-                          })
-                          .map((savedAd: any) => {
-                            const adData = JSON.parse(savedAd.adData || '{}');
-                            const isSelected = selectedAds.some(ad => ad.id === savedAd.id);
-                            
-                            return (
-                              <div
-                                key={savedAd.id}
-                                className={`relative border rounded-lg overflow-hidden transition-all ${
-                                  isSelected 
-                                    ? 'border-primary ring-2 ring-primary/20' 
-                                    : 'border-gray-200 hover:border-gray-300'
-                                }`}
-                              >
-                                {/* Selection overlay */}
-                                <div 
-                                  className={`absolute top-2 right-2 z-10 ${
-                                    isSelected ? 'block' : 'hidden'
-                                  }`}
-                                >
-                                  <Badge variant="secondary" className="bg-primary text-white">
-                                    <Check className="w-3 h-3 mr-1" />
-                                    Selected
-                                  </Badge>
-                                </div>
-                                
-                                {/* Click overlay */}
-                                <div 
-                                  className="absolute inset-0 z-5 cursor-pointer"
-                                  onClick={() => handleAdSelect(savedAd)}
-                                />
-                                
-                                {/* Full ad card */}
-                                <LazyAdCard
-                                  ad={adData}
-                                  onCtaClick={() => {}} // Disable CTA clicks in modal
-                                  onSaveAd={() => {}} // Disable save functionality in modal
-                                  expand={true}
-                                  hideActions={true} // Hide save/share buttons
-                                />
-                              </div>
-                            );
-                          })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* User Created Folders */}
-                  {folders && folders.length > 0 && (
-                    <Accordion type="multiple" className="w-full">
-                      {folders.map((folder: any) => (
-                        <AccordionItem key={folder.id} value={folder.id} className="border-0">
-                          <AccordionTrigger className="hover:no-underline p-2">
-                            <div className="flex space-x-2 items-center">
-                              <FolderOpen className="h-4 w-4" />
-                              <span className="text-sm font-medium">{folder.name}</span>
-                              <span className="text-xs text-muted-foreground">({folder.savedAds?.length || 0} ads)</span>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            <div className="p-4">
-                              {folder.savedAds && folder.savedAds.length > 0 ? (
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                  {folder.savedAds
-                                    .filter((ad: any) => {
-                                      const adData = JSON.parse(ad.adData || '{}');
-                                      return adData.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                             adData.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                             adData.description?.toLowerCase().includes(searchTerm.toLowerCase());
-                                    })
-                                    .map((savedAd: any) => {
-                                    const adData = JSON.parse(savedAd.adData || '{}');
-                                    const isSelected = selectedAds.some(ad => ad.id === savedAd.id);
-                                    
-                                    return (
-                                      <div
-                                        key={savedAd.id}
-                                        className={`relative border rounded-lg overflow-hidden transition-all ${
-                                          isSelected 
-                                            ? 'border-primary ring-2 ring-primary/20' 
-                                            : 'border-gray-200 hover:border-gray-300'
+                  {/* All Folders in Accordion */}
+                  <Accordion type="multiple" className="w-full">
+                    {/* Default Folder */}
+                    {defaultAds?.ads && defaultAds.ads.length > 0 && (
+                      <AccordionItem key="default" value="default" className="border-0">
+                        <AccordionTrigger className="hover:no-underline p-2">
+                          <div className="flex space-x-2 items-center">
+                            <Bookmark className="h-4 w-4" />
+                            <span className="text-sm font-medium">Default Folder</span>
+                            <span className="text-xs text-muted-foreground">({defaultAds.ads.length} ads)</span>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="p-4">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                              {defaultAds.ads
+                                .filter((ad: any) => {
+                                  const adData = JSON.parse(ad.adData || '{}');
+                                  return adData.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                         adData.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                         adData.description?.toLowerCase().includes(searchTerm.toLowerCase());
+                                })
+                                .map((savedAd: any) => {
+                                  const adData = JSON.parse(savedAd.adData || '{}');
+                                  const isSelected = selectedAds.some(ad => ad.id === savedAd.id);
+                                  
+                                  return (
+                                    <div
+                                      key={savedAd.id}
+                                      className={`relative border rounded-lg overflow-hidden transition-all ${
+                                        isSelected 
+                                          ? 'border-primary ring-2 ring-primary/20' 
+                                          : 'border-gray-200 hover:border-gray-300'
+                                      }`}
+                                    >
+                                      {/* Selection overlay */}
+                                      <div 
+                                        className={`absolute top-2 right-2 z-10 ${
+                                          isSelected ? 'block' : 'hidden'
                                         }`}
                                       >
-                                        {/* Selection overlay */}
-                                        <div 
-                                          className={`absolute top-2 right-2 z-10 ${
-                                            isSelected ? 'block' : 'hidden'
-                                          }`}
-                                        >
-                                          <Badge variant="secondary" className="bg-primary text-white">
-                                            <Check className="w-3 h-3 mr-1" />
-                                            Selected
-                                          </Badge>
-                                        </div>
-                                        
-                                        {/* Click overlay */}
-                                        <div 
-                                          className="absolute inset-0 z-5 cursor-pointer"
-                                          onClick={() => handleAdSelect(savedAd)}
-                                        />
-                                        
-                                        {/* Full ad card */}
-                                        <LazyAdCard
-                                          ad={adData}
-                                          onCtaClick={() => {}} // Disable CTA clicks in modal
-                                          onSaveAd={() => {}} // Disable save functionality in modal
-                                          expand={true}
-                                          hideActions={true} // Hide save/share buttons
-                                        />
+                                        <Badge variant="secondary" className="bg-primary text-white">
+                                          <Check className="w-3 h-3 mr-1" />
+                                          Selected
+                                        </Badge>
                                       </div>
-                                    );
-                                  })}
-                                </div>
-                              ) : (
-                                <div className="text-center py-4 text-muted-foreground text-sm">
-                                  No saved ads in this folder
-                                </div>
-                              )}
+                                      
+                                      {/* Click overlay */}
+                                      <div 
+                                        className="absolute inset-0 z-5 cursor-pointer"
+                                        onClick={() => handleAdSelect(savedAd)}
+                                      />
+                                      
+                                      {/* Full ad card */}
+                                      <LazyAdCard
+                                        ad={adData}
+                                        onCtaClick={() => {}} // Disable CTA clicks in modal
+                                        onSaveAd={() => {}} // Disable save functionality in modal
+                                        expand={true}
+                                        hideActions={true} // Hide save/share buttons
+                                      />
+                                    </div>
+                                  );
+                                })}
                             </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      ))}
-                    </Accordion>
-                  )}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    )}
+
+                    {/* User Created Folders */}
+                    {folders && folders.length > 0 && folders.map((folder: any) => (
+                      <AccordionItem key={folder.id} value={folder.id} className="border-0">
+                        <AccordionTrigger className="hover:no-underline p-2">
+                          <div className="flex space-x-2 items-center">
+                            <FolderOpen className="h-4 w-4" />
+                            <span className="text-sm font-medium">{folder.name}</span>
+                            <span className="text-xs text-muted-foreground">({folder.savedAds?.length || 0} ads)</span>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="p-4">
+                            {folder.savedAds && folder.savedAds.length > 0 ? (
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                {folder.savedAds
+                                  .filter((ad: any) => {
+                                    const adData = JSON.parse(ad.adData || '{}');
+                                    return adData.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                           adData.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                           adData.description?.toLowerCase().includes(searchTerm.toLowerCase());
+                                  })
+                                  .map((savedAd: any) => {
+                                  const adData = JSON.parse(savedAd.adData || '{}');
+                                  const isSelected = selectedAds.some(ad => ad.id === savedAd.id);
+                                  
+                                  return (
+                                    <div
+                                      key={savedAd.id}
+                                      className={`relative border rounded-lg overflow-hidden transition-all ${
+                                        isSelected 
+                                          ? 'border-primary ring-2 ring-primary/20' 
+                                          : 'border-gray-200 hover:border-gray-300'
+                                      }`}
+                                    >
+                                      {/* Selection overlay */}
+                                      <div 
+                                        className={`absolute top-2 right-2 z-10 ${
+                                          isSelected ? 'block' : 'hidden'
+                                        }`}
+                                      >
+                                        <Badge variant="secondary" className="bg-primary text-white">
+                                          <Check className="w-3 h-3 mr-1" />
+                                          Selected
+                                        </Badge>
+                                      </div>
+                                      
+                                      {/* Click overlay */}
+                                      <div 
+                                        className="absolute inset-0 z-5 cursor-pointer"
+                                        onClick={() => handleAdSelect(savedAd)}
+                                      />
+                                      
+                                      {/* Full ad card */}
+                                      <LazyAdCard
+                                        ad={adData}
+                                        onCtaClick={() => {}} // Disable CTA clicks in modal
+                                        onSaveAd={() => {}} // Disable save functionality in modal
+                                        expand={true}
+                                        hideActions={true} // Hide save/share buttons
+                                      />
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className="text-center py-4 text-muted-foreground text-sm">
+                                No saved ads in this folder
+                              </div>
+                            )}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
                 </div>
               ) : (
                 <div className="text-center py-8">

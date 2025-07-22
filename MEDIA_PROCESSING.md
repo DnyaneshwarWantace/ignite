@@ -74,7 +74,7 @@ npm run media-worker
 
 ### Option 2: API Endpoint
 ```bash
-curl -X POST http://localhost:3000/api/v1/media/worker \
+curl -X POST https://ignite-jade.vercel.app/api/v1/media/worker \
   -H "Content-Type: application/json" \
   -d '{"intervalMinutes": 2}'
 ```

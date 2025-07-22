@@ -119,13 +119,13 @@ export default function WriterPage() {
           <CardContent className="px-4">
             {concepts.length > 0 ? (
               <>
-                <Accordion type="single" collapsible className="w-full">
-                  {concepts.map((con, index) => (
-                    <AccordionConcept key={`concept-${index}`} id={index} name={con.conceptName}>
-                      <ConceptForm {...con} />
-                    </AccordionConcept>
-                  ))}
-                </Accordion>
+            <Accordion type="single" collapsible className="w-full">
+              {concepts.map((con, index) => (
+                <AccordionConcept key={`concept-${index}`} id={index} name={con.conceptName}>
+                  <ConceptForm {...con} />
+                </AccordionConcept>
+              ))}
+            </Accordion>
                 <div className="mt-4 pt-4 border-t">
                   <Button 
                     onClick={handleGenerateHooks}
@@ -200,9 +200,9 @@ export default function WriterPage() {
                 ))}
               </Accordion>
             ) : (
-              <div className="mt-14">
+            <div className="mt-14">
                 <EmptyState title="No Hooks Generated Yet" description="👉 Generate concepts first, then click 'Generate Hooks' to create compelling hooks" />
-              </div>
+            </div>
             )}
           </CardContent>
         </Card>

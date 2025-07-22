@@ -62,35 +62,55 @@ export const getSearchableText = (ad: any, brandName?: string) => {
 // Helper function to get ad format
 export const getAdFormat = (ad: any): string => {
   try {
-    // Check database type field first
-  if (ad.type) {
-    const type = ad.type.toLowerCase();
-    if (type === 'video') return 'Video';
-    if (type === 'image') return 'Image';
+    // Check database type field first (most reliable)
+    if (ad.type) {
+      const type = ad.type.toLowerCase();
+      if (type === 'video') return 'Video';
+      if (type === 'image') return 'Image';
       if (type === 'carousel') return 'Carousal';
     }
     
+    // Check if video URL exists
+    if (ad.videoUrl || ad.localVideoUrl) {
+      return 'Video';
+    }
+    
+    // Check if image URL exists
+    if (ad.imageUrl || ad.localImageUrl) {
+      return 'Image';
+    }
+    
+    // Parse content JSON as fallback
     const content = typeof ad.content === 'string' ? JSON.parse(ad.content) : ad.content;
     const snapshot = content?.snapshot || {};
     
-    // Check if it's a carousel first
-      if (snapshot.cards && snapshot.cards.length > 1) return 'Carousal';
+    // Check if it's a carousel first (cards indicate carousel)
+    if (snapshot.cards && snapshot.cards.length > 1) return 'Carousal';
     if (Array.isArray(snapshot.images) && snapshot.images.length > 1) return 'Carousal';
     
-    // Then check display_format from API
+    // Then check display_format from API (handle DCO format)
     if (snapshot.display_format) {
       const format = snapshot.display_format.toUpperCase();
       if (format === 'VIDEO') return 'Video';
       if (format === 'IMAGE') return 'Image';
       if (format === 'CAROUSEL') return 'Carousal';
+      if (format === 'DCO') {
+        // DCO (Dynamic Creative Optimization) can be any format, check content
+        if (snapshot.videos?.length > 0) return 'Video';
+        if (snapshot.images?.length > 0) return 'Image';
+        if (snapshot.cards?.length > 0) return 'Carousal';
+        return 'Image'; // Default for DCO
+      }
     }
     
     // Fallback to content structure
     if (snapshot.videos?.length > 0) return 'Video';
     if (snapshot.images?.length > 0) return 'Image';
+    if (snapshot.cards?.length > 0) return 'Carousal';
     
     return 'Image'; // Final fallback
   } catch (e) {
+    console.error('Error in getAdFormat:', e);
     return 'Image';
   }
 };
@@ -103,19 +123,36 @@ export const getAdPlatform = (ad: any): string[] => {
     // Get publisher_platform from API
     if (content.publisher_platform && Array.isArray(content.publisher_platform)) {
       return content.publisher_platform.map((platform: string) => {
-        // Format platform names to match UI
+        // Format platform names to match UI (handle both string and array formats)
         const p = platform.toLowerCase();
         if (p === 'facebook') return 'Facebook';
         if (p === 'instagram') return 'Instagram';
         if (p === 'tiktok') return 'TikTok Organic';
         if (p === 'youtube') return 'Youtube';
         if (p === 'linkedin') return 'LinkedIn';
+        if (p === 'audience_network') return 'Facebook'; // Map to Facebook
+        if (p === 'messenger') return 'Facebook'; // Map to Facebook
         // Capitalize first letter for other platforms
         return p.charAt(0).toUpperCase() + p.slice(1);
       });
     }
-    } catch (e) {
-      // Ignore parsing errors
+    
+    // Handle comma-separated string format
+    if (content.publisher_platform && typeof content.publisher_platform === 'string') {
+      const platforms = content.publisher_platform.split(',').map((p: string) => p.trim().toLowerCase());
+      return platforms.map((platform: string) => {
+        if (platform === 'facebook') return 'Facebook';
+        if (platform === 'instagram') return 'Instagram';
+        if (platform === 'tiktok') return 'TikTok Organic';
+        if (platform === 'youtube') return 'Youtube';
+        if (platform === 'linkedin') return 'LinkedIn';
+        if (platform === 'audience_network') return 'Facebook';
+        if (platform === 'messenger') return 'Facebook';
+        return platform.charAt(0).toUpperCase() + platform.slice(1);
+      });
+    }
+  } catch (e) {
+    // Ignore parsing errors
   }
   
   return ['Facebook']; // Default fallback
@@ -125,14 +162,6 @@ export const getAdPlatform = (ad: any): string[] => {
 export const getAdStatus = (ad: any): string[] => {
   try {
     const content = typeof ad.content === 'string' ? JSON.parse(ad.content) : ad.content;
-    
-    // Debug logging
-    console.log('Ad status check:', {
-      adId: ad.id,
-      isActive: content.is_active,
-      hasEndDate: !!(content.end_date || content?.snapshot?.end_date),
-      endDate: content.end_date || content?.snapshot?.end_date
-    });
     
     // Check is_active field from content (this is how it's stored in database)
     if (content.is_active === false) return ['Not Running'];
@@ -150,7 +179,7 @@ export const getAdStatus = (ad: any): string[] => {
       
     // Default to running if no clear indication
     return ['Running'];
-    } catch (e) {
+  } catch (e) {
     console.error('Error in getAdStatus:', e);
     return ['Running']; // Default to running if can't determine
   }
@@ -268,73 +297,98 @@ export const getAdNiche = (ad: any): string[] => {
 export const filterAds = (ads: any[], filters: FilterState, brandName?: string): any[] => {
   if (!ads || ads.length === 0) return [];
   
+  console.log('🔍 Starting filterAds with:', {
+    totalAds: ads.length,
+    filters: filters,
+    brandName: brandName
+  });
+  
   let filtered = ads;
   
   // Apply search filter
   if (filters.search && filters.search.trim() !== '') {
     const searchTerm = filters.search.toLowerCase().trim();
+    const beforeCount = filtered.length;
     filtered = filtered.filter((ad: any) => {
       const searchableText = getSearchableText(ad, brandName);
       return searchableText.includes(searchTerm);
     });
+    console.log(`🔍 Search filter: ${beforeCount} -> ${filtered.length} ads`);
   }
   
   // Apply format filter
   if (filters.format && filters.format.length > 0) {
+    const beforeCount = filtered.length;
     filtered = filtered.filter((ad: any) => {
       const adFormat = getAdFormat(ad);
-      return filters.format.includes(adFormat);
+      const matches = filters.format.includes(adFormat);
+      if (beforeCount < 10) { // Only log for small datasets
+        console.log(`🔍 Ad ${ad.id}: format=${adFormat}, matches=${matches}`);
+      }
+      return matches;
     });
+    console.log(`🔍 Format filter (${filters.format.join(', ')}): ${beforeCount} -> ${filtered.length} ads`);
   }
   
   // Apply platform filter
   if (filters.platform && filters.platform.length > 0) {
+    const beforeCount = filtered.length;
     filtered = filtered.filter((ad: any) => {
       const adPlatforms = getAdPlatform(ad);
-      return filters.platform.some(platform => adPlatforms.includes(platform));
+      const matches = filters.platform.some(platform => adPlatforms.includes(platform));
+      if (beforeCount < 10) { // Only log for small datasets
+        console.log(`🔍 Ad ${ad.id}: platforms=${adPlatforms.join(', ')}, matches=${matches}`);
+      }
+      return matches;
     });
+    console.log(`🔍 Platform filter (${filters.platform.join(', ')}): ${beforeCount} -> ${filtered.length} ads`);
   }
   
   // Apply status filter
   if (filters.status && Array.isArray(filters.status) && filters.status.length > 0) {
-    console.log('Applying status filter:', filters.status);
-    console.log('Total ads before status filter:', filtered.length);
-    
+    const beforeCount = filtered.length;
     filtered = filtered.filter((ad: any) => {
       const adStatus = getAdStatus(ad);
       const matches = filters.status.some(status => adStatus.includes(status));
-      console.log(`Ad ${ad.id}: status=${JSON.stringify(adStatus)}, matches=${matches}`);
+      if (beforeCount < 10) { // Only log for small datasets
+        console.log(`🔍 Ad ${ad.id}: status=${adStatus.join(', ')}, matches=${matches}`);
+      }
       return matches;
     });
-    
-    console.log('Total ads after status filter:', filtered.length);
+    console.log(`🔍 Status filter (${filters.status.join(', ')}): ${beforeCount} -> ${filtered.length} ads`);
   }
   
   // Apply language filter
   if (filters.language && Array.isArray(filters.language) && filters.language.length > 0) {
-    console.log('🔍 Applying language filter:', filters.language);
-    console.log('🔍 Total ads before language filter:', filtered.length);
-
+    const beforeCount = filtered.length;
     filtered = filtered.filter((ad: any) => {
       const adLanguages = getAdLanguage(ad);
       const matches = filters.language.some(language => adLanguages.includes(language)); 
-      console.log(`🔍 Ad ${ad.id}: languages=${JSON.stringify(adLanguages)}, matches=${matches}`);
+      if (beforeCount < 10) { // Only log for small datasets
+        console.log(`🔍 Ad ${ad.id}: languages=${adLanguages.join(', ')}, matches=${matches}`);
+      }
       return matches;
     });
-
-    console.log('🔍 Total ads after language filter:', filtered.length);
+    console.log(`🔍 Language filter (${filters.language.join(', ')}): ${beforeCount} -> ${filtered.length} ads`);
   }
   
   // Apply niche filter
   if (filters.niche && filters.niche.length > 0) {
+    const beforeCount = filtered.length;
     filtered = filtered.filter((ad: any) => {
       const adNiches = getAdNiche(ad);
-      return filters.niche.some(niche => adNiches.includes(niche));
+      const matches = filters.niche.some(niche => adNiches.includes(niche));
+      if (beforeCount < 10) { // Only log for small datasets
+        console.log(`🔍 Ad ${ad.id}: niches=${adNiches.join(', ')}, matches=${matches}`);
+      }
+      return matches;
     });
+    console.log(`🔍 Niche filter (${filters.niche.join(', ')}): ${beforeCount} -> ${filtered.length} ads`);
   }
   
   // Apply date filter
   if (filters.date) {
+    const beforeCount = filtered.length;
     filtered = filtered.filter((ad: any) => {
       try {
         const content = typeof ad.content === 'string' ? JSON.parse(ad.content) : ad.content;
@@ -350,6 +404,7 @@ export const filterAds = (ads: any[], filters: FilterState, brandName?: string):
         return false;
       }
     });
+    console.log(`🔍 Date filter: ${beforeCount} -> ${filtered.length} ads`);
   }
   
   // Apply sorting

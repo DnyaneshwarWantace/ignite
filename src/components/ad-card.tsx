@@ -810,7 +810,7 @@ export default function AdCard({
           {!hideActions && (
             <>
               {/* Save button */}
-              <Flex direction={"row"} className="saved-ad-section">
+          <Flex direction={"row"} className="saved-ad-section">
                 {isSaved ? (
                   <Button className="w-full flex justify-center items-center" variant="outline" disabled>
                     <Check className="w-4 h-4 mr-2 text-green-600" />
@@ -819,10 +819,10 @@ export default function AdCard({
                 ) : (
                   <Button className="w-full flex justify-between items-center" variant="outline" onClick={() => setShowSaveModal(true)}>
                     <span>Save Ad</span>
-                    <ChevronDown className="w-4 h-4 ml-2" />
-                  </Button>
+              <ChevronDown className="w-4 h-4 ml-2" />
+            </Button>
                 )}
-              </Flex>
+          </Flex>
             </>
           )}
         </Flex>

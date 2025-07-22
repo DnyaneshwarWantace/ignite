@@ -137,6 +137,16 @@ model Ad {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Indexes for better query performance
+  @@index([type])
+  @@index([brandId])
+  @@index([createdAt])
+  @@index([mediaStatus])
+  @@index([text])
+  @@index([headline])
+  @@index([description])
+  @@index([libraryId])
 }
 
 model SavedAd {

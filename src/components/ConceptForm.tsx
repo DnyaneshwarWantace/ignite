@@ -72,11 +72,11 @@ export default function ConceptForm({
             </Label>
             {desireOptions && desireOptions.length > 0 ? (
               <>
-                <MultiSelect
-                  id="core-desire"
-                  options={desireOptions.map((option) => ({ label: option, value: option }))}
+            <MultiSelect
+              id="core-desire"
+              options={desireOptions.map((option) => ({ label: option, value: option }))}
                   value={desireOptions} // Auto-select all AI-generated options
-                  onValueChange={(values) => console.log("Core Desires changed:", values)}
+              onValueChange={(values) => console.log("Core Desires changed:", values)}
                   placeholder="Select from AI-generated options"
                 />
                 <p className="text-xs text-muted-foreground">
@@ -115,11 +115,11 @@ export default function ConceptForm({
             </Label>
             {emotionOptions && emotionOptions.length > 0 ? (
               <>
-                <MultiSelect
-                  id="emotions"
-                  options={emotionOptions.map((option) => ({ label: option, value: option }))}
+            <MultiSelect
+              id="emotions"
+              options={emotionOptions.map((option) => ({ label: option, value: option }))}
                   value={emotionOptions} // Auto-select all AI-generated options
-                  onValueChange={(values) => console.log("Emotions changed:", values)}
+              onValueChange={(values) => console.log("Emotions changed:", values)}
                   placeholder="Select from AI-generated options"
                 />
                 <p className="text-xs text-muted-foreground">

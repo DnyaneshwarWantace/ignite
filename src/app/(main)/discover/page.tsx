@@ -130,13 +130,17 @@ export default function DiscoverPage() {
     }
 
     if (shouldUseServerFiltering) {
-      // Use server-filtered results
-      return serverData?.ads || [];
-        } else {
+      // Use cached ads (which includes all loaded ads from server-side filtering)
+      console.log('Using cached ads for server filtering:', {
+        cachedAdsCount: cachedAds.length,
+        shouldUseServerFiltering
+      });
+      return cachedAds;
+    } else {
       // Use client-side filtering on cached data
       return adFiltering.filterAds(cachedAds, filters);
     }
-  }, [cachedAds, filters, adIdFromUrl, shouldUseServerFiltering, serverData]);
+  }, [cachedAds, filters, adIdFromUrl, shouldUseServerFiltering]);
 
   // Check if any filter is applied
   useEffect(() => {
@@ -153,24 +157,24 @@ export default function DiscoverPage() {
     setIsFilterApplied(hasActiveFilters);
   }, [filters]);
 
-  // Handle server-side filter results
-  useEffect(() => {
-    if (serverData?.ads && shouldUseServerFiltering) {
-      console.log('Server-side filtering applied:', {
-        totalAds: serverData.ads.length,
-        hasMore: serverData.pagination?.hasMore,
-        filters: filters,
-        isFilterApplied: isFilterApplied
-      });
-      
-      // Replace cached ads with server-filtered results
-      setCachedAds(serverData.ads);
-      setNextCursor(serverData.pagination?.nextCursor || null);
-      setHasMore(serverData.pagination?.hasMore || false);
-      setIsInitialLoading(false);
-      setLastServerFilter(filterKey);
-    }
-  }, [serverData, shouldUseServerFiltering, filterKey, filters, isFilterApplied]);
+        // Handle server-side filter results
+      useEffect(() => {
+        if (serverData?.ads && shouldUseServerFiltering) {
+          console.log('Server-side filtering applied:', {
+            totalAds: serverData.ads.length,
+            hasMore: serverData.pagination?.hasMore,
+            nextCursor: serverData.pagination?.nextCursor,
+            filters: filters
+          });
+          
+          // Replace cached ads with server-filtered results
+          setCachedAds(serverData.ads);
+          setNextCursor(serverData.pagination?.nextCursor || null);
+          setHasMore(serverData.pagination?.hasMore || false);
+          setIsInitialLoading(false);
+          setLastServerFilter(filterKey);
+        }
+      }, [serverData, shouldUseServerFiltering, filterKey, filters]);
 
   // Load more ads (for infinite scroll)
   const loadMoreAds = useCallback(async () => {
@@ -500,10 +504,18 @@ export default function DiscoverPage() {
                     <span className="text-sm">Loading more ads...</span>
                   </div>
                 ) : (
-                  <div className="text-center opacity-20">
-                    <Typography variant="p" className="text-gray-400 text-xs">
-                      Scroll for more
+                  <div className="text-center">
+                    <Typography variant="p" className="text-gray-400 text-xs mb-2">
+                      Scroll for more ({filteredAds.length} ads loaded)
                     </Typography>
+                    <Button 
+                      onClick={loadMoreAds}
+                      variant="outline" 
+                      size="sm"
+                      className="text-xs"
+                    >
+                      Load More Ads
+                    </Button>
                   </div>
                 )}
               </div>

@@ -30,7 +30,7 @@ export const POST = authMiddleware(
       }
 
       const hookGenerationPrompt = `
-Create 3 compelling hooks for each concept based on the concept details. Make them attention-grabbing and platform-ready.
+You are an expert copywriter trained in Sabri Suby's direct-response marketing methodology. Create 3 compelling hooks for each concept that embody the aggressive, results-driven approach that has generated over $7.8 billion in client revenue.
 
 CONCEPTS DATA:
 ${concepts.map((concept, index) => `
@@ -43,7 +43,20 @@ UNIQUE ANGLE: ${concept.uniqueAngle || 'N/A'}
 VISUAL STYLE: ${concept.visualStyle || 'N/A'}
 TONE OF VOICE: ${concept.toneOfVoice || 'N/A'}
 KEY MESSAGE: ${concept.keyMessage || 'N/A'}
+PSYCHOLOGICAL TRIGGERS: ${concept.psychologicalTriggers?.join(', ') || 'N/A'}
+PROOF ELEMENTS: ${concept.proofElements?.join(', ') || 'N/A'}
+URGENCY ELEMENTS: ${concept.urgencyElements?.join(', ') || 'N/A'}
+RISK REVERSAL: ${concept.riskReversal || 'N/A'}
 `).join('\n\n')}
+
+SABRI SUBY HOOK CREATION METHODOLOGY:
+1. PSYCHOLOGICAL TRIGGERS: Each hook must leverage specific psychological triggers (scarcity, authority, social proof, reciprocity, commitment/consistency, liking)
+2. PATTERN INTERRUPT: Create hooks that stop scrolling with bold, provocative statements
+3. PROBLEM AMPLIFICATION: Spend significant time on pain points and failed attempts
+4. CREDIBILITY BUILDING: Establish authority with specific proof and results
+5. SOCIAL PROOF: Layer testimonials and case studies throughout
+6. URGENCY & SCARCITY: Drive immediate action with time-sensitive elements
+7. RISK REVERSAL: Remove all purchase anxiety with guarantees
 
 CRITICAL: Create EXACTLY 3 hooks for each concept with COMPLETE structure.
 
@@ -54,39 +67,62 @@ For each concept, create this EXACT structure:
   "hooks": [
     {
       "hookNumber": 1,
-      "hookType": "Question",
-      "hookText": "Hook text (under 120 chars)",
-      "targetEmotion": "Primary emotion",
-      "rationale": "Why it works (30 words)",
-      "variations": ["Alt 1", "Alt 2"]
+      "hookType": "Pattern Interrupt",
+      "hookText": "Hook text (under 120 chars - bold, provocative, stops scrolling)",
+      "targetEmotion": "Primary emotion (fear, greed, pride, curiosity, anger)",
+      "rationale": "Why it works (50 words - explain psychological trigger and emotional appeal)",
+      "variations": ["Alt 1", "Alt 2"],
+      "psychologicalTrigger": "scarcity|authority|social_proof|reciprocity|commitment|liking",
+      "urgencyElement": "Time-sensitive or scarcity element",
+      "proofElement": "Specific proof or social proof element"
     },
     {
       "hookNumber": 2,
-      "hookType": "Problem",
-      "hookText": "Hook text (under 120 chars)",
+      "hookType": "Problem Agitation",
+      "hookText": "Hook text (under 120 chars - amplify pain points)",
       "targetEmotion": "Primary emotion",
-      "rationale": "Why it works (30 words)",
-      "variations": ["Alt 1", "Alt 2"]
+      "rationale": "Why it works (50 words - explain problem amplification)",
+      "variations": ["Alt 1", "Alt 2"],
+      "psychologicalTrigger": "scarcity|authority|social_proof|reciprocity|commitment|liking",
+      "urgencyElement": "Time-sensitive or scarcity element",
+      "proofElement": "Specific proof or social proof element"
     },
     {
       "hookNumber": 3,
-      "hookType": "Curiosity",
-      "hookText": "Hook text (under 120 chars)",
+      "hookType": "Solution Presentation",
+      "hookText": "Hook text (under 120 chars - present solution as inevitable)",
       "targetEmotion": "Primary emotion",
-      "rationale": "Why it works (30 words)",
-      "variations": ["Alt 1", "Alt 2"]
+      "rationale": "Why it works (50 words - explain solution presentation)",
+      "variations": ["Alt 1", "Alt 2"],
+      "psychologicalTrigger": "scarcity|authority|social_proof|reciprocity|commitment|liking",
+      "urgencyElement": "Time-sensitive or scarcity element",
+      "proofElement": "Specific proof or social proof element"
     }
   ]
 }
 
-Hook Types to use (one of each per concept):
-- Question: "What if you could..."
-- Problem: "Tired of..."
-- Curiosity: "The secret to..."
-- Story: "When Sarah tried..."
-- Statistic: "87% of people..."
+HOOK TYPES TO USE (one of each per concept):
+- Pattern Interrupt: "WARNING: [Threat] Unless You [Specific Action] [Timeframe]"
+- Problem Agitation: "Tired of [Pain Point]? Here's What [Specific Person] Did..."
+- Solution Presentation: "Finally! A [Solution Type] That [Solves Problem] Without [Common Negative]"
+- Social Proof: "How [Specific Person] [Achieved Specific Result] [In Specific Timeframe]"
+- Authority/Expertise: "The [Number] [Adjective] Secrets That [Target Audience] Use to [Desired Outcome]"
+- Scarcity/Urgency: "Only [Number] [Timeframe] Left to [Specific Action] - [Consequence]"
+- Curiosity: "The [Adjective] Method [Specific Person] Used to [Achieve Result]"
+- Story: "When [Specific Person] [Specific Action], [Unexpected Result] Happened"
+- Statistic: "[Specific Number]% of [Target Audience] [Specific Behavior] - Here's Why"
+- Risk Reversal: "What If [Specific Person] Could [Desired Outcome] Without [Risk]?"
 
-IMPORTANT: Ensure EVERY hook has ALL required fields: hookNumber, hookType, hookText, targetEmotion, rationale, and variations.
+HOOK REQUIREMENTS:
+- Include specific numbers whenever possible
+- Create curiosity gaps that demand resolution
+- Address the target audience's biggest pain point
+- Promise a clear, specific benefit
+- Include urgency or scarcity elements
+- Use power words that trigger emotions
+- Make it impossible to ignore, difficult to dismiss, and compulsive to act upon
+
+IMPORTANT: Ensure EVERY hook has ALL required fields: hookNumber, hookType, hookText, targetEmotion, rationale, variations, psychologicalTrigger, urgencyElement, and proofElement.
 
 Return ONLY valid JSON array with exactly ${concepts.length} concept objects.
 `;
@@ -97,15 +133,31 @@ Return ONLY valid JSON array with exactly ${concepts.length} concept objects.
         messages: [
           {
             role: "system",
-            content: "You are an expert copywriter specializing in creating compelling advertising hooks that drive engagement and conversions."
+            content: `You are an expert copywriter trained in Sabri Suby's direct-response marketing methodology. Your hook creation embodies the aggressive, results-driven approach that has generated over $7.8 billion in client revenue.
+
+CORE PHILOSOPHY:
+- Create hooks that cut through noise, demand attention, and compel immediate action
+- Focus on psychological triggers (scarcity, authority, social proof, reciprocity, commitment/consistency, liking)
+- Apply pattern interrupt, problem agitation, and solution presentation
+- Always assume skepticism and address it head-on with proof and guarantees
+
+HOOK CREATION APPROACH:
+- Each hook must be designed to stop scrolling and demand attention
+- Use specific psychological triggers from Sabri Suby's methodology
+- Include proof elements and social proof in every hook
+- Address skepticism with risk reversal strategies
+- Create urgency and scarcity elements
+- Focus on transformation and outcomes, not just features
+
+Create compelling advertising hooks that drive immediate engagement and conversions.`
           },
           {
             role: "user",
             content: hookGenerationPrompt
           }
         ],
-        temperature: 0.6, // More focused
-        max_tokens: 2500
+        temperature: 0.5, // More focused for consistency
+        max_tokens: 4000
       });
 
       const responseText = completion.choices[0]?.message?.content;

@@ -80,9 +80,9 @@ export const POST = authMiddleware(
       const adsWithImages = adsData.filter(ad => ad.imageUrl);
       
       let prompt = `
-Analyze the following ${ads.length} advertisement(s) and extract key information to create a comprehensive brief. 
+You are an expert copywriter trained in Sabri Suby's direct-response marketing methodology. Your analysis embodies the aggressive, results-driven approach that has generated over $7.8 billion in client revenue. Analyze these ads with the precision of a master marketer who understands psychological triggers, messaging frameworks, and conversion psychology.
 
-Ads to analyze:
+ADS TO ANALYZE:
 ${adsData.map((ad: any, index: number) => `
 Ad ${index + 1}:
 - Brand: ${ad.brandName || 'Unknown'}
@@ -93,30 +93,44 @@ Ad ${index + 1}:
 ${ad.imageUrl ? '- Has Visual Content: Yes (will be analyzed with images)' : '- Has Visual Content: No'}
 `).join('\n')}
 
-Based on the available text content and metadata of these ads, provide initial insights. 
+ANALYSIS REQUIREMENTS:
+Apply Sabri Suby's direct-response methodology to extract:
+
+1. PSYCHOLOGICAL TRIGGERS: Identify scarcity, authority, social proof, reciprocity, commitment/consistency, and liking elements
+2. MESSAGING FRAMEWORK: Analyze problem agitation, solution presentation, and transformation focus
+3. TARGET AUDIENCE PSYCHOLOGY: Understand their pain points, desires, and decision-making triggers
+4. COMPETITIVE POSITIONING: Identify unique angles and market differentiation
+5. CONVERSION ELEMENTS: Analyze CTAs, urgency, risk reversal, and value propositions
+
 ${adsWithImages.length > 0 ? `Note: ${adsWithImages.length} ads have visual content that will be analyzed separately and combined with this analysis.` : ''}
 
-Please provide a JSON response with the following structure:
+Return a JSON response with this structure:
 {
-  "briefName": "A creative name for this brief based on the brand/product",
+  "briefName": "A compelling, conversion-focused name that captures the core value proposition",
   "brandName": "The main brand name from the ads",
-  "productName": "The main product or service being advertised",
-  "adObjective": "awareness|consideration|conversion (choose the most likely objective)",
-  "productDescription": "A comprehensive description of the product/service based on available ad content (max 500 words)",
-  "usp": "The unique selling proposition based on what makes these ads unique (max 500 words)",
-  "targetAudience": "Detailed target audience description based on the ad messaging and style (max 500 words)",
-  "toneOfVoice": "formal|casual|humorous|serious (choose the most common tone across the ads)",
-  "customerAwarenessLevel": "unaware|problem-aware|solution-aware|product-aware (assess from messaging approach)",
-  "marketSophistication": "low|medium|high (assess from competitive positioning and messaging complexity)",
-  "productionLevel": "low|medium|high (assess from ad quality and execution)"
+  "productName": "The specific product or service being advertised",
+  "adObjective": "awareness|consideration|conversion (assess from messaging approach and CTA strategy)",
+  "productDescription": "A comprehensive, benefit-focused description that sells the transformation (500+ words - focus on outcomes, not features)",
+  "usp": "The unique selling proposition that differentiates from competitors (500+ words - include psychological triggers and proof elements)",
+  "targetAudience": "Detailed psychographic and demographic profile with pain points and desires (500+ words - be specific about mindset and motivations)",
+  "toneOfVoice": "formal|casual|humorous|serious|authoritative (assess from messaging style and brand personality)",
+  "customerAwarenessLevel": "unaware|problem-aware|solution-aware|product-aware (determine from messaging sophistication)",
+  "marketSophistication": "low|medium|high (assess from competitive landscape and messaging complexity)",
+  "productionLevel": "low|medium|high (evaluate from ad quality, execution, and brand positioning)",
+  "psychologicalTriggers": ["scarcity", "authority", "social_proof", "reciprocity", "commitment", "liking"],
+  "painPoints": ["specific pain point 1", "specific pain point 2", "specific pain point 3"],
+  "coreDesires": ["desire 1", "desire 2", "desire 3"],
+  "emotionalTriggers": ["fear", "greed", "pride", "curiosity", "anger"],
+  "proofElements": ["testimonials", "case_studies", "results", "credentials", "social_proof"],
+  "competitiveAdvantages": ["advantage 1", "advantage 2", "advantage 3"]
 }
 
-Focus on:
-1. Identifying common patterns across the ads
-2. Understanding the brand's messaging strategy
-3. Determining the target audience from the ad content and style
-4. Extracting the unique value proposition
-5. Analyzing the tone and style of communication
+FOCUS ON:
+- Identifying the core psychological triggers that make these ads work
+- Understanding the target audience's deepest pain points and desires
+- Extracting the unique value proposition that drives conversions
+- Analyzing the messaging strategy and tone that resonates
+- Determining the market positioning and competitive advantages
 
 Return only valid JSON without any additional text or formatting.
 `;
@@ -127,15 +141,30 @@ Return only valid JSON without any additional text or formatting.
         messages: [
           {
             role: "system",
-            content: "You are an expert marketing analyst. Analyze the provided ads and return a JSON response with brief data. Be precise and professional."
+            content: `You are an expert copywriter trained in Sabri Suby's direct-response marketing methodology. Your analysis embodies the aggressive, results-driven approach that has generated over $7.8 billion in client revenue. 
+
+CORE PHILOSOPHY:
+- Write copy that cuts through noise, demands attention, and compels immediate action
+- Focus on psychological triggers (scarcity, authority, social proof, reciprocity, commitment/consistency, liking)
+- Apply problem agitation, solution presentation, and transformation focus
+- Always assume skepticism and address it head-on with proof and guarantees
+
+ANALYSIS APPROACH:
+- Identify the core psychological triggers that make ads work
+- Understand target audience's deepest pain points and desires
+- Extract unique value propositions that drive conversions
+- Analyze messaging strategy and tone that resonates
+- Determine market positioning and competitive advantages
+
+Be precise, professional, and conversion-focused in your analysis.`
           },
           {
             role: "user",
             content: prompt
           }
         ],
-        temperature: 0.3,
-        max_tokens: 2000
+        temperature: 0.2,
+        max_tokens: 3000
       });
 
       const responseText = completion.choices[0]?.message?.content;
@@ -174,42 +203,61 @@ Return only valid JSON without any additional text or formatting.
                   messages: [
                     {
                       role: "system",
-                      content: "You are an expert marketing and advertising analyst specializing in visual content analysis. Analyze this advertisement image comprehensively to extract all possible details about the brand, product, target audience, and marketing strategy."
+                      content: `You are an expert copywriter trained in Sabri Suby's direct-response marketing methodology. Your visual analysis embodies the aggressive, results-driven approach that has generated over $7.8 billion in client revenue.
+
+ANALYSIS APPROACH:
+- Focus on psychological triggers and conversion elements
+- Identify visual proof elements and social proof
+- Analyze urgency and scarcity elements
+- Understand target audience psychology from visual cues
+- Extract competitive advantages and unique positioning
+- Identify risk reversal and guarantee elements`
                     },
                     {
                       role: "user",
                       content: [
                         {
                           type: "text",
-                          text: `Analyze this advertisement image for the brand "${ad.brandName}" and provide comprehensive insights about:
+                          text: `Analyze this advertisement image for the brand "${ad.brandName}" using Sabri Suby's direct-response methodology:
+
+PSYCHOLOGICAL TRIGGERS:
+1. What scarcity, authority, social proof, reciprocity, commitment/consistency, or liking elements are visible?
+2. How does the visual design create urgency or FOMO?
+3. What proof elements (testimonials, results, credentials) are shown?
 
 BRAND & PRODUCT:
-1. What specific product or service is being advertised?
-2. What are the key brand elements and visual identity?
-3. What is the main value proposition shown?
+4. What specific product or service is being advertised?
+5. What are the key brand elements and visual identity?
+6. What is the main value proposition and transformation shown?
 
-VISUAL DESIGN:
-4. What colors, fonts, and visual style are used?
-5. How is the layout structured and what does it communicate?
-6. What visual metaphors or symbols are present?
+VISUAL DESIGN & CONVERSION ELEMENTS:
+7. What colors, fonts, and visual style are used (psychology)?
+8. How is the layout structured to drive action?
+9. What visual metaphors or symbols create emotional impact?
+10. What call-to-action elements and urgency indicators are present?
 
-TARGET AUDIENCE:
-7. Who is the target audience based on visual cues?
-8. What demographic indicators are visible?
-9. What lifestyle or interests does this appeal to?
+TARGET AUDIENCE PSYCHOLOGY:
+11. Who is the target audience based on visual cues?
+12. What pain points and desires does this visual appeal to?
+13. What demographic and psychographic indicators are visible?
 
 MARKETING STRATEGY:
-10. What is the marketing objective (awareness/consideration/conversion)?
-11. What emotional appeal is being used?
-12. What call-to-action elements are present?
+14. What is the marketing objective (awareness/consideration/conversion)?
+15. What emotional triggers (fear, greed, pride, curiosity, anger) are used?
+16. How does this create a "Godfather offer" or irresistible value proposition?
+
+COMPETITIVE POSITIONING:
+17. What unique angles or competitive advantages are shown?
+18. How does this differentiate from competitors?
+19. What risk reversal or guarantee elements are present?
 
 DETAILED OBSERVATIONS:
-13. List all text elements visible in the image
-14. Describe any people, objects, or scenes shown
-15. Note any pricing, offers, or promotional elements
-16. Identify any hidden details or subtle messaging
+20. List all text elements and their psychological impact
+21. Describe people, objects, or scenes and their emotional appeal
+22. Note pricing, offers, or promotional elements
+23. Identify hidden details or subtle messaging
 
-Provide detailed, specific insights that would help create a comprehensive marketing brief.`
+Provide detailed, conversion-focused insights that would help create a comprehensive marketing brief using Sabri Suby's methodology.`
                         },
                         {
                           type: "image_url",
@@ -220,7 +268,7 @@ Provide detailed, specific insights that would help create a comprehensive marke
                       ]
                     }
                   ],
-                  max_tokens: 1200,
+                  max_tokens: 1500,
                   temperature: 0.2
                 });
 
@@ -249,7 +297,7 @@ Provide detailed, specific insights that would help create a comprehensive marke
             console.log(`🔄 Combining text and visual analysis for comprehensive brief...`);
             
             const comprehensivePrompt = `
-You are an expert marketing analyst creating a comprehensive brief. Combine the following information:
+You are an expert copywriter trained in Sabri Suby's direct-response marketing methodology. Create a comprehensive brief that combines text and visual analysis using conversion-focused psychology.
 
 INITIAL TEXT ANALYSIS:
 ${JSON.stringify(briefData, null, 2)}
@@ -266,36 +314,39 @@ VISUAL ANALYSIS:
 ${analysis.analysis}
 `).join('\n\n')}
 
-TASK: Create a comprehensive, enhanced JSON brief that combines ALL available information (text + visual) into a single, detailed brief. 
+TASK: Create a comprehensive, conversion-focused JSON brief that combines ALL available information (text + visual) using Sabri Suby's methodology.
 
-REQUIREMENTS:
-1. Use visual insights to fill gaps where text is missing
-2. Enhance product descriptions with visual details
-3. Refine target audience based on visual cues
-4. Add visual design insights to USP
-5. Update tone based on visual style
-6. Determine customer awareness level from messaging approach
-7. Assess market sophistication from competitive positioning
-8. Evaluate production level from visual quality and execution
-9. Ensure all fields are comprehensive and detailed
+SABRI SUBY METHODOLOGY REQUIREMENTS:
+1. PSYCHOLOGICAL TRIGGERS: Identify and incorporate scarcity, authority, social proof, reciprocity, commitment/consistency, and liking elements
+2. MESSAGING FRAMEWORK: Apply problem agitation, solution presentation, and transformation focus
+3. CONVERSION ELEMENTS: Focus on outcomes, not features - sell the transformation
+4. PROOF ELEMENTS: Include testimonials, case studies, results, and social proof
+5. RISK REVERSAL: Address skepticism with guarantees and proof
+6. URGENCY & SCARCITY: Create compelling reasons to act now
 
 Return ONLY the enhanced JSON with this structure:
 {
-  "briefName": "Creative name based on brand/product",
+  "briefName": "Compelling, conversion-focused name that captures core value proposition",
   "brandName": "Main brand name",
   "productName": "Specific product/service being advertised",
   "adObjective": "awareness|consideration|conversion",
-  "productDescription": "Comprehensive description (500+ words) including visual details",
-  "usp": "Unique selling proposition with visual insights (500+ words)",
-  "targetAudience": "Detailed audience description with visual indicators (500+ words)",
-  "toneOfVoice": "formal|casual|humorous|serious",
+  "productDescription": "Benefit-focused description selling transformation (500+ words - focus on outcomes, not features)",
+  "usp": "Unique selling proposition with psychological triggers and proof elements (500+ words)",
+  "targetAudience": "Detailed psychographic profile with pain points and desires (500+ words)",
+  "toneOfVoice": "formal|casual|humorous|serious|authoritative",
   "customerAwarenessLevel": "unaware|problem-aware|solution-aware|product-aware",
   "marketSophistication": "low|medium|high",
   "productionLevel": "low|medium|high",
-  "visualInsights": "Summary of key visual elements and their impact"
+  "psychologicalTriggers": ["scarcity", "authority", "social_proof", "reciprocity", "commitment", "liking"],
+  "painPoints": ["specific pain point 1", "specific pain point 2", "specific pain point 3"],
+  "coreDesires": ["desire 1", "desire 2", "desire 3"],
+  "emotionalTriggers": ["fear", "greed", "pride", "curiosity", "anger"],
+  "proofElements": ["testimonials", "case_studies", "results", "credentials", "social_proof"],
+  "competitiveAdvantages": ["advantage 1", "advantage 2", "advantage 3"],
+  "visualInsights": "Summary of key visual elements and their psychological impact"
 }
 
-Make it comprehensive and detailed, using visual analysis to fill any gaps in text-only data.
+Make it comprehensive, conversion-focused, and psychologically compelling using visual analysis to enhance text-only data.
 `;
 
             const comprehensiveCompletion = await openai.chat.completions.create({
@@ -303,7 +354,22 @@ Make it comprehensive and detailed, using visual analysis to fill any gaps in te
               messages: [
                 {
                   role: "system",
-                  content: "You are an expert marketing analyst specializing in creating comprehensive briefs that combine text and visual analysis. Be thorough and detailed."
+                  content: `You are an expert copywriter trained in Sabri Suby's direct-response marketing methodology. Your brief creation embodies the aggressive, results-driven approach that has generated over $7.8 billion in client revenue.
+
+CORE PHILOSOPHY:
+- Create briefs that cut through noise, demand attention, and compel immediate action
+- Focus on psychological triggers (scarcity, authority, social proof, reciprocity, commitment/consistency, liking)
+- Apply problem agitation, solution presentation, and transformation focus
+- Always assume skepticism and address it head-on with proof and guarantees
+
+BRIEF CREATION APPROACH:
+- Combine text and visual analysis for comprehensive insights
+- Focus on conversion psychology and psychological triggers
+- Create compelling value propositions that drive action
+- Identify target audience pain points and desires
+- Develop competitive advantages and proof elements
+
+Be thorough, detailed, and conversion-focused in your brief creation.`
                 },
                 {
                   role: "user",
@@ -311,7 +377,7 @@ Make it comprehensive and detailed, using visual analysis to fill any gaps in te
                 }
               ],
               temperature: 0.2,
-              max_tokens: 3000
+              max_tokens: 4000
             });
 
             const comprehensiveResponseText = comprehensiveCompletion.choices[0]?.message?.content;

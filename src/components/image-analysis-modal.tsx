@@ -9,7 +9,7 @@ import { Eye, Loader2, Sparkles } from "lucide-react";
 
 interface ImageAnalysisModalProps {
   isOpen: boolean;
-  onClose: () => void;
+  onCloseAction: () => void;
   imageUrl: string;
   imageTitle?: string;
 }
@@ -20,7 +20,7 @@ interface AnalysisType {
   description: string;
 }
 
-export default function ImageAnalysisModal({ isOpen, onClose, imageUrl, imageTitle }: ImageAnalysisModalProps) {
+export default function ImageAnalysisModal({ isOpen, onCloseAction, imageUrl, imageTitle }: ImageAnalysisModalProps) {
   const [analysisType, setAnalysisType] = useState<string>("general");
   const [analysis, setAnalysis] = useState<string>("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -82,11 +82,11 @@ export default function ImageAnalysisModal({ isOpen, onClose, imageUrl, imageTit
   const handleClose = () => {
     setAnalysis("");
     setAnalysisType("general");
-    onClose();
+    onCloseAction();
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={onCloseAction}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

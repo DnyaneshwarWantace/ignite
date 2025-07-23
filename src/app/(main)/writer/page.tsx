@@ -101,7 +101,7 @@ export default function WriterPage() {
               ) : (
                 <>
                   <Wand2 className="mr-2" />
-                  Build Ad
+              Build Ad
                 </>
               )}
             </Button>

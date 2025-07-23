@@ -140,37 +140,37 @@ export const GET = authMiddleware(
           
           while (offset < totalAdsCount) {
             const chunk = await prisma.ad.findMany({
-              where: whereClause,
-              select: {
-                id: true,
-                libraryId: true,
-                type: true,
-                content: true,
-                imageUrl: true,
-                videoUrl: true,
-                text: true,
-                headline: true,
-                description: true,
-                createdAt: true,
-                updatedAt: true,
-                brandId: true,
-                localImageUrl: true,
-                localVideoUrl: true,
-                mediaStatus: true,
-                mediaDownloadedAt: true,
-                brand: {
-                  select: {
-                    id: true,
-                    name: true,
-                    logo: true,
-                    pageId: true
-                  }
-                }
-              },
-              orderBy: [
-                { createdAt: 'desc' },
-                { id: 'desc' }
-              ],
+        where: whereClause,
+        select: {
+          id: true,
+          libraryId: true,
+          type: true,
+          content: true,
+          imageUrl: true,
+          videoUrl: true,
+          text: true,
+          headline: true,
+          description: true,
+          createdAt: true,
+          updatedAt: true,
+          brandId: true,
+          localImageUrl: true,
+          localVideoUrl: true,
+          mediaStatus: true,
+          mediaDownloadedAt: true,
+          brand: {
+            select: {
+              id: true,
+              name: true,
+              logo: true,
+              pageId: true
+            }
+          }
+        },
+        orderBy: [
+          { createdAt: 'desc' },
+          { id: 'desc' }
+        ],
               skip: offset,
               take: CHUNK_SIZE
             });
@@ -321,7 +321,7 @@ export const GET = authMiddleware(
         };
       }
 
-      console.log('Discover API response:', {
+            console.log('Discover API response:', {
         adsCount: adsToReturn.length,
         hasMore,
         nextCursor,

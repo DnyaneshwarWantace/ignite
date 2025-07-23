@@ -25,7 +25,7 @@ export const POST = authMiddleware(
       }
 
       const conceptGenerationPrompt = `
-You are an expert copywriter trained in Sabri Suby's direct-response marketing methodology. Create 5 unique, conversion-focused ad concepts that embody the aggressive, results-driven approach that has generated over $7.8 billion in client revenue.
+You are an expert copywriter trained in Sabri Suby's direct-response marketing methodology. Create EXACTLY 5 unique, conversion-focused ad concepts that embody the aggressive, results-driven approach that has generated over $7.8 billion in client revenue.
 
 BRIEF DATA:
 Brand: ${briefData.brandName}
@@ -45,28 +45,56 @@ SABRI SUBY CONCEPT CREATION METHODOLOGY:
 5. RISK REVERSAL: Address skepticism with guarantees and proof
 6. URGENCY & SCARCITY: Create compelling reasons to act now
 
+CRITICAL REQUIREMENT: You MUST create EXACTLY 5 concepts. No more, no less.
+
 Create 5 concepts with this structure:
-{
-  "conceptNumber": 1-5,
-  "conceptName": "Compelling, conversion-focused name",
-  "conceptDescription": "Detailed concept description (300+ words - explain the full concept, visual approach, messaging strategy, psychological triggers, and execution details)",
-  "coreDesires": ["desire1", "desire2"],
-  "coreDesireDescription": "Why this concept works (150 words - explain the psychological and emotional appeal using Sabri Suby's methodology)",
-  "emotionsToEvoke": ["emotion1", "emotion2"],
-  "emotionDescription": "How it makes people feel (150 words - describe the emotional journey and impact)",
-  "targetAudienceSegment": "Specific audience segment",
-  "uniqueAngle": "What makes it different and compelling",
-  "visualStyle": "Visual approach and design strategy",
-  "toneOfVoice": "Tone for this concept",
-  "keyMessage": "Main conversion-focused message",
-  "callToAction": "Compelling CTA that drives action",
-  "psychologicalTriggers": ["trigger1", "trigger2", "trigger3"],
-  "proofElements": ["proof1", "proof2", "proof3"],
-  "urgencyElements": ["urgency1", "urgency2"],
-  "riskReversal": "How to address skepticism",
-  "desireOptions": ["option1", "option2", "option3", "option4", "option5"],
-  "emotionOptions": ["option1", "option2", "option3", "option4", "option5"]
-}
+[
+  {
+    "conceptNumber": 1,
+    "conceptName": "Compelling, conversion-focused name",
+    "conceptDescription": "Detailed concept description (300+ words - explain the full concept, visual approach, messaging strategy, psychological triggers, and execution details)",
+    "coreDesires": ["desire1", "desire2"],
+    "coreDesireDescription": "Why this concept works (150 words - explain the psychological and emotional appeal using Sabri Suby's methodology)",
+    "emotionsToEvoke": ["emotion1", "emotion2"],
+    "emotionDescription": "How it makes people feel (150 words - describe the emotional journey and impact)",
+    "targetAudienceSegment": "Specific audience segment",
+    "uniqueAngle": "What makes it different and compelling",
+    "visualStyle": "Visual approach and design strategy",
+    "toneOfVoice": "Tone for this concept",
+    "keyMessage": "Main conversion-focused message",
+    "callToAction": "Compelling CTA that drives action",
+    "psychologicalTriggers": ["trigger1", "trigger2", "trigger3"],
+    "proofElements": ["proof1", "proof2", "proof3"],
+    "urgencyElements": ["urgency1", "urgency2"],
+    "riskReversal": "How to address skepticism",
+    "desireOptions": ["option1", "option2", "option3", "option4", "option5"],
+    "emotionOptions": ["option1", "option2", "option3", "option4", "option5"]
+  },
+  {
+    "conceptNumber": 2,
+    "conceptName": "Second concept name",
+    "conceptDescription": "Second concept description...",
+    // ... same structure for concept 2
+  },
+  {
+    "conceptNumber": 3,
+    "conceptName": "Third concept name",
+    "conceptDescription": "Third concept description...",
+    // ... same structure for concept 3
+  },
+  {
+    "conceptNumber": 4,
+    "conceptName": "Fourth concept name",
+    "conceptDescription": "Fourth concept description...",
+    // ... same structure for concept 4
+  },
+  {
+    "conceptNumber": 5,
+    "conceptName": "Fifth concept name",
+    "conceptDescription": "Fifth concept description...",
+    // ... same structure for concept 5
+  }
+]
 
 CONCEPT TYPES (one of each):
 1. Problem-Agitation-Solution: Amplify pain points before presenting solution
@@ -83,7 +111,7 @@ Each concept must:
 - Focus on transformation, not just features
 - Be designed for immediate action and conversion
 
-Return JSON array only.
+IMPORTANT: Return ONLY a valid JSON array with exactly 5 concepts. Do not include any additional text or explanations.
 `;
 
       // Generate concepts using OpenAI
@@ -133,13 +161,34 @@ Create unique, compelling, and strategically sound ad concepts that drive immedi
         concepts = JSON.parse(responseText);
         
         // Ensure we have exactly 5 concepts
-        if (!Array.isArray(concepts) || concepts.length !== 5) {
-          throw new Error('Invalid concept format');
+        if (!Array.isArray(concepts)) {
+          console.error('Response is not an array:', responseText);
+          return createError({
+            message: "Invalid response format - expected array of concepts"
+          });
+        }
+        
+        if (concepts.length !== 5) {
+          console.error(`Expected 5 concepts, got ${concepts.length}:`, responseText);
+          return createError({
+            message: `Expected 5 concepts, but received ${concepts.length}. Please try again.`
+          });
+        }
+        
+        // Validate each concept has required fields
+        for (let i = 0; i < concepts.length; i++) {
+          const concept = concepts[i];
+          if (!concept.conceptName || !concept.conceptDescription) {
+            console.error(`Concept ${i + 1} missing required fields:`, concept);
+            return createError({
+              message: `Concept ${i + 1} is missing required fields. Please try again.`
+            });
+          }
         }
       } catch (error) {
         console.error('Failed to parse concepts response:', responseText);
         return createError({
-          message: "Failed to parse concept generation response"
+          message: "Failed to parse concept generation response. Please try again."
         });
       }
 

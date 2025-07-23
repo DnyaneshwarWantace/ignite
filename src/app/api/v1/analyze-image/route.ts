@@ -50,7 +50,7 @@ export const POST = authMiddleware(
 
       // Call OpenAI Vision API
       const completion = await openai.chat.completions.create({
-        model: "gpt-4-vision-preview",
+        model: "gpt-4o",
         messages: [
           {
             role: "system",
@@ -90,7 +90,7 @@ export const POST = authMiddleware(
           analysis,
           analysisType,
           imageUrl,
-          model: "gpt-4-vision-preview"
+          model: "gpt-4o"
         }
       });
 

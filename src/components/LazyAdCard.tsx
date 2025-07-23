@@ -10,19 +10,23 @@ interface LazyAdCardProps {
   onSaveAd: () => void;
   expand?: boolean;
   hideActions?: boolean;
+  isSaved?: boolean;
 }
 
-export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActions }: LazyAdCardProps) {
+export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActions, isSaved }: LazyAdCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
   const loadingTimeout = useRef<NodeJS.Timeout | null>(null);
   
-  // Check if this ad is already saved
-  const { data: isSaved = false } = useCheckIfAdSavedQuery(ad.id, {
-    skip: !ad.id // Skip if no ad ID
+  // Check if this ad is already saved (only if not provided as prop)
+  const { data: isSavedFromQuery = false } = useCheckIfAdSavedQuery(ad.id, {
+    skip: !ad.id || isSaved !== undefined // Skip if no ad ID or if isSaved is provided as prop
   });
+  
+  // Use prop value if provided, otherwise use query result
+  const finalIsSaved = isSaved !== undefined ? isSaved : isSavedFromQuery;
   
   const { ref, inView } = useInView({
     threshold: 0.5, // Only trigger when 50% of the ad is visible
@@ -631,7 +635,7 @@ export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActio
         onSaveAd={onSaveAd}
         expand={expand}
         hideActions={hideActions}
-        isSaved={isSaved}
+        isSaved={finalIsSaved}
       />
     </div>
   );

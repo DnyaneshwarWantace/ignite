@@ -156,6 +156,7 @@ export default function SelectAdsModal({ isOpen, onClose, onAdsSelected }: Selec
                                         onSaveAd={() => {}} // Disable save functionality in modal
                                         expand={true}
                                         hideActions={true} // Hide save/share buttons
+                                        isSaved={true} // Show as saved since it's in saved ads
                                       />
                                     </div>
                                   );
@@ -225,6 +226,7 @@ export default function SelectAdsModal({ isOpen, onClose, onAdsSelected }: Selec
                                         onSaveAd={() => {}} // Disable save functionality in modal
                                         expand={true}
                                         hideActions={true} // Hide save/share buttons
+                                        isSaved={true} // Show as saved since it's in saved ads
                                       />
                                     </div>
                                   );

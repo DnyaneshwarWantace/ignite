@@ -1,0 +1,214 @@
+import { NextRequest, NextResponse } from "next/server";
+import { User } from "@prisma/client";
+import { authMiddleware } from "@middleware";
+import { createResponse, createError } from "@apiUtils/responseutils";
+import messages from "@apiUtils/messages";
+import OpenAI from "openai";
+import prisma from "@prisma/index";
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+export const dynamic = "force-dynamic";
+
+// POST - Build complete ad using AI
+export const POST = authMiddleware(
+  async (request: NextRequest, context: any, user: User) => {
+    try {
+      const { briefData, concepts, hooks } = await request.json();
+
+      if (!briefData || !concepts || !hooks) {
+        return createError({
+          message: "Missing required data: briefData, concepts, or hooks"
+        });
+      }
+
+      // Prepare the prompt for ad generation
+      const prompt = `
+You are an expert direct-response copywriter using Sabri Suby's methodology. Create a complete, high-converting advertisement based on the following information:
+
+BRIEF DATA:
+- Product/Service: ${briefData.productName}
+- Target Audience: ${briefData.targetAudience}
+- Key Message: ${briefData.keyMessage}
+- Core Desires: ${briefData.coreDesires?.join(', ') || 'Not specified'}
+- Emotions to Evoke: ${briefData.emotionsToEvoke?.join(', ') || 'Not specified'}
+- Tone of Voice: ${briefData.toneOfVoice || 'Not specified'}
+- Customer Awareness Level: ${briefData.customerAwarenessLevel || 'Not specified'}
+- Market Sophistication: ${briefData.marketSophistication || 'Not specified'}
+- Production Level: ${briefData.productionLevel || 'Not specified'}
+
+CONCEPTS (${concepts.length} total):
+${concepts.map((concept: any, index: number) => `
+Concept ${index + 1}: ${concept.conceptName}
+- Core Desire: ${concept.coreDesire}
+- Emotional Hook: ${concept.emotionalHook}
+- Unique Angle: ${concept.uniqueAngle}
+- Pain Point: ${concept.painPoint}
+- Solution: ${concept.solution}
+- Social Proof: ${concept.socialProof}
+- Urgency: ${concept.urgency}
+- Call to Action: ${concept.callToAction}
+`).join('\n')}
+
+HOOKS (${hooks.length} hook groups):
+${hooks.map((hookGroup: any, index: number) => `
+Hook Group ${index + 1} - ${hookGroup.conceptName}:
+${hookGroup.hooks.map((hook: any) => `
+- Type: ${hook.hookType}
+- Target Emotion: ${hook.targetEmotion}
+- Hook: ${hook.hookText}
+- Rationale: ${hook.rationale}
+`).join('\n')}
+`).join('\n')}
+
+TASK:
+Create 5 unique, high-converting advertisements that incorporate the best elements from the concepts and hooks. Each ad should:
+
+1. Use different compelling hooks from the provided hooks
+2. Incorporate different concept elements for variety
+3. Follow direct-response copywriting principles
+4. Include a clear headline, description, and body text
+5. Use the specified tone of voice and target the right awareness level
+6. Include urgency and social proof elements
+7. Have a strong call to action
+8. Be completely different from each other in approach and messaging
+
+RESPONSE FORMAT:
+Return a JSON object with the following structure:
+{
+  "ads": [
+    {
+      "headline": "Compelling headline that grabs attention",
+      "description": "Short description that expands on the headline",
+      "text": "Full ad copy with compelling body text, benefits, social proof, urgency, and call to action",
+      "type": "image",
+      "brandName": "${briefData.productName}"
+    },
+    {
+      "headline": "Different compelling headline",
+      "description": "Different description approach",
+      "text": "Different ad copy with unique angle",
+      "type": "image",
+      "brandName": "${briefData.productName}"
+    },
+    {
+      "headline": "Third unique headline",
+      "description": "Third description approach",
+      "text": "Third unique ad copy",
+      "type": "image",
+      "brandName": "${briefData.productName}"
+    },
+    {
+      "headline": "Fourth unique headline",
+      "description": "Fourth description approach",
+      "text": "Fourth unique ad copy",
+      "type": "image",
+      "brandName": "${briefData.productName}"
+    },
+    {
+      "headline": "Fifth unique headline",
+      "description": "Fifth description approach",
+      "text": "Fifth unique ad copy",
+      "type": "image",
+      "brandName": "${briefData.productName}"
+    }
+  ]
+}
+
+Make sure the ad is:
+- Highly compelling and conversion-focused
+- Uses emotional triggers from the brief
+- Incorporates the best hooks and concepts
+- Follows Sabri Suby's direct-response methodology
+- Ready to use in advertising platforms
+`;
+
+      // Generate the ad using OpenAI
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert direct-response copywriter specializing in high-converting advertisements. Always respond with valid JSON."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 2000,
+      });
+
+      const responseText = completion.choices[0]?.message?.content;
+      
+      if (!responseText) {
+        return createError({
+          message: "Failed to generate ad content"
+        });
+      }
+
+      // Parse the JSON response
+      let generatedAd;
+      try {
+        generatedAd = JSON.parse(responseText);
+      } catch (error) {
+        console.error('Error parsing AI response:', responseText);
+        return createError({
+          message: "Invalid response format from AI"
+        });
+      }
+
+      // Validate the generated ads
+      if (!generatedAd.ads || !Array.isArray(generatedAd.ads) || generatedAd.ads.length === 0) {
+        return createError({
+          message: "Generated ads are missing or invalid"
+        });
+      }
+
+      // Validate each ad
+      for (const ad of generatedAd.ads) {
+        if (!ad.headline || !ad.description || !ad.text) {
+          return createError({
+            message: "One or more generated ads are missing required fields"
+          });
+        }
+      }
+
+      // Save all ads to database
+      const savedAds = [];
+      for (const ad of generatedAd.ads) {
+        const savedAd = await prisma.createdAd.create({
+          data: {
+            headline: ad.headline,
+            description: ad.description,
+            text: ad.text,
+            type: ad.type || 'image',
+            brandName: ad.brandName || briefData.productName,
+            imageUrl: null,
+            userId: user.id,
+            isGenerated: true
+          }
+        });
+        savedAds.push(savedAd);
+      }
+
+      return createResponse({
+        message: "Ads generated and saved successfully",
+        payload: {
+          ads: savedAds,
+          count: savedAds.length
+        }
+      });
+
+    } catch (error) {
+      console.error('Error building ad:', error);
+      return createError({
+        message: "Failed to build ad",
+        payload: { error: (error as Error).message }
+      });
+    }
+  }
+); 

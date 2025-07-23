@@ -30,7 +30,7 @@ export const GET = authMiddleware(
       }
       // If folderId is 'all', don't apply any folder filter - show all saved ads
 
-      // Fetch saved ads
+      // Fetch saved ads with actual ad data
       const savedAds = await prisma.savedAd.findMany({
         where: whereClause,
         include: {
@@ -43,6 +43,48 @@ export const GET = authMiddleware(
         take: limit
       });
 
+      // Fetch actual ad data for each saved ad to get Cloudinary URLs
+      const savedAdsWithFullData = await Promise.all(
+        savedAds.map(async (savedAd) => {
+          const actualAd = await prisma.ad.findUnique({
+            where: { id: savedAd.adId },
+            select: {
+              id: true,
+              localImageUrl: true,
+              localVideoUrl: true,
+              content: true,
+              imageUrl: true,
+              videoUrl: true,
+              type: true,
+              headline: true,
+              description: true,
+              text: true
+            }
+          });
+
+          // Merge saved ad data with actual ad data
+          const adData = JSON.parse(savedAd.adData || '{}');
+          const mergedAdData = {
+            ...adData,
+            id: savedAd.adId,
+            localImageUrl: actualAd?.localImageUrl,
+            localVideoUrl: actualAd?.localVideoUrl,
+            content: actualAd?.content || adData.content,
+            imageUrl: actualAd?.imageUrl || adData.imageUrl,
+            videoUrl: actualAd?.videoUrl || adData.videoUrl,
+            type: actualAd?.type || adData.type,
+            headline: actualAd?.headline || adData.headline,
+            description: actualAd?.description || adData.description,
+            text: actualAd?.text || adData.text
+          };
+
+          return {
+            ...savedAd,
+            adData: JSON.stringify(mergedAdData)
+          };
+        })
+      );
+
       // Get total count
       const totalCount = await prisma.savedAd.count({
         where: whereClause
@@ -51,7 +93,7 @@ export const GET = authMiddleware(
       return createResponse({
         message: messages.SUCCESS,
         payload: {
-          ads: savedAds,
+          ads: savedAdsWithFullData,
           pagination: {
             page,
             limit,

@@ -27,6 +27,7 @@ model User {
   folders   Folder[]
   savedAdFolders SavedAdFolder[]
   savedAds SavedAd[]
+  createdAds CreatedAd[]
 }
 
 model Account {
@@ -162,6 +163,30 @@ model SavedAd {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model CreatedAd {
+  id          String @id @default(cuid())
+  headline    String
+  description String
+  text        String
+  type        String @default("image") // image, video, carousel, story
+  brandName   String
+  imageUrl    String?
+  
+  isGenerated Boolean @default(false) // Whether this was AI-generated
+  
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Indexes for better query performance
+  @@index([userId])
+  @@index([createdAt])
+  @@index([type])
+  @@index([brandName])
 }
 
 model AdTranscript {

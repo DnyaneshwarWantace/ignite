@@ -2,7 +2,7 @@
 import CommonTopbar from "@/components/common-topbar";
 import PageWrapper from "@/components/layout/page-wrapper";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Lock, Sparkles } from "lucide-react";
+import { ArrowLeft, Lock, Sparkles, Wand2 } from "lucide-react";
 import React, { useState } from "react";
 import { Plus, Printer, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -14,15 +14,19 @@ import BriefForm from "@/components/BriefForm";
 import ConceptForm from "@/components/ConceptForm";
 import { Accordion, AccordionItem } from "@/components/ui/accordion";
 import AccordionConcept from "@/components/accordion-concept";
-import { useGenerateHooksMutation } from "@/store/slices/xray";
+import { useGenerateHooksMutation, useBuildAdMutation } from "@/store/slices/xray";
+import { useRouter } from "next/navigation";
 
 export default function WriterPage() {
   const [newBrief, setNewBrief] = useState(false);
   const [concepts, setConcepts] = useState<any[]>([]);
   const [hooks, setHooks] = useState<any[]>([]);
   const [briefData, setBriefData] = useState<any>(null);
+  const [isBuildingAds, setIsBuildingAds] = useState(false);
 
   const [generateHooks, { isLoading: isGeneratingHooks }] = useGenerateHooksMutation();
+  const [buildAd, { isLoading: isBuildingAd }] = useBuildAdMutation();
+  const router = useRouter();
 
   const handleConceptsGenerated = (generatedConcepts: any[], briefDataParam?: any) => {
     console.log('Concepts generated:', generatedConcepts);
@@ -49,6 +53,30 @@ export default function WriterPage() {
       console.error('Error generating hooks:', error);
     }
   };
+
+  const handleBuildAd = async () => {
+    if (!briefData || concepts.length === 0 || hooks.length === 0) {
+      return;
+    }
+    
+    setIsBuildingAds(true);
+    try {
+      const result = await buildAd({
+        briefData,
+        concepts,
+        hooks
+      });
+
+      if (result.data?.payload?.ads) {
+        // Redirect to saved ads page
+        router.push('/my-created-ads');
+      }
+    } catch (error) {
+      console.error('Error building ads:', error);
+    } finally {
+      setIsBuildingAds(false);
+    }
+  };
   return (
     <PageWrapper
       bb
@@ -58,9 +86,24 @@ export default function WriterPage() {
           subtitle="Use AI to build winning ads"
           link="#"
           btnComp={
-            <Button variant="outline" size="sm" className="flex border-primary/50 text-primary font-bold">
-              <Sparkles className="mr-2" />
-              Build Ad
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex border-primary/50 text-primary font-bold"
+              onClick={handleBuildAd}
+              disabled={!briefData || concepts.length === 0 || hooks.length === 0 || isBuildingAds}
+            >
+              {isBuildingAds ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                  Building Ads...
+                </>
+              ) : (
+                <>
+                  <Wand2 className="mr-2" />
+                  Build Ad
+                </>
+              )}
             </Button>
           }
         />

@@ -20,7 +20,7 @@ export const Typography = ({ variant, children, className = "" }: TypographyProp
     table: "my-6 w-full overflow-y-auto",
   };
 
-  const Component = variant === "title" || variant === "subtitle" ? "div" : variant;
+  const Component = variant === "title" || variant === "subtitle" || variant === "table" ? "div" : variant;
 
   return <Component className={`${baseClassNames[variant]} ${className}`}>{children}</Component>;
 };

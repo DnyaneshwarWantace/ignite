@@ -13,7 +13,7 @@ export const xrayApi = createApi({
       return headers;
     },
   }),
-  tagTypes: ["Folders", "SavedAds", "SavedAdFolders"],
+  tagTypes: ["Folders", "SavedAds", "SavedAdFolders", "CreatedAds"],
   endpoints: (builder) => ({
     fetchAllBrands: builder.query<any[], void>({
       query: () => "/x-ray/brands",
@@ -265,6 +265,72 @@ export const xrayApi = createApi({
         }
       },
     }),
+    buildAd: builder.mutation<any, any>({
+      query: ({ briefData, concepts, hooks }) => ({
+        url: "/writer/build-ad",
+        method: "POST",
+        body: { briefData, concepts, hooks },
+      }),
+      onQueryStarted: async (arg, { dispatch, queryFulfilled }) => {
+        try {
+          const { data } = await queryFulfilled;
+
+          if (data.message === "success") {
+            showToast(`${data.payload.count} ads generated and saved successfully!`, { variant: "success" });
+          }
+        } catch (err) {
+          showToast("Failed to generate ads", { variant: "error" });
+        }
+      },
+    }),
+    fetchCreatedAds: builder.query<any, { page?: number; limit?: number }>({
+      query: ({ page = 1, limit = 20 }) => ({
+        url: `/writer/save-created-ad?page=${page}&limit=${limit}`,
+      }),
+      transformResponse: (response: { payload: any }) => response.payload,
+      providesTags: ["CreatedAds"],
+      transformErrorResponse: (error: any) => {
+        console.error(error);
+        showToast("Failed to fetch created ads.", { variant: "error" });
+      },
+    }),
+    updateCreatedAd: builder.mutation<any, any>({
+      query: ({ id, ...adData }) => ({
+        url: `/writer/save-created-ad/${id}`,
+        method: "PATCH",
+        body: adData,
+      }),
+      invalidatesTags: ["CreatedAds"],
+      onQueryStarted: async (arg, { dispatch, queryFulfilled }) => {
+        try {
+          const { data } = await queryFulfilled;
+
+          if (data.message === "success") {
+            showToast("Ad updated successfully", { variant: "success" });
+          }
+        } catch (err) {
+          showToast("Failed to update ad", { variant: "error" });
+        }
+      },
+    }),
+    deleteCreatedAd: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/writer/save-created-ad/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["CreatedAds"],
+      onQueryStarted: async (arg, { dispatch, queryFulfilled }) => {
+        try {
+          const { data } = await queryFulfilled;
+
+          if (data.message === "success") {
+            showToast("Ad deleted successfully", { variant: "success" });
+          }
+        } catch (err) {
+          showToast("Failed to delete ad", { variant: "error" });
+        }
+      },
+    }),
     createFolder: builder.mutation<any, any>({
       query: (name) => ({
         url: "/x-ray/folders",
@@ -346,6 +412,10 @@ export const {
   useAnalyzeAdsMutation,
   useGenerateConceptsMutation,
   useGenerateHooksMutation,
+  useBuildAdMutation,
+  useFetchCreatedAdsQuery,
+  useUpdateCreatedAdMutation,
+  useDeleteCreatedAdMutation,
 } = xrayApi;
 
 export const xray_slice = createSlice({

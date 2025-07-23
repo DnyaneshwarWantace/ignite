@@ -63,10 +63,10 @@ export const getSearchableText = (ad: any, brandName?: string) => {
 export const getAdFormat = (ad: any): string => {
   try {
     // Check database type field first (most reliable)
-    if (ad.type) {
-      const type = ad.type.toLowerCase();
-      if (type === 'video') return 'Video';
-      if (type === 'image') return 'Image';
+  if (ad.type) {
+    const type = ad.type.toLowerCase();
+    if (type === 'video') return 'Video';
+    if (type === 'image') return 'Image';
       if (type === 'carousel') return 'Carousal';
     }
     
@@ -85,7 +85,7 @@ export const getAdFormat = (ad: any): string => {
     const snapshot = content?.snapshot || {};
     
     // Check if it's a carousel first (cards indicate carousel)
-    if (snapshot.cards && snapshot.cards.length > 1) return 'Carousal';
+      if (snapshot.cards && snapshot.cards.length > 1) return 'Carousal';
     if (Array.isArray(snapshot.images) && snapshot.images.length > 1) return 'Carousal';
     
     // Then check display_format from API (handle DCO format)
@@ -151,8 +151,8 @@ export const getAdPlatform = (ad: any): string[] => {
         return platform.charAt(0).toUpperCase() + platform.slice(1);
       });
     }
-  } catch (e) {
-    // Ignore parsing errors
+    } catch (e) {
+      // Ignore parsing errors
   }
   
   return ['Facebook']; // Default fallback
@@ -179,7 +179,7 @@ export const getAdStatus = (ad: any): string[] => {
       
     // Default to running if no clear indication
     return ['Running'];
-  } catch (e) {
+    } catch (e) {
     console.error('Error in getAdStatus:', e);
     return ['Running']; // Default to running if can't determine
   }

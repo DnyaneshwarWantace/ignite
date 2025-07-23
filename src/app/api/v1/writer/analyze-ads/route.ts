@@ -30,60 +30,106 @@ export const POST = authMiddleware(
         });
       }
 
-      // Prepare ads data for analysis with image URLs
-      const adsData = ads.map((savedAd: any) => {
-        const adData = JSON.parse(savedAd.adData || '{}');
-        
-        // Extract image URLs from the saved ad data
-        let imageUrls: string[] = [];
-        try {
-          if (adData.content) {
-            const content = JSON.parse(adData.content);
-            const snapshot = content.snapshot || {};
-            
-            // Extract from images array (prefer Cloudinary URLs)
-            if (snapshot.images && Array.isArray(snapshot.images)) {
-              snapshot.images.forEach((img: any) => {
-                if (img.original_image_url) imageUrls.push(img.original_image_url);
-                if (img.resized_image_url) imageUrls.push(img.resized_image_url);
-              });
+      // Fetch actual ad data from database to get Cloudinary URLs
+      const adsWithFullData = await Promise.all(
+        ads.map(async (savedAd: any) => {
+          const adData = JSON.parse(savedAd.adData || '{}');
+          
+          // Fetch the actual ad from database to get Cloudinary URLs
+          const actualAd = await prisma.ad.findUnique({
+            where: { id: savedAd.adId },
+            select: {
+              id: true,
+              localImageUrl: true,
+              localVideoUrl: true,
+              content: true,
+              imageUrl: true,
+              videoUrl: true
             }
-            
-            // Extract from cards array for carousel ads
-            if (snapshot.cards && Array.isArray(snapshot.cards)) {
-              snapshot.cards.forEach((card: any) => {
-                if (card.original_image_url) imageUrls.push(card.original_image_url);
-                if (card.resized_image_url) imageUrls.push(card.resized_image_url);
-              });
+          });
+          
+          // Extract image URLs with priority for Cloudinary URLs
+          let imageUrls: string[] = [];
+          
+          // First priority: Use Cloudinary URLs from database
+          if (actualAd?.localImageUrl) {
+            imageUrls.push(actualAd.localImageUrl);
+          }
+          
+          // Second priority: Extract from actual ad content
+          if (actualAd?.content) {
+            try {
+              const content = JSON.parse(actualAd.content);
+              const snapshot = content.snapshot || {};
+              
+              // Extract from images array
+              if (snapshot.images && Array.isArray(snapshot.images)) {
+                snapshot.images.forEach((img: any) => {
+                  if (img.original_image_url) imageUrls.push(img.original_image_url);
+                  if (img.resized_image_url) imageUrls.push(img.resized_image_url);
+                });
+              }
+              
+              // Extract from cards array for carousel ads
+              if (snapshot.cards && Array.isArray(snapshot.cards)) {
+                snapshot.cards.forEach((card: any) => {
+                  if (card.original_image_url) imageUrls.push(card.original_image_url);
+                  if (card.resized_image_url) imageUrls.push(card.resized_image_url);
+                });
+              }
+            } catch (error) {
+              console.log('Error extracting image URLs from actual ad content:', error);
             }
           }
-        } catch (error) {
-          console.log('Error extracting image URLs:', error);
-        }
-        
-        // Prefer Cloudinary URLs for better analysis
-        const cloudinaryUrls = imageUrls.filter(url => url.includes('res.cloudinary.com'));
-        const bestImageUrl = cloudinaryUrls.length > 0 ? cloudinaryUrls[0] : imageUrls[0];
-        
-        return {
-          brandName: adData.companyName,
-          title: adData.title,
-          description: adData.description,
-          ctaText: adData.ctaText,
-          landingPageUrl: adData.landingPageUrl,
-          content: adData.content,
-          imageUrl: bestImageUrl || null
-        };
-      });
+          
+          // Third priority: Extract from saved ad data (fallback)
+          try {
+            if (adData.content) {
+              const content = JSON.parse(adData.content);
+              const snapshot = content.snapshot || {};
+              
+              if (snapshot.images && Array.isArray(snapshot.images)) {
+                snapshot.images.forEach((img: any) => {
+                  if (img.original_image_url) imageUrls.push(img.original_image_url);
+                  if (img.resized_image_url) imageUrls.push(img.resized_image_url);
+                });
+              }
+              
+              if (snapshot.cards && Array.isArray(snapshot.cards)) {
+                snapshot.cards.forEach((card: any) => {
+                  if (card.original_image_url) imageUrls.push(card.original_image_url);
+                  if (card.resized_image_url) imageUrls.push(card.resized_image_url);
+                });
+              }
+            }
+          } catch (error) {
+            console.log('Error extracting image URLs from saved ad data:', error);
+          }
+          
+          // Get the best image URL (prefer Cloudinary URLs)
+          const cloudinaryUrls = imageUrls.filter(url => url.includes('res.cloudinary.com'));
+          const bestImageUrl = cloudinaryUrls.length > 0 ? cloudinaryUrls[0] : imageUrls[0];
+          
+          return {
+            brandName: adData.companyName,
+            title: adData.title,
+            description: adData.description,
+            ctaText: adData.ctaText,
+            landingPageUrl: adData.landingPageUrl,
+            content: actualAd?.content || adData.content,
+            imageUrl: bestImageUrl || null
+          };
+        })
+      );
 
       // Create comprehensive prompt that includes both text and image analysis
-      const adsWithImages = adsData.filter(ad => ad.imageUrl);
+      const adsWithImages = adsWithFullData.filter(ad => ad.imageUrl);
       
       let prompt = `
 You are an expert copywriter trained in Sabri Suby's direct-response marketing methodology. Your analysis embodies the aggressive, results-driven approach that has generated over $7.8 billion in client revenue. Analyze these ads with the precision of a master marketer who understands psychological triggers, messaging frameworks, and conversion psychology.
 
 ADS TO ANALYZE:
-${adsData.map((ad: any, index: number) => `
+${adsWithFullData.map((ad: any, index: number) => `
 Ad ${index + 1}:
 - Brand: ${ad.brandName || 'Unknown'}
 - Title: ${ad.title || 'N/A'}
@@ -199,7 +245,7 @@ Be precise, professional, and conversion-focused in your analysis.`
                 console.log(`📸 Analyzing image for ${ad.brandName}...`);
                 
                 const imageAnalysis = await openai.chat.completions.create({
-                  model: "gpt-4-vision-preview",
+                  model: "gpt-4o",
                   messages: [
                     {
                       role: "system",

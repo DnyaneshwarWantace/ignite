@@ -142,6 +142,7 @@ export default function SavedAdsPage() {
                               onSaveAd={handleSaveAd}
                               expand={true}
                               hideActions={false}
+                              isSaved={true} // Show as saved since it's in saved ads
                             />
                           );
                         })}
@@ -175,6 +176,7 @@ export default function SavedAdsPage() {
                                 onSaveAd={handleSaveAd}
                                 expand={true}
                                 hideActions={false}
+                                isSaved={true} // Show as saved since it's in saved ads
                               />
                             );
                           })}

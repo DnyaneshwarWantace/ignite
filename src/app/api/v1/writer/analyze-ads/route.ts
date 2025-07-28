@@ -4,6 +4,7 @@ import { authMiddleware } from "@middleware";
 import { createResponse, createError } from "@apiUtils/responseutils";
 import messages from "@apiUtils/messages";
 import OpenAI from "openai";
+import prisma from "@prisma/index";
 
 export const dynamic = "force-dynamic";
 

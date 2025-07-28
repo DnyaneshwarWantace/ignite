@@ -120,9 +120,11 @@ export const GET = authMiddleware(
       let filteredAds: any[] = [];
       let startIndex = 0;
       
-      if (hasComplexFilters) {
-        // For complex filters, we need to fetch ALL ads and apply client-side filtering
-        console.log('🔍 Complex filters detected, fetching ALL ads for filtering...');
+      // Always fetch all ads when no complex filters are applied (to show all ads)
+      // or when complex filters are applied (to filter them)
+      if (hasComplexFilters || (!search && !hasComplexFilters)) {
+        // For complex filters or no filters, we need to fetch ALL ads
+        console.log('🔍 Fetching ALL ads for filtering or display...');
         
         // First, get total count for logging
         totalAdsCount = await prisma.ad.count({ where: whereClause });
@@ -225,18 +227,24 @@ export const GET = authMiddleware(
         
         console.log('🔍 Fetched all ads:', allAds.length);
         
-        // Apply client-side filters
-        console.log('🔍 Applying server-side filters:', { format, platform, status, language, niche });
-        
-        const filters = createInitialFilterState();
-        if (format) filters.format = [format];
-        if (platform) filters.platform = [platform];
-        if (status) filters.status = [status];
-        if (language) filters.language = [language];
-        if (niche) filters.niche = [niche];
-        
-        filteredAds = filterAds(allAds, filters);
-        console.log('🔍 Total ads after filtering:', filteredAds.length);
+        // Apply client-side filters if any are specified
+        if (hasComplexFilters) {
+          console.log('🔍 Applying server-side filters:', { format, platform, status, language, niche });
+          
+          const filters = createInitialFilterState();
+          if (format) filters.format = [format];
+          if (platform) filters.platform = [platform];
+          if (status) filters.status = [status];
+          if (language) filters.language = [language];
+          if (niche) filters.niche = [niche];
+          
+          filteredAds = filterAds(allAds, filters);
+          console.log('🔍 Total ads after filtering:', filteredAds.length);
+        } else {
+          // No filters applied, use all ads
+          console.log('🔍 No filters applied, using all ads');
+          filteredAds = allAds;
+        }
         
         // Apply pagination to filtered results
         if (cursorCreatedAt && cursorId) {
@@ -258,7 +266,8 @@ export const GET = authMiddleware(
         console.log(`🔍 Pagination: showing ads ${startIndex + 1}-${Math.min(endIndex, filteredAds.length)} of ${filteredAds.length} filtered ads`);
         
       } else {
-        // For simple search or no filters, use efficient database pagination
+        // For search-only queries (no complex filters), use efficient database pagination
+        console.log('🔍 Search-only query, using database pagination');
         ads = await prisma.ad.findMany({
           where: whereClause,
           select: {
@@ -300,14 +309,14 @@ export const GET = authMiddleware(
       let adsToReturn = ads;
       let nextCursor = null;
       
-      if (hasComplexFilters) {
-        // For complex filters, check if there are more filtered results after the current page
+      if (hasComplexFilters || (!search && !hasComplexFilters)) {
+        // For complex filters or no filters, check if there are more filtered results after the current page
         const totalFilteredCount = filteredAds.length;
         const currentPageEnd = startIndex + limit;
         hasMore = currentPageEnd < totalFilteredCount;
         adsToReturn = ads; // No need to slice, we already sliced in the filtering logic
       } else {
-        // For simple queries, check if we got more than requested
+        // For search-only queries, check if we got more than requested
         hasMore = ads.length > limit;
         adsToReturn = hasMore ? ads.slice(0, -1) : ads;
       }
@@ -326,7 +335,7 @@ export const GET = authMiddleware(
         hasMore,
         nextCursor,
         filtersApplied: { search, format, platform, status, language, niche },
-        totalAdsBeforeFilter: hasComplexFilters ? totalAdsCount : ads.length,
+        totalAdsBeforeFilter: (hasComplexFilters || (!search && !hasComplexFilters)) ? totalAdsCount : ads.length,
         totalAdsAfterFilter: adsToReturn.length
       });
 

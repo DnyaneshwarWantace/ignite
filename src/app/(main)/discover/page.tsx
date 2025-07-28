@@ -68,6 +68,7 @@ export default function DiscoverPage() {
   const [hasMore, setHasMore] = useState(true);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isFilterLoading, setIsFilterLoading] = useState(false);
   const loadingInProgress = useRef(false);
 
   // Filter state
@@ -142,6 +143,24 @@ export default function DiscoverPage() {
     }
   }, [cachedAds, filters, adIdFromUrl, shouldUseServerFiltering]);
 
+  // Log media status summary
+  useEffect(() => {
+    if (filteredAds.length > 0) {
+      const mediaStats = filteredAds.reduce((acc: any, ad: any) => {
+        acc[ad.mediaStatus] = (acc[ad.mediaStatus] || 0) + 1;
+        return acc;
+      }, {});
+      
+      console.log('📊 Media Status Summary:', {
+        totalAds: filteredAds.length,
+        mediaStats,
+        cloudinaryReady: mediaStats.success || 0,
+        pendingProcessing: mediaStats.pending || 0,
+        failedProcessing: mediaStats.failed || 0
+      });
+    }
+  }, [filteredAds]);
+
   // Check if any filter is applied
   useEffect(() => {
     const hasActiveFilters =
@@ -172,6 +191,7 @@ export default function DiscoverPage() {
           setNextCursor(serverData.pagination?.nextCursor || null);
           setHasMore(serverData.pagination?.hasMore || false);
           setIsInitialLoading(false);
+          setIsFilterLoading(false);
           setLastServerFilter(filterKey);
         }
       }, [serverData, shouldUseServerFiltering, filterKey, filters]);
@@ -274,6 +294,7 @@ export default function DiscoverPage() {
       setNextCursor(initialData.pagination?.nextCursor || null);
       setHasMore(initialData.pagination?.hasMore || false);
       setIsInitialLoading(false);
+      setIsFilterLoading(false);
     }
   }, [initialData, cachedAds.length, shouldUseServerFiltering]);
 
@@ -284,6 +305,7 @@ export default function DiscoverPage() {
       setNextCursor(null);
       setHasMore(true);
       setIsInitialLoading(true);
+      setIsFilterLoading(true);
     }
   }, [shouldUseServerFiltering]);
 
@@ -333,6 +355,7 @@ export default function DiscoverPage() {
   }, []);
 
   const isLoading = (initialLoading || serverLoading) && isInitialLoading;
+  const isFiltering = isFilterLoading || (serverLoading && shouldUseServerFiltering);
 
   if (isLoading) {
     return (
@@ -398,6 +421,7 @@ export default function DiscoverPage() {
           onDateUpdate={handleDateUpdate}
           onSearchUpdate={handleSearchUpdate}
           onSortUpdate={handleSortUpdate}
+          isFiltering={isFiltering}
         />
         
         {/* Filter info */}
@@ -408,11 +432,37 @@ export default function DiscoverPage() {
             ) : (
               <span>⚡ Instant filtering on {cachedAds.length} cached ads</span>
             )}
+            {!isFiltering && filteredAds.length > 0 && (
+              <span className="ml-2">• {filteredAds.length} results found</span>
+            )}
+          </div>
+        )}
+        
+        {/* Media status info */}
+        {filteredAds.length > 0 && (
+          <div className="text-xs text-muted-foreground flex items-center gap-4">
+            <span>📊 Media: {filteredAds.filter((ad: any) => ad.mediaStatus === 'success').length} ready, {filteredAds.filter((ad: any) => ad.mediaStatus === 'pending').length} processing</span>
           </div>
         )}
         
         <Flex wrap={"wrap"} gap={"6"} className="w-full">
-        {filteredAds.length === 0 && !isLoading ? (
+        {/* Filter Loading State */}
+        {isFiltering && (
+          <div className="w-full min-h-[50vh] flex flex-col justify-center items-center px-4">
+            <div className="w-full max-w-md mx-auto flex flex-col items-center justify-center text-center">
+              <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+              <Typography variant="h3" className="text-foreground text-center mb-2">
+                Applying Filters...
+              </Typography>
+              <Typography variant="p" className="text-muted-foreground text-center">
+                Please wait while we filter the ads based on your criteria
+              </Typography>
+            </div>
+          </div>
+        )}
+        
+        {/* No Results State */}
+        {filteredAds.length === 0 && !isLoading && !isFiltering ? (
           <div className="w-full min-h-[50vh] flex flex-col justify-center items-center px-4">
             <div className="text-center space-y-2 max-w-md mx-auto">
               <Typography variant="h3" className="text-gray-400">
@@ -430,7 +480,10 @@ export default function DiscoverPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setFilters(createInitialFilterState())}
+                    onClick={() => {
+                      setFilters(createInitialFilterState());
+                      setIsFilterLoading(false);
+                    }}
                     className="mt-4"
                   >
                     Clear All Filters
@@ -438,7 +491,7 @@ export default function DiscoverPage() {
                 )}
             </div>
           </div>
-        ) : (
+        ) : !isFiltering ? (
           <div className="w-full">
             <Masonry
               breakpointCols={breakpointColumnsObj}
@@ -535,7 +588,7 @@ export default function DiscoverPage() {
               </div>
             )}
           </div>
-        )}
+        ) : null}
         </Flex>
       </Flex>
     </PageWrapper>

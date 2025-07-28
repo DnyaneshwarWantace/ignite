@@ -1,7 +1,7 @@
 import { Flex } from "@radix-ui/themes";
 import React, { useEffect, useCallback } from "react";
 import { InputWithIcon } from "./ui/input-with-icon";
-import { CalendarIcon, Clock, EyeIcon, Languages, Search, Vault } from "lucide-react";
+import { CalendarIcon, Clock, EyeIcon, Languages, Search, Vault, Loader2 } from "lucide-react";
 import AdvanceFilter from "./AdvanceFilter";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -20,6 +20,7 @@ interface FilterRowProps {
   onStatusUpdate?: (v: string[]) => void;
   onDateUpdate?: (v: Date) => void;
   onSortUpdate?: (v: string) => void;
+  isFiltering?: boolean;
 }
 
 export default function FilterRow({
@@ -31,6 +32,7 @@ export default function FilterRow({
   onPlatformUpdate,
   onSortUpdate,
   onStatusUpdate,
+  isFiltering = false,
 }: FilterRowProps) {
   const [date, setDate] = React.useState<Date>();
   const [search, setSearch] = React.useState<string>("");
@@ -75,7 +77,7 @@ export default function FilterRow({
 
   return (
     <Flex className="w-full" direction={"row"} justify={"between"} align={"center"}>
-      <Flex gap={"1"}>
+      <Flex gap={"1"} align={"center"}>
         <InputWithIcon
           placeholder="Search (min 3 chars for full search)"
           icon={<Search size={20} color="gray" />}
@@ -94,6 +96,14 @@ export default function FilterRow({
             }
           }}
         />
+        
+        {/* Filter Loading Indicator */}
+        {isFiltering && (
+          <div className="flex items-center gap-2 text-primary">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm font-medium">Filtering...</span>
+          </div>
+        )}
 
         <AdvanceFilter
           onChange={handleFormatUpdate}

@@ -35,28 +35,31 @@ export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActio
   });
 
   // Helper functions (same as in discover page) - updated to use local URLs
-  // Get all available image URLs with original image priority for carousel support
+  // Get all available image URLs with Cloudinary priority
   const getAllImageUrls = (ad: any) => {
     const imageUrls: string[] = [];
     
-    // First priority: Use local Cloudinary URLs if available
-    if (ad.localImageUrls && Array.isArray(ad.localImageUrls)) {
-      return ad.localImageUrls;
-    }
-
-    // Second priority: Use single local Cloudinary URL
-    if (ad.localImageUrl) {
+    // First priority: Use local Cloudinary URL if available and media is processed
+    if (ad.localImageUrl && ad.mediaStatus === 'success') {
+      console.log(`Using Cloudinary URL for ad ${ad.id}: ${ad.localImageUrl}`);
       return [ad.localImageUrl];
     }
+
+    // Second priority: Use local Cloudinary URLs array if available (for carousel)
+    if (ad.localImageUrls && Array.isArray(ad.localImageUrls) && ad.mediaStatus === 'success') {
+      console.log(`Using Cloudinary URLs array for ad ${ad.id}:`, ad.localImageUrls);
+      return ad.localImageUrls;
+    }
     
-    // Third priority: Extract images from content
-    if (ad.content) {
+    // Third priority: Extract images from content (only if media not processed or failed)
+    if (ad.content && (ad.mediaStatus === 'pending' || ad.mediaStatus === 'failed')) {
       try {
         const content = JSON.parse(ad.content);
         const snapshot = content.snapshot || {};
         
         // Check if we have stored original URLs
         if (content.originalImageUrls && Array.isArray(content.originalImageUrls)) {
+          console.log(`Using original URLs for ad ${ad.id} (media status: ${ad.mediaStatus})`);
           return content.originalImageUrls;
         }
         
@@ -136,6 +139,12 @@ export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActio
       imageUrls.push(ad.videoUrl);
     }
     
+    // If no images found and media is not processed, return empty array
+    if (imageUrls.length === 0 && ad.mediaStatus !== 'success') {
+      console.log(`No images available for ad ${ad.id} (media status: ${ad.mediaStatus})`);
+      return [];
+    }
+    
     return imageUrls.filter(url => url);
   };
 
@@ -146,9 +155,9 @@ export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActio
   };
 
   const getVideoUrls = (ad: any) => {
-    // First priority: Use local Cloudinary video URL if available
-    if (ad.localVideoUrl) {
-      console.log(`Using local video URL for ad ${ad.id}: ${ad.localVideoUrl}`);
+    // First priority: Use local Cloudinary video URL if available and processed
+    if (ad.localVideoUrl && ad.mediaStatus === 'success') {
+      console.log(`Using Cloudinary video URL for ad ${ad.id}: ${ad.localVideoUrl}`);
       return {
         videoHdUrl: ad.localVideoUrl,
         videoSdUrl: ad.localVideoUrl, // Use same URL for both HD and SD
@@ -156,8 +165,8 @@ export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActio
       };
     }
     
-    // Second priority: Use original videoUrl field
-    if (ad.videoUrl) {
+    // Second priority: Use original videoUrl field (only if media not processed)
+    if (ad.videoUrl && ad.mediaStatus !== 'success') {
       return {
         videoHdUrl: ad.videoUrl,
         videoSdUrl: ad.videoUrl,
@@ -165,8 +174,8 @@ export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActio
       };
     }
     
-    // Third priority: Extract from content as fallback
-    if (ad.content) {
+    // Third priority: Extract from content as fallback (only if media not processed)
+    if (ad.content && ad.mediaStatus !== 'success') {
       try {
         const content = JSON.parse(ad.content);
         const snapshot = content.snapshot || {};
@@ -481,7 +490,9 @@ export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActio
 
   // Retry function for failed image loads
   const retryImageLoad = () => {
-    if (retryCount < 3) { // Max 3 retries
+    // Only retry if media is not processed yet (for pending/failed media)
+    // If media is already processed on Cloudinary, don't retry Facebook URLs
+    if (retryCount < 3 && ad.mediaStatus !== 'success') {
       setIsRetrying(true);
       setImageError(false);
       setRetryCount(prev => prev + 1);
@@ -490,6 +501,11 @@ export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActio
       setTimeout(() => {
         loadImage();
       }, 1000 * retryCount); // Increasing delay: 1s, 2s, 3s
+    } else if (ad.mediaStatus === 'success') {
+      // If media is processed but still failing, it's likely a Cloudinary issue
+      console.log(`Cloudinary media failed for ad ${ad.id}, showing placeholder`);
+      setImageError(true);
+      setImageLoaded(true);
     }
   };
 
@@ -498,7 +514,8 @@ export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActio
     const imageUrl = getImageUrl(ad);
     
     if (imageUrl) {
-      console.log(`Loading image for ad ${ad.id}, attempt ${retryCount + 1}: ${imageUrl}`);
+      const isCloudinary = imageUrl.includes('cloudinary.com') || imageUrl.includes('res.cloudinary.com');
+      console.log(`Loading image for ad ${ad.id}, attempt ${retryCount + 1} (${isCloudinary ? 'Cloudinary' : 'Facebook'}): ${imageUrl}`);
       
       const img = new Image();
       
@@ -535,7 +552,17 @@ export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActio
 
   const handleImageError = () => {
     setIsRetrying(false);
-    if (retryCount < 3) {
+    
+    // If media is processed on Cloudinary but failing, don't retry
+    if (ad.mediaStatus === 'success') {
+      console.log(`Cloudinary media failed for ad ${ad.id}, showing placeholder`);
+      setImageError(true);
+      setImageLoaded(true);
+      return;
+    }
+    
+    // Only retry for pending/failed media
+    if (retryCount < 3 && (ad.mediaStatus === 'pending' || ad.mediaStatus === 'failed')) {
       console.log(`Will retry loading image for ad ${ad.id} in ${1000 * (retryCount + 1)}ms`);
       setTimeout(retryImageLoad, 1000 * (retryCount + 1));
     } else {

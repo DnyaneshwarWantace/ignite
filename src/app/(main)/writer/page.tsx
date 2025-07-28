@@ -14,8 +14,9 @@ import BriefForm from "@/components/BriefForm";
 import ConceptForm from "@/components/ConceptForm";
 import { Accordion, AccordionItem } from "@/components/ui/accordion";
 import AccordionConcept from "@/components/accordion-concept";
-import { useGenerateHooksMutation, useBuildAdMutation } from "@/store/slices/xray";
+import { useGenerateHooksMutation, useBuildAdMutation, useAnalyzeAdsMutation, useGenerateConceptsMutation } from "@/store/slices/xray";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 
 export default function WriterPage() {
   const [newBrief, setNewBrief] = useState(false);
@@ -23,9 +24,12 @@ export default function WriterPage() {
   const [hooks, setHooks] = useState<any[]>([]);
   const [briefData, setBriefData] = useState<any>(null);
   const [isBuildingAds, setIsBuildingAds] = useState(false);
+  const [isAnalyzingAdsLocal, setIsAnalyzingAdsLocal] = useState(false);
 
   const [generateHooks, { isLoading: isGeneratingHooks }] = useGenerateHooksMutation();
   const [buildAd, { isLoading: isBuildingAd }] = useBuildAdMutation();
+  const [analyzeAds, { isLoading: isAnalyzingAds }] = useAnalyzeAdsMutation();
+  const [generateConcepts, { isLoading: isGeneratingConcepts }] = useGenerateConceptsMutation();
   const router = useRouter();
 
   const handleConceptsGenerated = (generatedConcepts: any[], briefDataParam?: any) => {
@@ -36,6 +40,9 @@ export default function WriterPage() {
       setBriefData(briefDataParam);
     }
   };
+
+  // Add local state to track concept generation
+  const [isGeneratingConceptsLocal, setIsGeneratingConceptsLocal] = useState(false);
 
   const handleGenerateHooks = async () => {
     if (concepts.length === 0) {
@@ -78,7 +85,35 @@ export default function WriterPage() {
     }
   };
   return (
-    <PageWrapper
+    <>
+      {/* Build Ads Loading Overlay */}
+      {isBuildingAds && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-8 max-w-md mx-4 text-center space-y-6">
+            <div className="relative">
+              <Loader2 className="h-16 w-16 animate-spin text-primary mx-auto" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-12 h-12 bg-white rounded-full"></div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Typography variant="h3" className="text-xl font-semibold">
+                Building Your Ads...
+              </Typography>
+              <Typography variant="p" className="text-muted-foreground">
+                AI is creating multiple ad variations based on your concepts and hooks
+              </Typography>
+            </div>
+            <div className="flex space-x-1 justify-center">
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <PageWrapper
       bb
       top={
         <CommonTopbar
@@ -95,13 +130,13 @@ export default function WriterPage() {
             >
               {isBuildingAds ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   Building Ads...
                 </>
               ) : (
                 <>
                   <Wand2 className="mr-2" />
-              Build Ad
+                  Build Ad
                 </>
               )}
             </Button>
@@ -109,12 +144,54 @@ export default function WriterPage() {
         />
       }
     >
+      {/* Progress Indicator */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <Typography variant="h3" className="text-sm font-medium">
+            Workflow Progress
+          </Typography>
+          <Typography variant="p" className="text-xs text-muted-foreground">
+            {(() => {
+              let completed = 0;
+              if (briefData) completed++;
+              if (concepts.length > 0) completed++;
+              if (hooks.length > 0) completed++;
+              return `${completed}/3 Steps Complete`;
+            })()}
+          </Typography>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-2">
+          <div 
+            className="bg-primary h-2 rounded-full transition-all duration-500 ease-in-out"
+            style={{ 
+              width: `${(() => {
+                let completed = 0;
+                if (briefData) completed++;
+                if (concepts.length > 0) completed++;
+                if (hooks.length > 0) completed++;
+                return (completed / 3) * 100;
+              })()}%` 
+            }}
+          ></div>
+        </div>
+        <div className="flex justify-between mt-1 text-xs text-muted-foreground">
+          <span className={briefData ? "text-primary font-medium" : ""}>Brief</span>
+          <span className={concepts.length > 0 ? "text-primary font-medium" : ""}>Concepts</span>
+          <span className={hooks.length > 0 ? "text-primary font-medium" : ""}>Hooks</span>
+        </div>
+      </div>
+
       <div className="grid gap-6 md:grid-cols-3 h-full">
         <Card className="h-full flex flex-col">
           <CardHeader className="flex flex-row items-start justify-between border-b border-b-gray-200">
             <Flex direction={"column"} align={"start"}>
               <Typography variant="title" className="text-lg font-medium">
                 Brief
+                {(isAnalyzingAds || isAnalyzingAdsLocal) && (
+                  <span className="ml-2 inline-flex items-center">
+                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                  </span>
+                )}
               </Typography>
               <Typography variant="subtitle">Create or select a brief</Typography>
             </Flex>
@@ -131,7 +208,30 @@ export default function WriterPage() {
           </CardHeader>
           <CardContent className={newBrief ? "p-0" : ""}>
             {newBrief ? (
-              <BriefForm onConceptsGenerated={handleConceptsGenerated} />
+              <div className="relative">
+                {(isAnalyzingAds || isAnalyzingAdsLocal) && (
+                  <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex items-center justify-center">
+                    <div className="flex flex-col items-center space-y-4">
+                      <div className="relative">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      </div>
+                      <div className="text-center space-y-2">
+                        <Typography variant="h3" className="text-sm font-medium">
+                          Analyzing Ads...
+                        </Typography>
+                        <Typography variant="p" className="text-xs text-muted-foreground">
+                          AI is extracting insights from your selected ads
+                        </Typography>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <BriefForm 
+                  onConceptsGenerated={handleConceptsGenerated} 
+                  onAnalyzingAds={setIsAnalyzingAdsLocal}
+                  onGeneratingConcepts={setIsGeneratingConceptsLocal}
+                />
+              </div>
             ) : (
               <>
                 <Input type="text" placeholder="Search" className="mb-6 mt-3" />
@@ -152,6 +252,11 @@ export default function WriterPage() {
             <Flex direction={"column"} align={"start"}>
               <Typography variant="title" className="text-lg font-medium">
                 Concept
+                {(isGeneratingConcepts || isGeneratingConceptsLocal) && (
+                  <span className="ml-2 inline-flex items-center">
+                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                  </span>
+                )}
               </Typography>
               <Typography variant="subtitle">Create or select a brief</Typography>
             </Flex>
@@ -160,7 +265,29 @@ export default function WriterPage() {
             </Button>
           </CardHeader>
           <CardContent className="px-4">
-            {concepts.length > 0 ? (
+            {(isGeneratingConcepts || isGeneratingConceptsLocal) ? (
+              <div className="flex flex-col items-center justify-center h-64 space-y-4">
+                <div className="relative">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-8 h-8 bg-white rounded-full"></div>
+                  </div>
+                </div>
+                <div className="text-center space-y-2">
+                  <Typography variant="h3" className="text-lg font-medium">
+                    Generating Concepts...
+                  </Typography>
+                  <Typography variant="p" className="text-sm text-muted-foreground">
+                    AI is analyzing your brief and creating unique ad concepts
+                  </Typography>
+                </div>
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                </div>
+              </div>
+            ) : concepts.length > 0 ? (
               <>
             <Accordion type="single" collapsible className="w-full">
               {concepts.map((con, index) => (
@@ -178,7 +305,7 @@ export default function WriterPage() {
                   >
                     {isGeneratingHooks ? (
                       <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
                         Generating Hooks...
                       </>
                     ) : (
@@ -192,7 +319,10 @@ export default function WriterPage() {
               </>
             ) : (
               <div className="mt-14">
-                <EmptyState title="No Concepts Generated Yet" description="👉 Fill out the brief and click 'Save & Generate Concepts' to create ad concepts" />
+                <EmptyState 
+                  title="No Concepts Generated Yet" 
+                  description="👉 Fill out the brief and click 'Save & Generate Concepts' to create ad concepts" 
+                />
               </div>
             )}
           </CardContent>
@@ -203,6 +333,11 @@ export default function WriterPage() {
             <Flex direction={"column"} align={"start"}>
               <Typography variant="title" className="text-lg font-medium">
                 Hook
+                {isGeneratingHooks && (
+                  <span className="ml-2 inline-flex items-center">
+                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                  </span>
+                )}
               </Typography>
               <Typography variant="subtitle">Create or select a brief</Typography>
             </Flex>
@@ -211,7 +346,29 @@ export default function WriterPage() {
             </Button>
           </CardHeader>
           <CardContent className="px-4">
-            {hooks.length > 0 ? (
+            {isGeneratingHooks ? (
+              <div className="flex flex-col items-center justify-center h-64 space-y-4">
+                <div className="relative">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-8 h-8 bg-white rounded-full"></div>
+                  </div>
+                </div>
+                <div className="text-center space-y-2">
+                  <Typography variant="h3" className="text-lg font-medium">
+                    Generating Hooks...
+                  </Typography>
+                  <Typography variant="p" className="text-sm text-muted-foreground">
+                    AI is creating compelling hooks for each concept
+                  </Typography>
+                </div>
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                </div>
+              </div>
+            ) : hooks.length > 0 ? (
               <Accordion type="single" collapsible className="w-full">
                 {hooks.map((hookGroup, index) => (
                   <AccordionConcept key={`hook-${index}`} id={index} name={`${hookGroup.conceptName} - Hooks`}>
@@ -243,13 +400,17 @@ export default function WriterPage() {
                 ))}
               </Accordion>
             ) : (
-            <div className="mt-14">
-                <EmptyState title="No Hooks Generated Yet" description="👉 Generate concepts first, then click 'Generate Hooks' to create compelling hooks" />
-            </div>
+              <div className="mt-14">
+                <EmptyState 
+                  title="No Hooks Generated Yet" 
+                  description="👉 Generate concepts first, then click 'Generate Hooks' to create compelling hooks" 
+                />
+              </div>
             )}
           </CardContent>
         </Card>
       </div>
     </PageWrapper>
+    </>
   );
 }

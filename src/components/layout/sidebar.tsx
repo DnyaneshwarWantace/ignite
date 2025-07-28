@@ -31,6 +31,7 @@ const navItems: NavItem[] = [
 
 const secondaryNavItems: NavItem[] = [
   { href: "/saved-ads", label: "Saved Ads", icon: "/images/icons/saved.svg" },
+  { href: "/my-created-ads", label: "My Created Ads", icon: "/images/icons/saved.svg" },
 ];
 
 export function Sidebar() {

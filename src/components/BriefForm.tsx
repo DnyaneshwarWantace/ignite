@@ -19,9 +19,11 @@ import { useAnalyzeAdsMutation, useGenerateConceptsMutation } from "@/store/slic
 
 interface BriefFormProps {
   onConceptsGenerated?: (concepts: any[], briefData?: any) => void;
+  onAnalyzingAds?: (isAnalyzing: boolean) => void;
+  onGeneratingConcepts?: (isGenerating: boolean) => void;
 }
 
-export default function BriefForm({ onConceptsGenerated }: BriefFormProps) {
+export default function BriefForm({ onConceptsGenerated, onAnalyzingAds, onGeneratingConcepts }: BriefFormProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showAdSelector, setShowAdSelector] = useState(false);
   const [selectedAds, setSelectedAds] = useState<any[]>([]);
@@ -50,6 +52,11 @@ export default function BriefForm({ onConceptsGenerated }: BriefFormProps) {
     
     if (ads.length > 0) {
       try {
+        // Notify parent about analyzing state
+        if (onAnalyzingAds) {
+          onAnalyzingAds(true);
+        }
+        
         const result = await analyzeAds(ads);
         if (result.data?.payload?.briefData) {
           const briefData = result.data.payload.briefData;
@@ -69,6 +76,11 @@ export default function BriefForm({ onConceptsGenerated }: BriefFormProps) {
         }
       } catch (error) {
         console.error('Error analyzing ads:', error);
+      } finally {
+        // Notify parent that analyzing is complete
+        if (onAnalyzingAds) {
+          onAnalyzingAds(false);
+        }
       }
     }
   };
@@ -78,6 +90,11 @@ export default function BriefForm({ onConceptsGenerated }: BriefFormProps) {
     
     // Generate concepts when form is submitted
     try {
+      // Notify parent about concept generation starting
+      if (onGeneratingConcepts) {
+        onGeneratingConcepts(true);
+      }
+      
       const result = await generateConcepts(values);
       if (result.data?.payload?.concepts) {
         console.log('Generated concepts:', result.data.payload.concepts);
@@ -88,6 +105,11 @@ export default function BriefForm({ onConceptsGenerated }: BriefFormProps) {
       }
     } catch (error) {
       console.error('Error generating concepts:', error);
+    } finally {
+      // Notify parent that concept generation is complete
+      if (onGeneratingConcepts) {
+        onGeneratingConcepts(false);
+      }
     }
   }
   return (

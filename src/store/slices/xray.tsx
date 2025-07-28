@@ -202,11 +202,15 @@ export const xrayApi = createApi({
       onQueryStarted: async (arg, { dispatch, queryFulfilled }) => {
         try {
           const { data } = await queryFulfilled;
+          console.log('Create folder response:', data);
 
           if (data.message === "success") {
             showToast("Folder created successfully", { variant: "success" });
+          } else {
+            showToast(data.message || "Failed to create folder", { variant: "error" });
           }
         } catch (err) {
+          console.error('Create folder error:', err);
           showToast("Failed to create folder", { variant: "error" });
         }
       },

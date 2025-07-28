@@ -56,11 +56,25 @@ export const GET = authMiddleware(
 export const POST = authMiddleware(
   async (request: NextRequest, context: any, user: User) => {
     try {
-      const { name } = await request.json();
+      let body;
+      try {
+        body = await request.json();
+        console.log('Creating folder with body:', body);
+      } catch (parseError) {
+        console.error('Failed to parse request body:', parseError);
+        return createError({
+          message: "Invalid request body",
+          status: 400
+        });
+      }
+      
+      const { name } = body;
 
       if (!name || name.trim() === '') {
+        console.log('Folder name validation failed:', { name, body });
         return createError({
-          message: "Folder name is required"
+          message: "Folder name is required",
+          status: 400
         });
       }
 
@@ -73,8 +87,10 @@ export const POST = authMiddleware(
       });
 
       if (existingFolder) {
+        console.log('Folder already exists:', { name: name.trim(), userId: user.id });
         return createError({
-          message: "A folder with this name already exists"
+          message: "A folder with this name already exists",
+          status: 400
         });
       }
 
@@ -85,8 +101,10 @@ export const POST = authMiddleware(
         }
       });
 
+      console.log('Folder created successfully:', folder);
+
       return createResponse({
-        message: "Folder created successfully",
+        message: "success",
         payload: {
           folder: folder
         }

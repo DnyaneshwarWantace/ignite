@@ -39,10 +39,15 @@ export default function SavedAdsPage() {
     if (!newFolderName.trim()) return;
     
     try {
+      console.log('Creating folder with name:', newFolderName.trim());
       const result = await createFolder(newFolderName.trim());
+      console.log('Create folder result:', result);
+      
       if (result.data) {
         setShowCreateFolder(false);
         setNewFolderName("");
+      } else if (result.error) {
+        console.error("Error creating folder:", result.error);
       }
     } catch (error) {
       console.error("Error creating folder:", error);

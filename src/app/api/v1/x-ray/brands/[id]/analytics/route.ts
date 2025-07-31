@@ -139,7 +139,7 @@ function cleanHookText(text: string): string {
 
 // Helper function to extract one hook per ad (1:1 mapping)
 function extractTopHooks(ads: any[]) {
-  const hooks: Array<{ hook: string; count: number; adId: string; createdAt: Date; platform: string; imageUrl: string | null; adType: string }> = [];
+  const hooks: Array<{ hook: string; count: number; adId: string; createdAt: Date; platform: string; imageUrl: string | null; adType: string; isActive: boolean; adData: any }> = [];
   let processedAds = 0;
   let adsWithHooks = 0;
   

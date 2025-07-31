@@ -6,6 +6,7 @@ import React, { useState, useMemo, useCallback, useTransition } from "react";
 import FilterRow from "./FilterRow";
 import { showToast } from "@/lib/toastUtils";
 import { FilterState, createInitialFilterState } from "@/lib/adFiltering";
+import AdPreviewModal from "./ad-preview-modal";
 
 interface Hook {
   hook: string;
@@ -21,10 +22,12 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
   const [filters, updateFilters] = useState<FilterState>(createInitialFilterState());
   const [pinnedHooks, setPinnedHooks] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [selectedAdData, setSelectedAdData] = useState<any>(null);
 
-  // Limit data to prevent freezing
-  const limitedHooks = useMemo(() => hooks.slice(0, 100), [hooks]);
-  const limitedAds = useMemo(() => ads.slice(0, 50), [ads]);
+  // No limits - show all hooks and ads
+  const limitedHooks = useMemo(() => hooks, [hooks]);
+  const limitedAds = useMemo(() => ads, [ads]);
 
   // Simple text cleaning function
   const cleanText = useCallback((text: string): string => {
@@ -79,11 +82,41 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
     }
   }, []);
 
-  // Get ad details for hook (simplified)
-  const getAdDetailsForHook = useCallback((hookText: string) => {
+  // Calculate days since ad creation
+  const calculateDaysSince = useCallback((createdAt: string | Date): number => {
+    try {
+      const adDate = new Date(createdAt);
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - adDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays;
+    } catch {
+      return 0;
+    }
+  }, []);
+
+  // Get ad details for hook (using hook metadata if available)
+  const getAdDetailsForHook = useCallback((hook: any) => {
+    // If hook has direct ad metadata (from new structure)
+    if (hook.adId && hook.createdAt && hook.platform) {
+      const daysSince = calculateDaysSince(hook.createdAt);
+      return {
+        imageUrl: hook.imageUrl || null,
+        adType: hook.adType || "unknown",
+        ctaText: "Ad Details",
+        ctaUrl: "",
+        daysSince: daysSince,
+        isActive: hook.isActive !== undefined ? hook.isActive : true, // Use actual active status
+        platform: hook.platform || "FACEBOOK",
+        adId: hook.adId,
+        adData: hook.adData || null
+      };
+    }
+
+    // Fallback: find matching ad by text (for old hook structure)
+    const hookText = typeof hook === 'string' ? hook : hook.hook;
     const cleanHookText = cleanText(hookText.toLowerCase());
     
-    // Find matching ad (limit search)
     const matchingAd = limitedAds.find((ad: any) => {
       try {
         const content = typeof ad.content === 'string' ? JSON.parse(ad.content) : ad.content;
@@ -111,7 +144,7 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
       return {
         imageUrl: null,
         adType: "unknown",
-        ctaText: "Learn More",
+        ctaText: "Ad Details",
         ctaUrl: "",
         daysSince: 0,
         isActive: false,
@@ -120,17 +153,33 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
       };
     }
 
+    const daysSince = calculateDaysSince(matchingAd.createdAt);
+    
+    // Get actual active status from ad content
+    let isActive = true;
+    try {
+      const content = typeof matchingAd.content === 'string' ? JSON.parse(matchingAd.content) : matchingAd.content;
+      if (content.is_active === false) {
+        isActive = false;
+      } else if (content.is_active === true) {
+        isActive = true;
+      }
+    } catch (e) {
+      isActive = true; // default to active
+    }
+    
     return {
       imageUrl: getAdImage(matchingAd),
       adType: getAdType(matchingAd),
-      ctaText: "Learn More",
+      ctaText: "Ad Details",
       ctaUrl: "",
-      daysSince: 0,
-      isActive: true,
-      platform: "FACEBOOK",
-      adId: matchingAd.id
+      daysSince: daysSince,
+      isActive: isActive, // Use actual active status
+      platform: matchingAd.platform || "FACEBOOK",
+      adId: matchingAd.id,
+      adData: matchingAd
     };
-  }, [limitedAds, cleanText, getAdImage, getAdType]);
+  }, [limitedAds, cleanText, getAdImage, getAdType, calculateDaysSince]);
 
   // Get ad type icon
   const getAdTypeIcon = useCallback((adType: string) => {
@@ -161,7 +210,7 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
       });
     }
     
-    return filtered.slice(0, 50); // Limit results
+    return filtered; // No limit - show all filtered results
   }, [limitedHooks, filters.search, cleanText]);
 
   // Separate pinned and unpinned hooks
@@ -191,6 +240,103 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
       showToast("Failed to copy hook", { variant: "error" });
     }
   }, [cleanText]);
+
+  // Handle ad details popup
+  const handleAdDetailsClick = useCallback((adData: any) => {
+    if (adData && adData.id) {
+      // Convert ad data to format expected by AdPreviewModal
+      const brandName = adData.brand?.name || "Unknown Brand";
+      const modalAdData = {
+        id: adData.id || "",
+        brand: brandName, // AdPreviewModal expects 'brand' not 'companyName'
+        title: "",
+        description: "",
+        imageSrc: adData.localImageUrl || adData.imageUrl || "",
+        imageSrcs: [],
+        videoUrl: adData.localVideoUrl || adData.videoUrl || "",
+        videoSdUrl: adData.videoSdUrl || "",
+        isVideo: Boolean(adData.type === 'video' || adData.localVideoUrl || adData.videoUrl),
+        status: (() => {
+          try {
+            const content = adData.content ? JSON.parse(adData.content) : {};
+            return content.is_active !== false ? "Still Running" : "Stopped";
+          } catch (e) {
+            return "Still Running"; // Default to running if can't parse
+          }
+        })(),
+        timeRunning: adData.createdAt || new Date().toISOString(),
+        format: adData.type === 'video' ? "Video" : "Image",
+        niche: "Unknown",
+        platforms: ["Facebook"],
+        landingPageUrl: "",
+        aspectRatio: adData.type === 'video' ? "9:16 Vertical" : "4:3",
+        startDate: "Unknown",
+        content: adData.content || "{}",
+        adId: adData.id || ""
+      };
+      
+      // Extract text content from ad content
+      try {
+        if (adData.content && adData.content !== "{}") {
+          const content = typeof adData.content === 'string' ? JSON.parse(adData.content) : adData.content;
+          const snapshot = content?.snapshot || {};
+          
+          modalAdData.title = snapshot.title || snapshot.link_description || content.headline || adData.headline || "";
+          modalAdData.description = snapshot.caption || snapshot.description || content.text || adData.text || "";
+          modalAdData.landingPageUrl = snapshot.link_url || content.link_url || "";
+          
+          // Extract start date
+          const possibleDate = content.startDateString || 
+                             content.start_date || 
+                             content.start_date_string ||
+                             content.startDate ||
+                             snapshot?.start_date ||
+                             snapshot?.startDate ||
+                             content.created_time ||
+                             snapshot?.created_time;
+          
+          if (possibleDate) {
+            try {
+              let date: Date;
+              if (typeof possibleDate === 'number') {
+                date = new Date(possibleDate * 1000);
+              } else {
+                date = new Date(possibleDate);
+              }
+              
+              const minDate = new Date('2020-01-01').getTime();
+              const now = new Date().getTime();
+              
+              if (date.getTime() > minDate && date.getTime() <= now) {
+                modalAdData.startDate = date.toLocaleDateString('en-US', { 
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric'
+                });
+              }
+            } catch (e) {
+              console.error('Error parsing date:', e);
+            }
+          }
+          
+          // Extract platforms
+          if (content.publisher_platform && Array.isArray(content.publisher_platform)) {
+            modalAdData.platforms = content.publisher_platform.map((platform: string) => 
+              platform.charAt(0).toUpperCase() + platform.slice(1).toLowerCase()
+            );
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing ad content for modal:', e);
+        // Use fallback values
+        modalAdData.title = adData.headline || "Ad Title";
+        modalAdData.description = adData.text || "Ad Description";
+      }
+      
+      setSelectedAdData(modalAdData);
+      setShowPreviewModal(true);
+    }
+  }, []);
 
   const handleCtaClick = useCallback((ctaUrl: string, ctaText: string) => {
     if (!ctaUrl) {
@@ -251,7 +397,7 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
           
           <Flex direction={"column"} gap={"3"} className="mb-6">
             {pinnedHooksList.map((hook: Hook, index: number) => {
-              const adDetails = getAdDetailsForHook(hook.hook);
+              const adDetails = getAdDetailsForHook(hook);
               return (
                 <Flex key={`pinned-${index}`} gap={"3"} align={"center"}>
                   {adDetails.imageUrl && (
@@ -273,7 +419,7 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
                     <div className="flex-1">
                       <p className="truncate text-sm font-medium">{cleanText(hook.hook)}</p>
                       <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                        <span>Used {hook.count} times</span>
+                        <span>Used {hook.count || 1} times</span>
                         <span>•</span>
                         <span>{adDetails.platform}</span>
                       </div>
@@ -294,7 +440,12 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
                   }`}>
                     {adDetails.daysSince}D
                   </p>
-                  <Button variant={"outline"} size="sm">
+                  <Button 
+                    variant={"outline"} 
+                    size="sm"
+                    onClick={() => handleAdDetailsClick(adDetails.adData)}
+                    disabled={!adDetails.adData}
+                  >
                     <Scaling className="w-4 h-4 mr-2" />
                     Ad Details
                   </Button>
@@ -320,7 +471,7 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
         ) : (
           <Flex direction={"column"} gap={"3"}>
             {unpinnedHooksList.map((hook: Hook, index: number) => {
-              const adDetails = getAdDetailsForHook(hook.hook);
+              const adDetails = getAdDetailsForHook(hook);
               return (
                 <Flex key={`hook-${index}`} gap={"3"} align={"center"}>
                   {adDetails.imageUrl && (
@@ -342,7 +493,7 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
                     <div className="flex-1">
                       <p className="truncate text-sm">{cleanText(hook.hook)}</p>
                       <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                        <span>Used {hook.count} times</span>
+                        <span>Used {hook.count || 1} times</span>
                         <span>•</span>
                         <span>{adDetails.platform}</span>
                       </div>
@@ -363,7 +514,12 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
                   }`}>
                     {adDetails.daysSince}D
                   </p>
-                  <Button variant={"outline"} size="sm">
+                  <Button 
+                    variant={"outline"} 
+                    size="sm"
+                    onClick={() => handleAdDetailsClick(adDetails.adData)}
+                    disabled={!adDetails.adData}
+                  >
                     <Scaling className="w-4 h-4 mr-2" />
                     Ad Details
                   </Button>
@@ -373,6 +529,18 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
           </Flex>
         )}
       </div>
+      
+          {/* Ad Details Modal */}
+    {selectedAdData && (
+      <AdPreviewModal
+        isOpen={showPreviewModal}
+        onClose={() => {
+          setShowPreviewModal(false);
+          setSelectedAdData(null);
+        }}
+        ad={selectedAdData}
+      />
+    )}
     </Flex>
   );
 }

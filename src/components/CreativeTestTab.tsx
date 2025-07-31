@@ -181,12 +181,24 @@ export default function CreativeTests({ ads = [] }: CreativeTestsProps) {
           }
         }).filter(Boolean) as CreativeTestAd[];
 
-        // Determine winner (ad with longest run time for now)
+        // Determine winner based on active/inactive status
         if (testAds.length > 0) {
-          const winner = testAds.reduce((prev, current) => 
-            (prev.days > current.days) ? prev : current
-          );
-          winner.performance!.isWinner = true;
+          const activeAds = testAds.filter(ad => ad.isActive);
+          const inactiveAds = testAds.filter(ad => !ad.isActive);
+          
+          if (activeAds.length === 1 && inactiveAds.length > 0) {
+            // If only one ad is still active, it's the winner
+            activeAds[0].performance!.isWinner = true;
+          } else if (activeAds.length === 0 && inactiveAds.length > 0) {
+            // If all ads are inactive, the one that ran longest is the winner
+            const longestRunning = inactiveAds.reduce((prev, current) => 
+              (prev.days > current.days) ? prev : current
+            );
+            longestRunning.performance!.isWinner = true;
+          } else if (activeAds.length > 1) {
+            // If multiple ads are still active, no clear winner yet
+            // (could be enhanced with other criteria later)
+          }
         }
 
         // Calculate test statistics
@@ -198,8 +210,14 @@ export default function CreativeTests({ ads = [] }: CreativeTestsProps) {
         if (activeAds > 0) {
           status.push(`${activeAds}/${testAds.length} Ads Running`);
         }
+        if (activeAds === 0) {
+          status.push("All Inactive");
+        }
         if (winnerIdentified) {
           status.push("Winner Identified");
+        }
+        if (activeAds > 1) {
+          status.push("Still Testing");
         }
 
         tests.push({
@@ -263,7 +281,7 @@ export default function CreativeTests({ ads = [] }: CreativeTestsProps) {
     }
 
     const csvContent = [
-      ['Test Date', 'Total Ads', 'Active Ads', 'Winner Identified', 'Ad ID', 'Ad Type', 'Headline', 'CTA Text', 'CTA URL', 'Platform', 'Days Running', 'Status', 'Is Winner'],
+      ['Test Date', 'Total Ads', 'Active Ads', 'Winner Identified', 'Ad ID', 'Ad Type', 'Headline', 'CTA Text', 'CTA URL', 'Platform', 'Days Running', 'Status', 'Is Winner', 'Is Active'],
       ...creativeTests.flatMap(test => 
         test.ads.map(ad => [
           test.date,
@@ -278,7 +296,8 @@ export default function CreativeTests({ ads = [] }: CreativeTestsProps) {
           ad.platform,
           ad.days,
           ad.isActive ? 'Active' : 'Inactive',
-          ad.performance?.isWinner ? 'Yes' : 'No'
+          ad.performance?.isWinner ? 'Yes' : 'No',
+          ad.isActive ? 'Yes' : 'No'
         ])
       )
     ].map(row => row.join(',')).join('\n');
@@ -380,6 +399,9 @@ export default function CreativeTests({ ads = [] }: CreativeTestsProps) {
                             {ad.performance?.isWinner && (
                               <Trophy className="w-4 h-4 text-yellow-500" />
                             )}
+                            {!ad.isActive && !ad.performance?.isWinner && (
+                              <X className="w-4 h-4 text-red-500" />
+                            )}
                             <div className="flex-1">
                               <p className="text-sm font-medium truncate">{ad.headline}</p>
                               <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
@@ -474,6 +496,9 @@ export default function CreativeTests({ ads = [] }: CreativeTestsProps) {
                             {getAdTypeIcon(ad.type)}
                             {ad.performance?.isWinner && (
                               <Trophy className="w-4 h-4 text-yellow-500" />
+                            )}
+                            {!ad.isActive && !ad.performance?.isWinner && (
+                              <X className="w-4 h-4 text-red-500" />
                             )}
                             <div className="flex-1">
                               <p className="text-sm font-medium truncate">{ad.headline}</p>

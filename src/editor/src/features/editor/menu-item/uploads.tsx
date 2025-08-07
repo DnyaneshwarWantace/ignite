@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { generateId } from "@designcombo/timeline";
 import { Button } from "@/components/ui/button";
-import useUploadStore from "../store/use-upload-store";
+import useUploadStore from "@/store/use-upload-store";
 import ModalUpload from "@/components/modal-upload";
 
 export const Uploads = () => {

@@ -25,6 +25,7 @@ const navItems: NavItem[] = [
   { href: "/discover", label: "Discover", icon: "/images/icons/discover.svg" },
   { href: "/x-ray", label: "X-Ray", icon: "/images/icons/dashboard.svg" },
   { href: "/writer", label: "Writer", icon: "/images/icons/writer.svg" },
+  { href: "/editor", label: "Video Editor", icon: "/images/icons/design.svg" },
   // { href: "/designer", label: "Designer", icon: "/images/icons/design.svg" },
   // { href: "/performance", label: "Performance", icon: "/images/icons/performance.svg" },
 ];

@@ -167,7 +167,7 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
     } catch (e) {
       isActive = true; // default to active
     }
-    
+
     return {
       imageUrl: getAdImage(matchingAd),
       adType: getAdType(matchingAd),

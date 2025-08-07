@@ -168,14 +168,14 @@ function extractTopHooks(ads: any[]) {
       // For carousel ads, also check first card
       if (snapshot.cards && snapshot.cards.length > 0 && snapshot.cards[0]) {
         const firstCard = snapshot.cards[0];
-        const cardTexts = [
+            const cardTexts = [
           firstCard.title,
           firstCard.body,
           firstCard.text,
           firstCard.description,
           firstCard.message,
           firstCard.link_description
-        ].filter(Boolean);
+            ].filter(Boolean);
         textSources.unshift(...cardTexts); // Add to beginning for priority
       }
       
@@ -191,7 +191,7 @@ function extractTopHooks(ads: any[]) {
       }
       
       if (bestHook) {
-        adsWithHooks++;
+            adsWithHooks++;
         
         // Extract ad details
         const platform = getPlatformFromAd(ad, content, snapshot);

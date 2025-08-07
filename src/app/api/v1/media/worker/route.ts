@@ -18,7 +18,8 @@ export async function POST(request: NextRequest) {
     console.log(`🚀 Starting media worker with ${intervalMinutes} minute intervals`);
     
     // Import and start the media worker functions
-    const { processPendingMedia } = require("../../../scripts/media-worker.js");
+    const path = require('path');
+    const { processPendingMedia } = require(path.join(process.cwd(), 'scripts', 'media-worker.js'));
     
     // Process immediately
     await processPendingMedia(5);

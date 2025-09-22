@@ -52,7 +52,7 @@ export function Droppable(props: DroppableProps) {
 			maxFiles={maxFileCount}
 			multiple={maxFileCount > 1 || multiple}
 			disabled={disabled}
-			noClick
+			noClick={false}
 		>
 			{({ getRootProps, getInputProps, isDragActive }) => (
 				<div

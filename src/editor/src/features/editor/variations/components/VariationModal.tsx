@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, RefreshCw, Edit3, Download } from 'lucide-react';
+import { X, Loader2, RefreshCw, Download } from 'lucide-react';
 import { VariationModalProps, VideoVariation, TextOverlayData } from '../types/variation-types';
 import VideoPreview from './VideoPreview';
-import OpenAIService from '../services/openai-service';
+import { AIVariationService } from '../services/openai-service';
 import { RemotionRendererService } from '../services/remotion-renderer';
 import { Button } from '@/components/ui/button';
 import useStore from '../../store/use-store';
 import VariationDownloadProgressModal from './VariationDownloadProgressModal';
+import VideoPlayerManager from '../utils/videoPlayerManager';
 
 
 const VariationModal: React.FC<VariationModalProps> = ({
@@ -23,15 +24,212 @@ const VariationModal: React.FC<VariationModalProps> = ({
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [downloadingVariation, setDownloadingVariation] = useState<VideoVariation | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+  const [downloadQueue, setDownloadQueue] = useState<VideoVariation[]>([]);
+  const [currentDownloadIndex, setCurrentDownloadIndex] = useState(0);
+  const [totalDownloads, setTotalDownloads] = useState(0);
 
-  const openAIService = new OpenAIService();
-  const { trackItemsMap } = useStore();
+  const openAIService = AIVariationService.getInstance();
+  const { trackItemsMap, trackItemIds } = useStore();
+
+  const loadVariationsFromSidebar = () => {
+    // Get all timeline elements
+    const timelineElements = trackItemIds
+      .map(id => {
+        const item = trackItemsMap[id];
+        if (!item) return null;
+        return {
+          id: item.id,
+          type: item.type,
+          content: item.type === 'text' ? item.details?.text : item.details?.src,
+          variations: []
+        };
+      })
+      .filter(Boolean);
+
+    // Load variations from localStorage for each element
+    const elementVariations: { [elementId: string]: any[] } = {};
+    
+    timelineElements.forEach(element => {
+      if (element) {
+        const storageKey = `simple_variations_${element.id}`;
+        const savedVariations = localStorage.getItem(storageKey);
+        
+        if (savedVariations) {
+          try {
+            const variations = JSON.parse(savedVariations);
+            elementVariations[element.id] = variations.map((v: any) => ({
+              ...v,
+              elementId: element.id,
+              originalValue: element.content // Store original value for mapping
+            }));
+          } catch (error) {
+            console.error('Error parsing variations:', error);
+            // If no variations found, use original
+            elementVariations[element.id] = [{
+              id: 'original',
+              key: `${element.type.toUpperCase()}0`,
+              value: element.content,
+              type: element.type,
+              elementId: element.id,
+              originalValue: element.content
+            }];
+          }
+        } else {
+          // If no variations found, use original
+          elementVariations[element.id] = [{
+            id: 'original',
+            key: `${element.type.toUpperCase()}0`,
+            value: element.content,
+            type: element.type,
+            elementId: element.id,
+            originalValue: element.content
+          }];
+        }
+      }
+    });
+
+    console.log('Element variations loaded:', elementVariations);
+
+    // Generate all combinations
+    const allVideoCombinations: VideoVariation[] = [];
+    
+    if (Object.keys(elementVariations).length === 0) {
+      // No elements, create original video
+      const originalVariation: VideoVariation = {
+        id: 'original-composition',
+        text: 'Original Video',
+        originalTextId: 'original',
+        isOriginal: true,
+        editable: false,
+        allTextOverlays: []
+      };
+      allVideoCombinations.push(originalVariation);
+    } else {
+      // Generate all possible combinations
+      const elementIds = Object.keys(elementVariations);
+      const variationArrays = elementIds.map(id => elementVariations[id]);
+      
+      function generateCombinations(arrays: any[][], current: any[] = [], index = 0): any[][] {
+        if (index === arrays.length) {
+          return [current];
+        }
+        
+        const results: any[][] = [];
+        for (const item of arrays[index]) {
+          results.push(...generateCombinations(arrays, [...current, item], index + 1));
+        }
+        return results;
+      }
+      
+      const combinations = generateCombinations(variationArrays);
+      
+      console.log(`Generated ${combinations.length} total combinations`);
+      
+      combinations.forEach((combination, index) => {
+        // Build video data for this combination
+        const textElements = combination.filter(item => item.type === 'text');
+        const videoElements = combination.filter(item => item.type === 'video');
+        const imageElements = combination.filter(item => item.type === 'image');
+        const audioElements = combination.filter(item => item.type === 'audio');
+        
+        // Create unique title for this combination
+        const combinationParts = combination.map(item => item.key).join(' + ');
+        const title = `Video ${index + 1} (${combinationParts})`;
+        
+        // Create text overlays with proper structure for this combination
+        const textOverlaysForCombination: TextOverlayData[] = textElements.map((textItem) => {
+          // Find the original trackItem to get the correct ID and positioning
+          const originalTrackItem = Object.values(trackItemsMap).find((item: any) => 
+            item.type === 'text' && item.id === textItem.elementId
+          ) as any;
+          
+          if (originalTrackItem) {
+            return {
+              id: originalTrackItem.id, // Use the actual track item ID
+              text: textItem.value, // Use the variation text
+              position: {
+                top: typeof originalTrackItem.details.top === 'string' ? parseFloat(originalTrackItem.details.top) || 50 : originalTrackItem.details.top || 50,
+                left: typeof originalTrackItem.details.left === 'string' ? parseFloat(originalTrackItem.details.left) || 50 : originalTrackItem.details.left || 50,
+              },
+              style: {
+                fontSize: originalTrackItem.details.fontSize || 48,
+                fontFamily: originalTrackItem.details.fontFamily || 'Arial, sans-serif',
+                color: originalTrackItem.details.color || 'white',
+                backgroundColor: originalTrackItem.details.backgroundColor || 'transparent',
+                textAlign: originalTrackItem.details.textAlign || 'center',
+                fontWeight: originalTrackItem.details.fontWeight || 'bold',
+                opacity: originalTrackItem.details.opacity || 100,
+                borderWidth: originalTrackItem.details.borderWidth,
+                borderColor: originalTrackItem.details.borderColor,
+                textDecoration: originalTrackItem.details.textDecoration,
+              },
+              timing: {
+                from: originalTrackItem.display.from,
+                to: originalTrackItem.display.to,
+              },
+              width: originalTrackItem.details.width,
+              height: originalTrackItem.details.height,
+            };
+          } else {
+            // Fallback if trackItem not found
+            return {
+              id: textItem.elementId,
+              text: textItem.value,
+              position: { top: 50, left: 50 },
+              style: {
+                fontSize: 48,
+                fontFamily: 'Arial, sans-serif',
+                color: 'white',
+                backgroundColor: 'transparent',
+                textAlign: 'center' as const,
+                opacity: 100
+              },
+              timing: { from: 0, to: 5000 },
+              width: 600,
+              height: 100,
+            };
+          }
+        });
+        
+        const videoVariation: VideoVariation = {
+          id: `combination-${index}`,
+          text: title,
+          originalTextId: textElements[0]?.elementId || 'original',
+          isOriginal: index === 0, // First combination is considered "original"
+          editable: false,
+          allTextOverlays: textOverlaysForCombination,
+          // Store video/media variations for potential use
+          metadata: {
+            videoElements,
+            imageElements,
+            audioElements,
+            combination
+          }
+        };
+        
+        allVideoCombinations.push(videoVariation);
+      });
+    }
+
+    console.log(`Setting ${allVideoCombinations.length} video combinations`);
+    console.log('Video combinations preview:', allVideoCombinations.map(v => ({
+      id: v.id,
+      text: v.text,
+      allTextOverlaysCount: v.allTextOverlays?.length || 0,
+      textContents: v.allTextOverlays?.map(o => o.text) || []
+    })));
+    setVariations(allVideoCombinations);
+  };
 
   useEffect(() => {
-    if (isOpen && project.textOverlays.length > 0) {
-      generateVariations();
+    if (isOpen) {
+      loadVariationsFromSidebar();
+    } else {
+      // Clear all video players to prevent WebMediaPlayer errors
+      VideoPlayerManager.getInstance().clearAll();
     }
-  }, [isOpen, project]);
+  }, [isOpen]);
 
   const generateVariations = async () => {
     setIsGenerating(true);
@@ -77,14 +275,13 @@ const VariationModal: React.FC<VariationModalProps> = ({
         for (const textOverlay of textOverlaysWithContent) {
           console.log(`Processing text overlay ${textOverlay.id}: "${textOverlay.text}"`);
           
-          const { variations: textVariations, error: apiError } = await openAIService.generateTextVariations(
-            textOverlay.text
-          );
+          const response = await openAIService.generateTextVariations({
+            originalText: textOverlay.text,
+            variationType: 'auto',
+            count: 10
+          });
 
-          if (apiError) {
-            setError(`API Error for text "${textOverlay.text}": ${apiError}`);
-            continue;
-          }
+          const textVariations = response.variations;
 
           // Use the i-th variation (or fallback to original if not enough variations)
           const variationText = textVariations[i] || textOverlay.text;
@@ -137,11 +334,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
     generateVariations();
   };
 
-  const handleEditVariation = (variation: VideoVariation) => {
-    // Apply the variation to the main editor
-    onSave?.([variation]);
-    onClose();
-  };
+
 
   const downloadVariation = async (variation: VideoVariation) => {
     console.log('Download button clicked for variation:', variation.id);
@@ -163,76 +356,163 @@ const VariationModal: React.FC<VariationModalProps> = ({
       }, 1000);
 
       // Convert track items to the format expected by the render API
-      const textOverlays = Object.values(trackItemsMap)
-        .filter((item: any) => item.type === 'text')
-        .map((item: any) => {
-          // Use the variation text if this is the text being varied
-          const text = item.id === variation.originalTextId ? variation.text : item.details.text || '';
-          
-          return {
-            id: item.id,
-            text,
+      // Use variation's allTextOverlays if available, otherwise fallback to trackItemsMap
+      const textOverlays = variation.allTextOverlays && variation.allTextOverlays.length > 0 
+        ? variation.allTextOverlays.map((overlay) => ({
+            id: overlay.id,
+            text: overlay.text, // Use the actual variation text
             position: {
-              top: typeof item.details.top === 'string' ? parseFloat(item.details.top) || 50 : item.details.top || 50,
-              left: typeof item.details.left === 'string' ? parseFloat(item.details.left) || 50 : item.details.left || 50,
+              top: overlay.position.top,
+              left: overlay.position.left,
             },
             style: {
-              fontSize: item.details.fontSize || 48,
-              fontFamily: item.details.fontFamily || 'Arial, sans-serif',
-              color: item.details.color || 'white',
-              backgroundColor: item.details.backgroundColor || 'transparent',
-              textAlign: item.details.textAlign || 'center',
-              fontWeight: item.details.fontWeight?.toString() || 'bold',
-              opacity: item.details.opacity || 100,
-              borderWidth: item.details.borderWidth,
-              borderColor: item.details.borderColor,
-              textDecoration: item.details.textDecoration,
+              fontSize: overlay.style.fontSize,
+              fontFamily: overlay.style.fontFamily,
+              color: overlay.style.color,
+              backgroundColor: overlay.style.backgroundColor,
+              textAlign: overlay.style.textAlign,
+              fontWeight: overlay.style.fontWeight?.toString() || 'bold',
+              opacity: overlay.style.opacity,
+              borderWidth: overlay.style.borderWidth,
+              borderColor: overlay.style.borderColor,
+              textDecoration: overlay.style.textDecoration,
             },
             timing: {
-              from: item.display.from,
-              to: item.display.to,
+              from: overlay.timing.from,
+              to: overlay.timing.to,
             },
-            width: item.details.width,
-            height: item.details.height,
-          };
-        });
+            width: overlay.width,
+            height: overlay.height,
+          }))
+        : Object.values(trackItemsMap)
+            .filter((item: any) => item.type === 'text')
+            .map((item: any) => ({
+              id: item.id,
+              text: item.details.text || '',
+              position: {
+                top: typeof item.details.top === 'string' ? parseFloat(item.details.top) || 50 : item.details.top || 50,
+                left: typeof item.details.left === 'string' ? parseFloat(item.details.left) || 50 : item.details.left || 50,
+              },
+              style: {
+                fontSize: item.details.fontSize || 48,
+                fontFamily: item.details.fontFamily || 'Arial, sans-serif',
+                color: item.details.color || 'white',
+                backgroundColor: item.details.backgroundColor || 'transparent',
+                textAlign: item.details.textAlign || 'center',
+                fontWeight: item.details.fontWeight?.toString() || 'bold',
+                opacity: item.details.opacity || 100,
+                borderWidth: item.details.borderWidth,
+                borderColor: item.details.borderColor,
+                textDecoration: item.details.textDecoration,
+              },
+              timing: {
+                from: item.display.from,
+                to: item.display.to,
+              },
+              width: item.details.width,
+              height: item.details.height,
+            }));
 
       const videoTrackItems = Object.values(trackItemsMap)
         .filter((item: any) => item.type === 'video')
-        .map((item: any) => ({
-          id: item.id,
-          src: item.details.src,
-          display: {
-            from: item.display.from,
-            to: item.display.to,
-          },
-          details: {
-            ...item.details,
-            left: typeof item.details.left === 'string' ? parseFloat(item.details.left) || 0 : item.details.left || 0,
-            top: typeof item.details.top === 'string' ? parseFloat(item.details.top) || 0 : item.details.top || 0,
-            width: item.details.width || 200,
-            height: item.details.height || 200,
-          },
-          trim: item.trim,
-          playbackRate: item.playbackRate || 1,
-          volume: item.details.volume || 0,
-          crop: item.details.crop,
-        }));
+        .map((item: any) => {
+          // Check if this video has a variation in the combination
+          let videoSrc = item.details.src;
+          if (variation.metadata?.combination) {
+            const videoVariation = variation.metadata.combination.find((combo: any) => 
+              combo.type === 'video' && combo.elementId === item.id
+            );
+            if (videoVariation) {
+              videoSrc = videoVariation.value; // Use the variation video URL
+              console.log(`Applying video variation: ${videoSrc} for element ${item.id}`);
+            }
+          }
+          
+          return {
+            id: item.id,
+            src: videoSrc,
+            display: {
+              from: item.display.from,
+              to: item.display.to,
+            },
+            details: {
+              ...item.details,
+              src: videoSrc, // Apply variation here too
+              left: typeof item.details.left === 'string' ? parseFloat(item.details.left) || 0 : item.details.left || 0,
+              top: typeof item.details.top === 'string' ? parseFloat(item.details.top) || 0 : item.details.top || 0,
+              width: item.details.width || 200,
+              height: item.details.height || 200,
+            },
+            trim: item.trim,
+            playbackRate: item.playbackRate || 1,
+            volume: item.details.volume || 0,
+            crop: item.details.crop,
+          };
+        });
 
       const audioTrackItems = Object.values(trackItemsMap)
         .filter((item: any) => item.type === 'audio')
-        .map((item: any) => ({
-          id: item.id,
-          src: item.details.src,
-          display: {
-            from: item.display.from,
-            to: item.display.to,
-          },
-          details: {
-            ...item.details,
-            volume: item.details.volume || 0,
-          },
-        }));
+        .map((item: any) => {
+          // Check if this audio has a variation in the combination
+          let audioSrc = item.details.src;
+          if (variation.metadata?.combination) {
+            const audioVariation = variation.metadata.combination.find((combo: any) => 
+              combo.type === 'audio' && combo.elementId === item.id
+            );
+            if (audioVariation) {
+              audioSrc = audioVariation.value; // Use the variation audio URL
+              console.log(`Applying audio variation: ${audioSrc} for element ${item.id}`);
+            }
+          }
+          
+          return {
+            id: item.id,
+            src: audioSrc,
+            display: {
+              from: item.display.from,
+              to: item.display.to,
+            },
+            details: {
+              ...item.details,
+              src: audioSrc, // Apply variation here too
+              volume: item.details.volume || 0,
+            },
+          };
+        });
+
+      // Handle image track items with variations
+      const imageTrackItems = Object.values(trackItemsMap)
+        .filter((item: any) => item.type === 'image')
+        .map((item: any) => {
+          // Check if this image has a variation in the combination
+          let imageSrc = item.details.src;
+          if (variation.metadata?.combination) {
+            const imageVariation = variation.metadata.combination.find((combo: any) => 
+              combo.type === 'image' && combo.elementId === item.id
+            );
+            if (imageVariation) {
+              imageSrc = imageVariation.value; // Use the variation image URL
+              console.log(`Applying image variation: ${imageSrc} for element ${item.id}`);
+            }
+          }
+          
+          return {
+            id: item.id,
+            src: imageSrc,
+            display: {
+              from: item.display.from,
+              to: item.display.to,
+            },
+            details: {
+              ...item.details,
+              src: imageSrc, // Apply variation here too
+              left: typeof item.details.left === 'string' ? parseFloat(item.details.left) || 0 : item.details.left || 0,
+              top: typeof item.details.top === 'string' ? parseFloat(item.details.top) || 0 : item.details.top || 0,
+              width: item.details.width || 200,
+              height: item.details.height || 200,
+            },
+          };
+        });
 
       // Create variation data for this specific variation
       const variationData = {
@@ -264,6 +544,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
           duration: project.duration || 5000,
           videoTrackItems,
           audioTrackItems,
+          imageTrackItems,
         }),
       });
 
@@ -315,6 +596,255 @@ const VariationModal: React.FC<VariationModalProps> = ({
     }
   };
 
+  const downloadAllVideos = async () => {
+    if (variations.length === 0) return;
+    
+    setIsDownloadingAll(true);
+    setDownloadQueue(variations);
+    setCurrentDownloadIndex(0);
+    setTotalDownloads(variations.length);
+    setDownloadProgress(0);
+    setShowProgressModal(true);
+    
+    // Start downloading videos one by one
+    for (let i = 0; i < variations.length; i++) {
+      setCurrentDownloadIndex(i);
+      setDownloadingVariation(variations[i]);
+      
+      try {
+        await downloadVariationAsync(variations[i]);
+        
+        // Update progress
+        const progress = ((i + 1) / variations.length) * 100;
+        setDownloadProgress(progress);
+        
+        // Small delay between downloads to prevent overwhelming the server
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+      } catch (error) {
+        console.error(`Failed to download variation ${variations[i].id}:`, error);
+        // Continue with next video even if one fails
+      }
+    }
+    
+    // Complete
+    setDownloadProgress(100);
+    setIsDownloadingAll(false);
+    setDownloadQueue([]);
+    setCurrentDownloadIndex(0);
+    setTotalDownloads(0);
+    
+    // Keep modal open for a moment to show completion
+    setTimeout(() => {
+      setShowProgressModal(false);
+      setDownloadingVariation(null);
+    }, 2000);
+  };
+
+  const downloadVariationAsync = async (variation: VideoVariation): Promise<void> => {
+    // Convert track items to the format expected by the render API
+    const textOverlays = variation.allTextOverlays && variation.allTextOverlays.length > 0 
+      ? variation.allTextOverlays.map((overlay) => ({
+          id: overlay.id,
+          text: overlay.text,
+          position: {
+            top: overlay.position.top,
+            left: overlay.position.left,
+          },
+          style: {
+            fontSize: overlay.style.fontSize,
+            fontFamily: overlay.style.fontFamily,
+            color: overlay.style.color,
+            backgroundColor: overlay.style.backgroundColor || 'transparent',
+            textAlign: (overlay.style.textAlign as 'center' | 'left' | 'right') || 'center',
+            fontWeight: typeof overlay.style.fontWeight === 'string' ? 
+              parseFloat(overlay.style.fontWeight) || 400 : 
+              overlay.style.fontWeight || 400,
+            opacity: overlay.style.opacity || 100,
+            borderWidth: overlay.style.borderWidth || 0,
+            borderColor: overlay.style.borderColor || '#000000',
+            textDecoration: overlay.style.textDecoration || 'none',
+          },
+          timing: {
+            from: overlay.timing.from,
+            to: overlay.timing.to,
+          },
+          width: overlay.width,
+          height: overlay.height,
+        }))
+      : Object.values(trackItemsMap)
+          .filter((item: any) => item.type === 'text')
+          .map((item: any) => ({
+            id: item.id,
+            text: item.details.text || '',
+            position: {
+              top: typeof item.details.top === 'string' ? parseFloat(item.details.top) || 50 : item.details.top || 50,
+              left: typeof item.details.left === 'string' ? parseFloat(item.details.left) || 50 : item.details.left || 50,
+            },
+            style: {
+              fontSize: item.details.fontSize || 48,
+              fontFamily: item.details.fontFamily || 'Arial, sans-serif',
+              color: item.details.color || 'white',
+              backgroundColor: item.details.backgroundColor || 'transparent',
+              textAlign: item.details.textAlign || 'center',
+              fontWeight: item.details.fontWeight?.toString() || 'bold',
+              opacity: item.details.opacity || 100,
+              borderWidth: item.details.borderWidth,
+              borderColor: item.details.borderColor,
+              textDecoration: item.details.textDecoration,
+            },
+            timing: {
+              from: item.display.from,
+              to: item.display.to,
+            },
+            width: item.details.width,
+            height: item.details.height,
+          }));
+
+    const videoTrackItems = Object.values(trackItemsMap)
+      .filter((item: any) => item.type === 'video')
+      .map((item: any) => {
+        let videoSrc = item.details.src;
+        if (variation.metadata?.combination) {
+          const videoVariation = variation.metadata.combination.find((combo: any) => 
+            combo.type === 'video' && combo.elementId === item.id
+          );
+          if (videoVariation) {
+            videoSrc = videoVariation.value;
+          }
+        }
+        
+        return {
+          id: item.id,
+          src: videoSrc,
+          display: {
+            from: item.display.from,
+            to: item.display.to,
+          },
+          details: {
+            ...item.details,
+            src: videoSrc,
+            left: typeof item.details.left === 'string' ? parseFloat(item.details.left) || 0 : item.details.left || 0,
+            top: typeof item.details.top === 'string' ? parseFloat(item.details.top) || 0 : item.details.top || 0,
+            width: item.details.width || 200,
+            height: item.details.height || 200,
+          },
+          trim: item.trim,
+          playbackRate: item.playbackRate || 1,
+          volume: item.details.volume || 0,
+          crop: item.details.crop,
+        };
+      });
+
+    const audioTrackItems = Object.values(trackItemsMap)
+      .filter((item: any) => item.type === 'audio')
+      .map((item: any) => {
+        let audioSrc = item.details.src;
+        if (variation.metadata?.combination) {
+          const audioVariation = variation.metadata.combination.find((combo: any) => 
+            combo.type === 'audio' && combo.elementId === item.id
+          );
+          if (audioVariation) {
+            audioSrc = audioVariation.value;
+          }
+        }
+        
+        return {
+          id: item.id,
+          src: audioSrc,
+          display: {
+            from: item.display.from,
+            to: item.display.to,
+          },
+          details: {
+            ...item.details,
+            src: audioSrc,
+            volume: item.details.volume || 0,
+          },
+        };
+      });
+
+    const imageTrackItems = Object.values(trackItemsMap)
+      .filter((item: any) => item.type === 'image')
+      .map((item: any) => {
+        let imageSrc = item.details.src;
+        if (variation.metadata?.combination) {
+          const imageVariation = variation.metadata.combination.find((combo: any) => 
+            combo.type === 'image' && combo.elementId === item.id
+          );
+          if (imageVariation) {
+            imageSrc = imageVariation.value;
+          }
+        }
+        
+        return {
+          id: item.id,
+          src: imageSrc,
+          display: {
+            from: item.display.from,
+            to: item.display.to,
+          },
+          details: {
+            ...item.details,
+            src: imageSrc,
+            left: typeof item.details.left === 'string' ? parseFloat(item.details.left) || 0 : item.details.left || 0,
+            top: typeof item.details.top === 'string' ? parseFloat(item.details.top) || 0 : item.details.top || 0,
+            width: item.details.width || 200,
+            height: item.details.height || 200,
+          },
+        };
+      });
+
+    const variationData = {
+      id: variation.id,
+      text: variation.text,
+      originalTextId: variation.originalTextId,
+      isOriginal: variation.isOriginal,
+      editable: false,
+    };
+
+    const canvasWidth = project.platformConfig.width || 1080;
+    const canvasHeight = project.platformConfig.height || 1920;
+
+    const response = await fetch('/api/render-video', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        variation: variationData,
+        textOverlays,
+        platformConfig: {
+          width: canvasWidth,
+          height: canvasHeight,
+          aspectRatio: `${canvasWidth}:${canvasHeight}`,
+        },
+        duration: project.duration || 5000,
+        videoTrackItems,
+        audioTrackItems,
+        imageTrackItems,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to render variation video');
+    }
+
+    const videoBlob = await response.blob();
+    const url = URL.createObjectURL(videoBlob);
+    
+    // Create a download link
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `variation-${variation.id}.mp4`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    // Clean up the URL
+    URL.revokeObjectURL(url);
+  };
+
 
   if (!isOpen) return null;
 
@@ -349,6 +879,18 @@ const VariationModal: React.FC<VariationModalProps> = ({
               >
                 <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">Regenerate</span>
+              </Button>
+              
+              <Button
+                onClick={downloadAllVideos}
+                disabled={isDownloadingAll || variations.length === 0}
+                variant="outline"
+                size="sm"
+                className="text-xs bg-green-50 hover:bg-green-100 text-green-600 border-green-200"
+              >
+                <Download className={`w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 ${isDownloadingAll ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Download All ({variations.length})</span>
+                <span className="sm:hidden">Download All</span>
               </Button>
               
               <Button
@@ -425,15 +967,6 @@ const VariationModal: React.FC<VariationModalProps> = ({
                         </span>
                         <div className="flex items-center justify-center gap-2">
                           <button
-                            onClick={() => handleEditVariation(variation)}
-                            className="flex items-center justify-center gap-1 px-2 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-md transition-colors"
-                            title="Edit in main editor"
-                          >
-                            <Edit3 className="w-3 h-3" />
-                            Edit
-                          </button>
-
-                          <button
                             onClick={() => downloadVariation(variation)}
                             disabled={downloadingVariationId === variation.id}
                             className="flex items-center justify-center gap-1 px-2 py-1 text-xs bg-green-50 hover:bg-green-100 text-green-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -493,10 +1026,17 @@ const VariationModal: React.FC<VariationModalProps> = ({
             isOpen={showProgressModal}
             onClose={() => setShowProgressModal(false)}
             progress={downloadProgress}
-            variationName={downloadingVariation.isOriginal ? 'Original' : `Variation ${downloadingVariation.id}`}
+            variationName={
+              isDownloadingAll 
+                ? `Downloading ${currentDownloadIndex + 1} of ${totalDownloads} videos` 
+                : (downloadingVariation?.isOriginal ? 'Original' : `Variation ${downloadingVariation?.id}`)
+            }
             isCompleted={downloadProgress === 100}
             downloadUrl={downloadUrl || undefined}
             onDownload={handleDownloadAgain}
+            isBulkDownload={isDownloadingAll}
+            currentIndex={currentDownloadIndex}
+            totalCount={totalDownloads}
           />
         </>
       )}

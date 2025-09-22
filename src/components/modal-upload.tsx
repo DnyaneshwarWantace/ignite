@@ -217,7 +217,7 @@ const ModalUpload: React.FC<ModalUploadProps> = ({ type = "all" }) => {
 	return (
 		<div>
 			<Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
-				<DialogContent>
+				<DialogContent className="z-[400]">
 					<DialogHeader>
 						<DialogTitle className="text-md">Upload media</DialogTitle>
 					</DialogHeader>

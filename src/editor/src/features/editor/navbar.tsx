@@ -23,12 +23,15 @@ import {
 	Tablet,
 	Sparkles,
 	Loader2,
+	Video,
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { usePlatformStoreClient, PLATFORM_CONFIGS, getPlatformIcon } from "./platform-preview";
 import VariationModal from "./variations/components/VariationModal";
 import { useVariationProject } from "./variations/hooks/useVariationProject";
 import { VideoVariation } from "./variations/types/variation-types";
+
+import { useVariationStore } from "./variations/store/use-variation-store";
 
 import type StateManager from "@designcombo/state";
 import { generateId } from "@designcombo/timeline";
@@ -63,7 +66,9 @@ export default function Navbar({
 	const isSmallScreen = useIsSmallScreen();
 	const { showOverlay, toggleOverlay, currentPlatform, setCurrentPlatform } = usePlatformStoreClient();
 	const [isVariationModalOpen, setIsVariationModalOpen] = useState(false);
+
 	const variationProject = useVariationProject();
+	const { totalCombinations, generateAllVideos } = useVariationStore();
 
 	const handleUndo = () => {
 		dispatch(HISTORY_UNDO);
@@ -99,11 +104,8 @@ export default function Navbar({
 	};
 
 	const handleOpenVariations = () => {
-		if (variationProject && variationProject.textOverlays.length > 0) {
-			setIsVariationModalOpen(true);
-		} else {
-			alert('Please add some text to your video before creating variations.');
-		}
+		// Always open variation modal to show videos
+		setIsVariationModalOpen(true);
 	};
 
 	const handleSaveVariations = (variations: VideoVariation[]) => {
@@ -268,6 +270,7 @@ export default function Navbar({
 					>
 						<Sparkles width={20} />
 					</Button>
+
 				</div>
 			</div>
 
@@ -287,6 +290,7 @@ export default function Navbar({
 				onSave={handleSaveVariations}
 			/>
 		)}
+
 		</>
 	);
 }

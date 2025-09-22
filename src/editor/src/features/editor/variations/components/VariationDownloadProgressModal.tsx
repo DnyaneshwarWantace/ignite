@@ -12,6 +12,9 @@ interface VariationDownloadProgressModalProps {
   isCompleted: boolean;
   downloadUrl?: string;
   onDownload?: () => void;
+  isBulkDownload?: boolean;
+  currentIndex?: number;
+  totalCount?: number;
 }
 
 const VariationDownloadProgressModal: React.FC<VariationDownloadProgressModalProps> = ({
@@ -22,6 +25,9 @@ const VariationDownloadProgressModal: React.FC<VariationDownloadProgressModalPro
   isCompleted,
   downloadUrl,
   onDownload,
+  isBulkDownload = false,
+  currentIndex = 0,
+  totalCount = 0,
 }) => {
   const handleDownload = async () => {
     if (onDownload) {
@@ -39,7 +45,7 @@ const VariationDownloadProgressModal: React.FC<VariationDownloadProgressModalPro
           className="absolute right-4 top-5 h-5 w-5 text-zinc-400 hover:cursor-pointer hover:text-zinc-500"
         />
         <div className="flex h-16 items-center border-b px-4 font-medium">
-          Download Variation
+          {isBulkDownload ? 'Download All Variations' : 'Download Variation'}
         </div>
         {isCompleted ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 space-y-4">
@@ -47,9 +53,14 @@ const VariationDownloadProgressModal: React.FC<VariationDownloadProgressModalPro
               <div className="font-semibold text-green-600">
                 <CircleCheckIcon className="w-12 h-12" />
               </div>
-              <div className="font-bold text-lg">Variation Downloaded!</div>
+              <div className="font-bold text-lg">
+                {isBulkDownload ? 'All Variations Downloaded!' : 'Variation Downloaded!'}
+              </div>
               <div className="text-muted-foreground text-sm">
-                {variationName} has been downloaded to your device.
+                {isBulkDownload 
+                  ? `${totalCount} variations have been downloaded to your device.`
+                  : `${variationName} has been downloaded to your device.`
+                }
               </div>
             </div>
             <Button onClick={handleDownload} className="flex items-center gap-2">
@@ -62,9 +73,16 @@ const VariationDownloadProgressModal: React.FC<VariationDownloadProgressModalPro
             <div className="text-5xl font-semibold text-blue-600">
               {Math.floor(progress)}%
             </div>
-            <div className="font-bold text-lg">Rendering Variation...</div>
+            <div className="font-bold text-lg">
+              {isBulkDownload ? 'Rendering Variations...' : 'Rendering Variation...'}
+            </div>
             <div className="text-center text-zinc-500 text-sm max-w-xs">
-              <div>Creating your variation video with Remotion.</div>
+              <div>
+                {isBulkDownload 
+                  ? `Creating variation ${currentIndex + 1} of ${totalCount} with Remotion.`
+                  : 'Creating your variation video with Remotion.'
+                }
+              </div>
               <div className="mt-1">This may take a few moments.</div>
             </div>
             <div className="w-full max-w-xs bg-gray-200 rounded-full h-2">

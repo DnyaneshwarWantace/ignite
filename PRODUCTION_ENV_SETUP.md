@@ -17,7 +17,7 @@ AUTH_GOOGLE_ID="403934823504-qjuou59jk3kfc7bv6ejuko8h3dktu8db.apps.googleusercon
 AUTH_GOOGLE_SECRET="your-google-client-secret"
 
 # API Configuration
-NEXT_PUBLIC_BACKEND_URL="https://ignite-jade.vercel.app/api/v1"
+NEXT_PUBLIC_BACKEND_URL="http://localhost:3000/api/v1"
 
 # Cloudinary Configuration
 CLOUDINARY_CLOUD_NAME="dwzdr8ei9"
@@ -56,7 +56,7 @@ If you need to deploy quickly, you can temporarily disable authentication by upd
 After setting up the environment variables:
 
 1. Restart your server
-2. Visit `https://ignite-jade.vercel.app/api/auth/session` - should return JSON instead of 500 error
+2. Visit `http://localhost:3000/api/auth/session` - should return JSON instead of 500 error
 3. Try logging in at `https://ignite-jade.vercel.app/login`
 
 ## Common Issues and Solutions

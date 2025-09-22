@@ -25,7 +25,7 @@ NEXT_PUBLIC_APP_VERSION=1.0.0
 NEXT_PUBLIC_APP_URL=https://ignite-jade.vercel.app
 
 # Backend API Configuration
-NEXT_PUBLIC_BACKEND_URL=https://ignite-jade.vercel.app/api
+NEXT_PUBLIC_BACKEND_URL=http://localhost:3000/api
 
 # ============================================================================
 # DATABASE CONFIGURATION (PostgreSQL)

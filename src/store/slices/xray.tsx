@@ -1,7 +1,7 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { showToast } from "@/lib/toastUtils";
 import { createSlice } from "@reduxjs/toolkit";
-const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "https://ignite-jade.vercel.app/api/v1";
+const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000/api/v1";
 
 export const xrayApi = createApi({
   reducerPath: "xrayApi",

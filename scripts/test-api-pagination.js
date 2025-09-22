@@ -5,7 +5,7 @@ async function testAPIPagination() {
 
   try {
     // Simulate frontend API calls
-    const baseUrl = 'https://ignite-jade.vercel.app/api/v1/discover/ads';
+    const baseUrl = 'http://localhost:3000/api/v1/discover/ads';
     
     // Test 1: Initial load with Video filter
     console.log('🎥 Test 1: Initial load with Video filter (limit=50)');

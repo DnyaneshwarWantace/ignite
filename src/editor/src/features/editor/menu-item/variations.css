@@ -1,0 +1,384 @@
+.variations-container {
+  padding: 16px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Element Selection Section */
+.element-selection {
+  margin-bottom: 24px;
+}
+
+.search-section {
+  margin-bottom: 16px;
+}
+
+.elements-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.element-item {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: #fafafa;
+}
+
+.element-item:hover {
+  border-color: #1890ff;
+  background: #f0f8ff;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.1);
+}
+
+.element-icon {
+  margin-right: 12px;
+  font-size: 18px;
+  color: #1890ff;
+}
+
+.element-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.element-preview {
+  font-size: 12px;
+  color: #666;
+}
+
+.element-variations {
+  margin-left: 12px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #666;
+  background: #fafafa;
+  border: 2px dashed #d9d9d9;
+  border-radius: 8px;
+}
+
+/* Add Variants Modal */
+.add-variants-modal .ant-modal-header {
+  border-bottom: 1px solid #f0f0f0;
+  padding: 16px 24px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.modal-header span {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.modal-actions .ant-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.modal-actions .ant-btn-danger {
+  color: #ff4d4f;
+}
+
+.modal-actions .ant-btn-danger:hover {
+  color: #ff7875;
+  background: rgba(255, 77, 79, 0.1);
+}
+
+/* Text Variations Modal */
+.text-variations-content {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.current-text-display {
+  background: #f5f5f5;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.current-text-content {
+  margin-top: 8px;
+  padding: 8px;
+  background: #fff;
+  border-radius: 4px;
+  border: 1px solid #d9d9d9;
+}
+
+.variations-table {
+  margin-bottom: 24px;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.table-header {
+  display: grid;
+  grid-template-columns: 80px 1fr 80px;
+  background: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
+  padding: 12px 16px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.table-body {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 80px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  align-items: center;
+}
+
+.table-row:last-child {
+  border-bottom: none;
+}
+
+.cell-key {
+  display: flex;
+  justify-content: center;
+}
+
+.cell-value {
+  padding: 0 8px;
+}
+
+.cell-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.language-variation {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Media Variations Modal */
+.media-variations-content {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.current-media-display {
+  margin-bottom: 24px;
+}
+
+.current-media-content {
+  margin-top: 8px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #f0f0f0;
+}
+
+.media-variations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.add-variant-card {
+  border: 2px dashed #d9d9d9;
+  border-radius: 8px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: #fafafa;
+  min-height: 160px;
+}
+
+.add-variant-card:hover {
+  border-color: #1890ff;
+  background: #f0f8ff;
+}
+
+.add-variant-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #666;
+}
+
+.add-variant-content .anticon {
+  color: #1890ff;
+}
+
+.media-variant-card {
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  transition: all 0.3s ease;
+}
+
+.media-variant-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.variant-preview {
+  position: relative;
+  height: 120px;
+  overflow: hidden;
+}
+
+.variant-preview video,
+.variant-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.variant-preview audio {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+}
+
+.delete-variant-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  border: none;
+  color: #fff;
+  border-radius: 4px;
+  padding: 4px;
+  font-size: 12px;
+}
+
+.delete-variant-btn:hover {
+  background: rgba(255, 77, 79, 0.9);
+  color: #fff;
+}
+
+/* Success Message */
+.success-message {
+  background: #f6ffed;
+  border: 1px solid #b7eb8f;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.success-message .anticon {
+  color: #52c41a;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .variations-container {
+    padding: 12px;
+  }
+  
+  .modal-actions {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .language-variation {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .media-variations-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .table-header,
+  .table-row {
+    grid-template-columns: 60px 1fr 60px;
+    padding: 8px 12px;
+  }
+}
+
+/* Animation for element items */
+.element-item {
+  animation: fadeInUp 0.3s ease;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Custom scrollbar */
+.variations-container::-webkit-scrollbar,
+.table-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.variations-container::-webkit-scrollbar-track,
+.table-body::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.variations-container::-webkit-scrollbar-thumb,
+.table-body::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.variations-container::-webkit-scrollbar-thumb:hover,
+.table-body::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}

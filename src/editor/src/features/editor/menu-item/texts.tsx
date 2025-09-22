@@ -3,16 +3,21 @@ import { ADD_AUDIO, ADD_IMAGE, ADD_TEXT } from "@designcombo/state";
 import { dispatch } from "@designcombo/events";
 import { useIsDraggingOverTimeline } from "../hooks/is-dragging-over-timeline";
 import Draggable from "@/components/shared/draggable";
-import { TEXT_ADD_PAYLOAD } from "../constants/payload";
+import { TEXT_ADD_PAYLOAD, createTextPayload, createImagePayload } from "../constants/payload";
 import { cn } from "@/lib/utils";
 import { nanoid } from "nanoid";
+import { usePlatformStoreClient } from "../platform-preview";
 
 export const Texts = () => {
 	const isDraggingOverTimeline = useIsDraggingOverTimeline();
+	const { currentPlatform } = usePlatformStoreClient();
 
 	const handleAddText = () => {
+		// Create text payload with proper positioning based on current platform
+		const textPayload = createTextPayload(currentPlatform);
+		
 		dispatch(ADD_TEXT, {
-			payload: { ...TEXT_ADD_PAYLOAD, id: nanoid() },
+			payload: { ...textPayload, id: nanoid() },
 			options: {},
 		});
 	};
@@ -28,16 +33,13 @@ export const Texts = () => {
 			options: {},
 		});
 	};
-	// https://cdn.designcombo.dev/rect-gray.png
 
 	const handleAddImage = () => {
+		// Create image payload with proper positioning based on current platform
+		const imagePayload = createImagePayload(currentPlatform);
+		
 		dispatch(ADD_IMAGE, {
-			payload: {
-				id: nanoid(),
-				details: {
-					src: "https://cdn.designcombo.dev/rect-gray.png",
-				},
-			},
+			payload: { ...imagePayload, id: nanoid() },
 			options: {},
 		});
 	};

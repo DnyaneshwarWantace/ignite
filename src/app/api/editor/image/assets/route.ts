@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     // Get authenticated user session
     const session = await auth();
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       .eq('status', 'active')
       .eq('is_variation', false)
       .order('created_at', { ascending: false });
-    
+
     if (type) {
       query = query.ilike('file_type', `${type}%`);
     }

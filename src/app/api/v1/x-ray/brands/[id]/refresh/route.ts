@@ -1,10 +1,17 @@
 import messages from "@apiUtils/messages";
 import { createError, createResponse } from "@apiUtils/responseutils";
 import { authMiddleware } from "@middleware";
-import { User } from "@prisma/client";
-import prisma from "@prisma/index";
+import { supabase } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 import { scrapeCompanyAds } from "@apiUtils/adScraper";
+
+// Type definition for User (matching Supabase schema)
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -13,27 +20,29 @@ export const POST = authMiddleware(
     const brandId = params.id;
 
     // Fetch brand
-    const brand = await prisma.brand.findUnique({
-      where: { id: brandId },
-    });
+    const { data: brand, error: brandError } = await supabase
+      .from('brands')
+      .select('*')
+      .eq('id', brandId)
+      .single();
 
-    if (!brand) {
+    if (brandError || !brand) {
       return createError({
         message: "Brand not found",
       });
     }
 
-    if (!brand.pageId) {
+    if (!brand.page_id) {
       return createError({
         message: "Brand does not have a pageId. Cannot refresh analytics.",
       });
     }
 
     try {
-      console.log(`Refreshing analytics for brand ${brand.name} (pageId: ${brand.pageId})`);
-      
+      console.log(`Refreshing analytics for brand ${brand.name} (pageId: ${brand.page_id})`);
+
       // Scrape fresh ads from the page - get up to 3000 ads for comprehensive analytics
-      const scrapedAds = await scrapeCompanyAds(brand.pageId, 3000);
+      const scrapedAds = await scrapeCompanyAds(brand.page_id, 3000);
       
       if (scrapedAds.length === 0) {
         return createError({
@@ -48,38 +57,45 @@ export const POST = authMiddleware(
       for (const scrapedAd of scrapedAds) {
         try {
           // Check if ad already exists
-          const existingAd = await prisma.ad.findUnique({
-            where: { libraryId: scrapedAd.id },
-          });
+          const { data: existingAd, error: checkError } = await supabase
+            .from('ads')
+            .select('*')
+            .eq('library_id', scrapedAd.id)
+            .single();
 
-          if (!existingAd) {
-            await prisma.ad.create({
-              data: {
-                libraryId: scrapedAd.id,
+          if (!existingAd || checkError) {
+            const { error: insertError } = await supabase
+              .from('ads')
+              .insert({
+                library_id: scrapedAd.id,
                 type: scrapedAd.type,
                 content: scrapedAd.content,
-                imageUrl: scrapedAd.imageUrl,
-                videoUrl: scrapedAd.videoUrl,
+                image_url: scrapedAd.imageUrl,
+                video_url: scrapedAd.videoUrl,
                 text: scrapedAd.text,
                 headline: scrapedAd.headline,
                 description: scrapedAd.description,
-                brandId: brand.id,
-              },
-            });
-            newAdsCount++;
+                brand_id: brand.id,
+              });
+
+            if (!insertError) {
+              newAdsCount++;
+            } else {
+              console.error(`Error inserting ad ${scrapedAd.id}:`, insertError);
+            }
           } else {
             // Update existing ad with fresh data
-            await prisma.ad.update({
-              where: { libraryId: scrapedAd.id },
-              data: {
+            await supabase
+              .from('ads')
+              .update({
                 content: scrapedAd.content, // Update content to get latest status
-                imageUrl: scrapedAd.imageUrl,
-                videoUrl: scrapedAd.videoUrl,
+                image_url: scrapedAd.imageUrl,
+                video_url: scrapedAd.videoUrl,
                 text: scrapedAd.text,
                 headline: scrapedAd.headline,
                 description: scrapedAd.description,
-              },
-            });
+              })
+              .eq('library_id', scrapedAd.id);
           }
         } catch (adError) {
           console.error(`Error saving/updating ad ${scrapedAd.id}:`, adError);
@@ -88,19 +104,27 @@ export const POST = authMiddleware(
       }
 
       // Update brand's total ads count with actual count from database
-      const totalAdsInDb = await prisma.ad.count({
-        where: { brandId: brand.id },
-      });
+      const { count: totalAdsInDb, error: countError } = await supabase
+        .from('ads')
+        .select('*', { count: 'exact', head: true })
+        .eq('brand_id', brand.id);
 
-      await prisma.brand.update({
-        where: { id: brand.id },
-        data: { totalAds: totalAdsInDb },
-      });
+      await supabase
+        .from('brands')
+        .update({ total_ads: totalAdsInDb || 0 })
+        .eq('id', brand.id);
 
       // Calculate fresh statistics
-      const allAds = await prisma.ad.findMany({
-        where: { brandId: brand.id },
-      });
+      const { data: allAds, error: adsError } = await supabase
+        .from('ads')
+        .select('*')
+        .eq('brand_id', brand.id);
+
+      if (!allAds || adsError) {
+        return createError({
+          message: "Failed to fetch ads for statistics",
+        });
+      }
 
       const videoAds = allAds.filter((ad: any) => ad.type === 'video').length;
       const imageAds = allAds.filter((ad: any) => ad.type === 'image').length;

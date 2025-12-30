@@ -1,13 +1,19 @@
 import messages from "@apiUtils/messages";
 import { createError, createResponse } from "@apiUtils/responseutils";
 import { authMiddleware } from "@middleware";
-import { User } from "@prisma/client";
-import prisma from "@prisma/index";
+import { supabase } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 import validation from "./validation";
 import { scrapeCompanyAds, extractPageIdFromInput } from "@apiUtils/adScraper";
-import { v2 as cloudinary } from 'cloudinary';
 import { startAutoTracking } from "../../../../../../../lib/auto-tracker";
+
+// Type definition for User (matching Supabase schema)
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -80,41 +86,55 @@ export const POST = authMiddleware(
     // Handle default folder when folder id is 0
     if (folderId === "0") {
       // First, try to find an existing "Default" folder for this user
-      targetFolder = await prisma.folder.findFirst({
-        where: {
-          name: "Default",
-          userId: user.id,
-        },
-      });
+      const { data: existingFolder, error: findError } = await supabase
+        .from('folders')
+        .select('*')
+        .eq('name', 'Default')
+        .eq('user_id', user.id)
+        .limit(1)
+        .single();
 
-      // If no default folder exists, create one
-      if (!targetFolder) {
-        targetFolder = await prisma.folder.create({
-          data: {
-            name: "Default",
-            userId: user.id,
-          },
-        });
-        console.log("Created new Default folder for user:", user.id);
-      } else {
+      if (existingFolder && !findError) {
+        targetFolder = existingFolder;
         console.log("Using existing Default folder:", targetFolder.id);
+      } else {
+        // If no default folder exists, create one
+        const { data: newFolder, error: createError } = await supabase
+          .from('folders')
+          .insert({
+            name: "Default",
+            user_id: user.id,
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          return createError({
+            message: "Failed to create default folder",
+            payload: createError.message,
+          });
+        }
+        targetFolder = newFolder;
+        console.log("Created new Default folder for user:", user.id);
       }
     }
 
     // Fetch folder
     if (folderId !== "0") {
-      targetFolder = await prisma.folder.findFirst({
-        where: {
-          id: folderId,
-          userId: user.id,
-        },
-      });
+      const { data: folder, error: folderError } = await supabase
+        .from('folders')
+        .select('*')
+        .eq('id', folderId)
+        .eq('user_id', user.id)
+        .limit(1)
+        .single();
 
-      if (!targetFolder) {
+      if (folderError || !folder) {
         return createError({
           message: messages.FOLDER_NOT_FOUND,
         });
       }
+      targetFolder = folder;
     }
 
     // Extract pageId from input (URL or direct page ID)
@@ -136,19 +156,15 @@ export const POST = authMiddleware(
     try {
       // Get existing ads count for this brand for informational purposes
       let existingAdsCount = 0;
-      let existingBrand = await prisma.brand.findFirst({
-        where: {
-          pageId: extractedPageId,
-        },
-        include: {
-          ads: {
-            select: { libraryId: true }
-          }
-        }
-      });
-      
-      if (existingBrand) {
-        existingAdsCount = existingBrand.ads.length;
+      const { data: existingBrand, error: brandFetchError } = await supabase
+        .from('brands')
+        .select('*, ads(library_id)')
+        .eq('page_id', extractedPageId)
+        .limit(1)
+        .single();
+
+      if (existingBrand && !brandFetchError) {
+        existingAdsCount = existingBrand.ads?.length || 0;
         console.log(`Found existing brand with ${existingAdsCount} ads`);
       }
       
@@ -184,123 +200,159 @@ export const POST = authMiddleware(
       }
 
       // Create or find brand
-      let brand = await prisma.brand.findFirst({
-        where: {
-          pageId: extractedPageId,
-        },
-    });
+      const { data: brand, error: brandError } = await supabase
+        .from('brands')
+        .select('*')
+        .eq('page_id', extractedPageId)
+        .limit(1)
+        .single();
 
-      if (!brand) {
+      let finalBrand = brand;
+
+      if (brandError || !brand) {
         // Extract brand name from first ad or use page ID as fallback
         const brandName = extractBrandNameFromAds(scrapedAds) || `Brand ${extractedPageId}`;
-        
+
         // Create new brand with basic info
-        brand = await prisma.brand.create({
-          data: {
+        const { data: newBrand, error: createBrandError } = await supabase
+          .from('brands')
+          .insert({
             name: brandName,
             logo: scrapedAds[0]?.imageUrl || "",
-            totalAds: scrapedAds.length,
-            pageId: extractedPageId,
-            folders: {
-              connect: {
-                id: targetFolder.id
-              }
-            }
-          },
-        });
+            total_ads: scrapedAds.length,
+            page_id: extractedPageId,
+          })
+          .select()
+          .single();
+
+        if (createBrandError) {
+          throw new Error(`Failed to create brand: ${createBrandError.message}`);
+        }
+        finalBrand = newBrand;
+
+        // Connect brand to folder
+        const { error: folderBrandError } = await supabase
+          .from('_BrandToFolder')
+          .insert({
+            A: newBrand.id,
+            B: targetFolder.id
+          });
+
+        if (folderBrandError) {
+          console.error('Error connecting brand to folder:', folderBrandError);
+        }
       } else {
         // Update total ads count with actual count
-        const currentAdCount = await prisma.ad.count({
-          where: { brandId: brand.id },
-        });
-        
-        // Update brand and connect to folder if not already connected
-        await prisma.brand.update({
-          where: { id: brand.id },
-          data: { 
-            totalAds: currentAdCount + scrapedAds.length,
-            folders: {
-              connect: {
-                id: targetFolder.id
-              }
-            }
-          },
-        });
+        const { count: currentAdCount, error: countError } = await supabase
+          .from('ads')
+          .select('*', { count: 'exact', head: true })
+          .eq('brand_id', brand.id);
+
+        // Update brand total ads
+        const { error: updateError } = await supabase
+          .from('brands')
+          .update({
+            total_ads: (currentAdCount || 0) + scrapedAds.length,
+          })
+          .eq('id', brand.id);
+
+        if (updateError) {
+          console.error('Error updating brand:', updateError);
+        }
+
+        // Connect to folder if not already connected
+        const { error: folderBrandError } = await supabase
+          .from('_BrandToFolder')
+          .insert({
+            A: brand.id,
+            B: targetFolder.id
+          });
+
+        if (folderBrandError && !folderBrandError.message.includes('duplicate')) {
+          console.error('Error connecting brand to folder:', folderBrandError);
+        }
       }
 
       // Save scraped ads to database with improved duplicate checking
       const savedAds = [];
       const newAdIds = scrapedAds.map(ad => ad.id);
-      
+
       // GLOBAL duplicate check - check across ALL brands, not just current brand
-      const existingAds = await prisma.ad.findMany({
-        where: { 
-          libraryId: { in: newAdIds }
-          // Remove brandId filter to check globally
-        },
-        select: { 
-          libraryId: true, 
-          brandId: true,
-          mediaStatus: true,
-          localImageUrl: true,
-          localVideoUrl: true 
-        }
-      });
-      
+      const { data: existingAds, error: existingAdsError } = await supabase
+        .from('ads')
+        .select('library_id, brand_id, media_status, local_image_url, local_video_url')
+        .in('library_id', newAdIds);
+
       const existingAdMap = new Map();
-      existingAds.forEach(ad => {
-        existingAdMap.set(ad.libraryId, ad);
-      });
-      
-      console.log(`Found ${existingAds.length} existing ads globally out of ${newAdIds.length} scraped ads`);
+      if (existingAds && !existingAdsError) {
+        existingAds.forEach(ad => {
+          existingAdMap.set(ad.library_id, ad);
+        });
+      }
+
+      console.log(`Found ${existingAds?.length || 0} existing ads globally out of ${newAdIds.length} scraped ads`);
       
       for (const scrapedAd of scrapedAds) {
         try {
           const existingAd = existingAdMap.get(scrapedAd.id);
-          
+
           if (!existingAd) {
             // New ad - create with pending media status
-            const savedAd = await prisma.ad.create({
-              data: {
-                libraryId: scrapedAd.id,
+            const { data: savedAd, error: createAdError } = await supabase
+              .from('ads')
+              .insert({
+                library_id: scrapedAd.id,
                 type: scrapedAd.type,
                 content: scrapedAd.content,
-                imageUrl: scrapedAd.imageUrl,
-                videoUrl: scrapedAd.videoUrl,
+                image_url: scrapedAd.imageUrl,
+                video_url: scrapedAd.videoUrl,
                 text: scrapedAd.text,
                 headline: scrapedAd.headline,
                 description: scrapedAd.description,
-                brandId: brand.id,
-                mediaStatus: 'pending', // Set pending for media processing
-                mediaRetryCount: 0,
-                createdAt: scrapedAd.created_time ? new Date(scrapedAd.created_time) : new Date()
-              },
-            });
-            savedAds.push(savedAd);
-            console.log(`✅ New ad added: ${scrapedAd.id} - mediaStatus: pending`);
-          } else if (existingAd.brandId !== brand.id) {
+                brand_id: finalBrand.id,
+                media_status: 'pending', // Set pending for media processing
+                media_retry_count: 0,
+                created_at: scrapedAd.created_time ? new Date(scrapedAd.created_time).toISOString() : new Date().toISOString()
+              })
+              .select()
+              .single();
+
+            if (!createAdError && savedAd) {
+              savedAds.push(savedAd);
+              console.log(`✅ New ad added: ${scrapedAd.id} - mediaStatus: pending`);
+            } else {
+              console.error(`Error creating ad ${scrapedAd.id}:`, createAdError);
+            }
+          } else if (existingAd.brand_id !== finalBrand.id) {
             // Ad exists under different brand - link to current brand too
-            const savedAd = await prisma.ad.create({
-              data: {
-                libraryId: scrapedAd.id,
+            const { data: savedAd, error: createAdError } = await supabase
+              .from('ads')
+              .insert({
+                library_id: scrapedAd.id,
                 type: scrapedAd.type,
                 content: scrapedAd.content,
-                imageUrl: scrapedAd.imageUrl,
-                videoUrl: scrapedAd.videoUrl,
+                image_url: scrapedAd.imageUrl,
+                video_url: scrapedAd.videoUrl,
                 text: scrapedAd.text,
                 headline: scrapedAd.headline,
                 description: scrapedAd.description,
-                brandId: brand.id,
+                brand_id: finalBrand.id,
                 // Copy media status and URLs from existing ad if already processed
-                mediaStatus: existingAd.mediaStatus || 'pending',
-                localImageUrl: existingAd.localImageUrl,
-                localVideoUrl: existingAd.localVideoUrl,
-                mediaRetryCount: 0,
-                createdAt: scrapedAd.created_time ? new Date(scrapedAd.created_time) : new Date()
-              },
-            });
-            savedAds.push(savedAd);
-            console.log(`✅ Ad linked to brand: ${scrapedAd.id} - mediaStatus: ${savedAd.mediaStatus}`);
+                media_status: existingAd.media_status || 'pending',
+                local_image_url: existingAd.local_image_url,
+                local_video_url: existingAd.local_video_url,
+                media_retry_count: 0,
+                created_at: scrapedAd.created_time ? new Date(scrapedAd.created_time).toISOString() : new Date().toISOString()
+              })
+              .select()
+              .single();
+
+            if (!createAdError && savedAd) {
+              savedAds.push(savedAd);
+              console.log(`✅ Ad linked to brand: ${scrapedAd.id} - mediaStatus: ${savedAd.media_status}`);
+            } else {
+              console.error(`Error creating ad ${scrapedAd.id}:`, createAdError);
+            }
           }
         } catch (e) {
           console.error(`Error processing ad ${scrapedAd.id}:`, e);
@@ -331,7 +383,7 @@ export const POST = authMiddleware(
       message: messages.SUCCESS,
       payload: {
         folder: targetFolder,
-        brand: brand,
+        brand: finalBrand,
         adsScraped: savedAds.length,
         totalAdsFound: scrapedAds.length,
         duplicatesSkipped: scrapedAds.length - savedAds.length,

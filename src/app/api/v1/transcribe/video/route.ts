@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { supabase } from '@/lib/supabase';
 import { transcribeVideoFromUrl } from '@/lib/vosk-transcription';
-
-const prisma = new PrismaClient();
 
 // Your transcription backend URL - update this to match your Vosk server
 const TRANSCRIPTION_SERVICE_URL = process.env.TRANSCRIPTION_SERVICE_URL || 'http://localhost:3000';
@@ -28,18 +26,20 @@ export async function POST(request: NextRequest) {
     console.log(`Starting transcription for ad ${adId} with language ${language}`);
 
     // Check if transcript already exists in database
-    const existingTranscript = await prisma.adTranscript.findUnique({
-      where: { adId: adId }
-    });
+    const { data: existingTranscript, error: checkError } = await supabase
+      .from('ad_transcripts')
+      .select('*')
+      .eq('ad_id', adId)
+      .single();
 
-    if (existingTranscript) {
+    if (existingTranscript && !checkError) {
       console.log('Transcript already exists, returning cached version');
       return NextResponse.json({
         success: true,
         transcription: existingTranscript.transcript,
         cached: true,
         language: existingTranscript.language,
-        createdAt: existingTranscript.createdAt
+        createdAt: new Date(existingTranscript.created_at)
       });
     }
 
@@ -56,20 +56,30 @@ export async function POST(request: NextRequest) {
       console.log('No speech detected in video');
       
       // Save empty transcript to database to avoid re-processing
-      const savedTranscript = await prisma.adTranscript.create({
-        data: {
-          adId: adId,
+      const { data: savedTranscript, error: insertError } = await supabase
+        .from('ad_transcripts')
+        .insert({
+          ad_id: adId,
           transcript: 'No speech detected in this video. This video may contain only music, sound effects, or background audio without spoken content.',
           language: language,
           confidence: 0,
-          wordCount: 0,
+          word_count: 0,
           duration: transcriptionData.metadata?.duration || 0,
           service: transcriptionData.metadata?.service || 'Vosk',
           metadata: JSON.stringify({ ...transcriptionData.metadata, noSpeech: true }),
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      });
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Error saving transcript:', insertError);
+        return NextResponse.json(
+          { error: 'Failed to save transcript' },
+          { status: 500 }
+        );
+      }
 
       return NextResponse.json({
         success: true,
@@ -78,46 +88,56 @@ export async function POST(request: NextRequest) {
         noSpeech: true,
         metadata: {
           confidence: savedTranscript.confidence,
-          wordCount: savedTranscript.wordCount,
+          wordCount: savedTranscript.word_count,
           duration: savedTranscript.duration,
           service: savedTranscript.service,
           noSpeech: true
         },
-        createdAt: savedTranscript.createdAt
+        createdAt: new Date(savedTranscript.created_at)
       });
     }
 
     console.log('Transcription completed, saving to database...');
 
     // Save transcript to database
-    const savedTranscript = await prisma.adTranscript.create({
-      data: {
-        adId: adId,
+    const { data: savedTranscript2, error: insert2Error } = await supabase
+      .from('ad_transcripts')
+      .insert({
+        ad_id: adId,
         transcript: transcriptionData.transcription,
         language: language,
         confidence: transcriptionData.metadata?.confidence || 0,
-        wordCount: transcriptionData.metadata?.wordCount || 0,
+        word_count: transcriptionData.metadata?.wordCount || 0,
         duration: transcriptionData.metadata?.duration || 0,
         service: transcriptionData.metadata?.service || 'Vosk',
         metadata: JSON.stringify(transcriptionData.metadata || {}),
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-    });
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (insert2Error) {
+      console.error('Error saving transcript:', insert2Error);
+      return NextResponse.json(
+        { error: 'Failed to save transcript' },
+        { status: 500 }
+      );
+    }
 
     console.log('Transcript saved successfully');
 
     return NextResponse.json({
       success: true,
-      transcription: savedTranscript.transcript,
-      language: savedTranscript.language,
+      transcription: savedTranscript2.transcript,
+      language: savedTranscript2.language,
       metadata: {
-        confidence: savedTranscript.confidence,
-        wordCount: savedTranscript.wordCount,
-        duration: savedTranscript.duration,
-        service: savedTranscript.service
+        confidence: savedTranscript2.confidence,
+        wordCount: savedTranscript2.word_count,
+        duration: savedTranscript2.duration,
+        service: savedTranscript2.service
       },
-      createdAt: savedTranscript.createdAt
+      createdAt: new Date(savedTranscript2.created_at)
     });
 
   } catch (error) {
@@ -148,11 +168,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const transcript = await prisma.adTranscript.findUnique({
-      where: { adId: adId }
-    });
+    const { data: transcript, error } = await supabase
+      .from('ad_transcripts')
+      .select('*')
+      .eq('ad_id', adId)
+      .single();
 
-    if (!transcript) {
+    if (error || !transcript) {
       return NextResponse.json(
         { error: 'Transcript not found' },
         { status: 404 }

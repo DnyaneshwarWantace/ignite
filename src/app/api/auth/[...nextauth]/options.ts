@@ -1,8 +1,7 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import { PrismaAdapter } from "@auth/prisma-adapter";
-import prisma from "@prisma/index";
 import Credentials from "next-auth/providers/credentials";
+import { supabaseAdmin } from "@/lib/supabase-storage";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -29,11 +28,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           }
 
           // In production, implement proper user validation
-          const user = await prisma.user.findFirst({
-            where: {
-              email: email,
-            },
-          });
+          const { data: user } = await supabaseAdmin
+            .from('users')
+            .select('*')
+            .eq('email', email)
+            .single();
 
           if (user) {
             return {
@@ -67,29 +66,46 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         // Save or update user in database
         if (user.email) {
-          const existingUser = await prisma.user.findUnique({
-            where: { email: user.email }
-          });
+          const { data: existingUser } = await supabaseAdmin
+            .from('users')
+            .select('*')
+            .eq('email', user.email)
+            .single();
 
           if (!existingUser) {
             // Create new user
-            const newUser = await prisma.user.create({
-              data: {
+            const { data: newUser, error: createError } = await supabaseAdmin
+              .from('users')
+              .insert({
                 email: user.email,
                 name: user.name,
                 image: user.image || null,
-              }
-            });
+              })
+              .select()
+              .single();
+
+            if (createError) {
+              console.error("Error creating user:", createError);
+              return false;
+            }
+
             user.id = newUser.id;
           } else {
             // Update existing user
-            await prisma.user.update({
-              where: { email: user.email },
-              data: {
+            const { error: updateError } = await supabaseAdmin
+              .from('users')
+              .update({
                 name: user.name,
                 image: user.image || null,
-              }
-            });
+                updated_at: new Date().toISOString(),
+              })
+              .eq('email', user.email);
+
+            if (updateError) {
+              console.error("Error updating user:", updateError);
+              return false;
+            }
+
             user.id = existingUser.id;
           }
         }

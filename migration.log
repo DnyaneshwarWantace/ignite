@@ -1,0 +1,28 @@
+[dotenv@17.2.3] injecting env (19) from .env -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+🚀 Image Editor Migration (Running in background)
+
+Old DB: https://dbcstdktbgqpzrrwfgtb.supabase.co
+New DB: https://nrfujyhdlrszkbtsfuac.supabase.co
+──────────────────────────────────────────────────
+
+📋 Step 1: Creating tables in new Supabase...
+
+  ⚠️  Using alternative table creation method...
+  ✅ Tables ready
+
+📦 Step 2: Migrating data...
+
+  Migrating Templates...
+    Found 149 records
+    ✅ Migrated 0 / 149 records
+  Migrating Materials...
+    Found 1000 records
+    ... 600 / 1000    ✅ Migrated 1000 / 1000 records
+  Migrating Fonts...
+    Found 52 records
+    ✅ Migrated 0 / 52 records
+
+🎉 Migration Complete! Total: 1000 records
+
+✅ All done!
+

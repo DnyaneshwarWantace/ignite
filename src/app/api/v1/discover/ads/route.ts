@@ -1,10 +1,17 @@
 import messages from "@apiUtils/messages";
 import { createError, createResponse } from "@apiUtils/responseutils";
 import { authMiddleware } from "@middleware";
-import { User } from "@prisma/client";
-import prisma from "@prisma/index";
+import { supabase } from "@/lib/supabase";
 import { filterAds, createInitialFilterState } from "@/lib/adFiltering";
 import { NextRequest } from "next/server";
+
+// Type definition for User (matching Supabase schema)
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -127,7 +134,16 @@ export const GET = authMiddleware(
         console.log('🔍 Fetching ALL ads for filtering or display...');
         
         // First, get total count for logging
-        totalAdsCount = await prisma.ad.count({ where: whereClause });
+        const { count, error: countError } = await supabase
+          .from('ads')
+          .select('*', { count: 'exact', head: true });
+
+        if (countError) {
+          console.error('Error counting ads:', countError);
+          totalAdsCount = 0;
+        } else {
+          totalAdsCount = count || 0;
+        }
         console.log('🔍 Total ads in database:', totalAdsCount);
         
         // Optimize: If we have a large dataset, fetch in chunks to avoid memory issues
@@ -141,43 +157,61 @@ export const GET = authMiddleware(
           const startTime = Date.now();
           
           while (offset < totalAdsCount) {
-            const chunk = await prisma.ad.findMany({
-        where: whereClause,
-        select: {
-          id: true,
-          libraryId: true,
-          type: true,
-          content: true,
-          imageUrl: true,
-          videoUrl: true,
-          text: true,
-          headline: true,
-          description: true,
-          createdAt: true,
-          updatedAt: true,
-          brandId: true,
-          localImageUrl: true,
-          localVideoUrl: true,
-          mediaStatus: true,
-          mediaDownloadedAt: true,
-          brand: {
-            select: {
-              id: true,
-              name: true,
-              logo: true,
-              pageId: true
+            const { data: chunk, error: chunkError } = await supabase
+              .from('ads')
+              .select(`
+                id,
+                library_id,
+                type,
+                content,
+                image_url,
+                video_url,
+                text,
+                headline,
+                description,
+                created_at,
+                updated_at,
+                brand_id,
+                local_image_url,
+                local_video_url,
+                media_status,
+                media_downloaded_at,
+                brand:brands (
+                  id,
+                  name,
+                  logo,
+                  page_id
+                )
+              `)
+              .order('created_at', { ascending: false })
+              .order('id', { ascending: false })
+              .range(offset, offset + CHUNK_SIZE - 1);
+
+            if (chunkError) {
+              console.error('Error fetching chunk:', chunkError);
+              break;
             }
-          }
-        },
-        orderBy: [
-          { createdAt: 'desc' },
-          { id: 'desc' }
-        ],
-              skip: offset,
-              take: CHUNK_SIZE
-            });
-            
-            allAds.push(...chunk);
+
+            // Transform snake_case to camelCase for compatibility
+            const transformedChunk = (chunk || []).map((ad: any) => ({
+              ...ad,
+              libraryId: ad.library_id,
+              imageUrl: ad.image_url,
+              videoUrl: ad.video_url,
+              createdAt: new Date(ad.created_at),
+              updatedAt: new Date(ad.updated_at),
+              brandId: ad.brand_id,
+              localImageUrl: ad.local_image_url,
+              localVideoUrl: ad.local_video_url,
+              mediaStatus: ad.media_status,
+              mediaDownloadedAt: ad.media_downloaded_at ? new Date(ad.media_downloaded_at) : null,
+              brand: ad.brand ? {
+                ...ad.brand,
+                pageId: ad.brand.page_id
+              } : null
+            }));
+
+            allAds.push(...transformedChunk);
             offset += CHUNK_SIZE;
             console.log(`🔍 Fetched chunk: ${Math.min(offset, totalAdsCount)}/${totalAdsCount} ads`);
           }
@@ -187,40 +221,59 @@ export const GET = authMiddleware(
         } else {
           // For smaller datasets, fetch all at once
           const startTime = Date.now();
-          allAds = await prisma.ad.findMany({
-            where: whereClause,
-            select: {
-              id: true,
-              libraryId: true,
-              type: true,
-              content: true,
-              imageUrl: true,
-              videoUrl: true,
-              text: true,
-              headline: true,
-              description: true,
-              createdAt: true,
-              updatedAt: true,
-              brandId: true,
-              localImageUrl: true,
-              localVideoUrl: true,
-              mediaStatus: true,
-              mediaDownloadedAt: true,
-              brand: {
-                select: {
-                  id: true,
-                  name: true,
-                  logo: true,
-                  pageId: true
-                }
-              }
-            },
-            orderBy: [
-              { createdAt: 'desc' },
-              { id: 'desc' }
-            ]
-          });
-          
+          const { data, error: fetchError } = await supabase
+            .from('ads')
+            .select(`
+              id,
+              library_id,
+              type,
+              content,
+              image_url,
+              video_url,
+              text,
+              headline,
+              description,
+              created_at,
+              updated_at,
+              brand_id,
+              local_image_url,
+              local_video_url,
+              media_status,
+              media_downloaded_at,
+              brand:brands (
+                id,
+                name,
+                logo,
+                page_id
+              )
+            `)
+            .order('created_at', { ascending: false })
+            .order('id', { ascending: false });
+
+          if (fetchError) {
+            console.error('Error fetching ads:', fetchError);
+            allAds = [];
+          } else {
+            // Transform snake_case to camelCase for compatibility
+            allAds = (data || []).map((ad: any) => ({
+              ...ad,
+              libraryId: ad.library_id,
+              imageUrl: ad.image_url,
+              videoUrl: ad.video_url,
+              createdAt: new Date(ad.created_at),
+              updatedAt: new Date(ad.updated_at),
+              brandId: ad.brand_id,
+              localImageUrl: ad.local_image_url,
+              localVideoUrl: ad.local_video_url,
+              mediaStatus: ad.media_status,
+              mediaDownloadedAt: ad.media_downloaded_at ? new Date(ad.media_downloaded_at) : null,
+              brand: ad.brand ? {
+                ...ad.brand,
+                pageId: ad.brand.page_id
+              } : null
+            }));
+          }
+
           const fetchTime = Date.now() - startTime;
           console.log(`⏱️  Fetch time: ${fetchTime}ms (${Math.round(allAds.length / (fetchTime / 1000))} ads/second)`);
         }
@@ -268,40 +321,67 @@ export const GET = authMiddleware(
       } else {
         // For search-only queries (no complex filters), use efficient database pagination
         console.log('🔍 Search-only query, using database pagination');
-        ads = await prisma.ad.findMany({
-          where: whereClause,
-          select: {
-            id: true,
-            libraryId: true,
-            type: true,
-            content: true,
-            imageUrl: true,
-            videoUrl: true,
-            text: true,
-            headline: true,
-            description: true,
-            createdAt: true,
-            updatedAt: true,
-            brandId: true,
-            localImageUrl: true,
-            localVideoUrl: true,
-            mediaStatus: true,
-            mediaDownloadedAt: true,
-            brand: {
-              select: {
-                id: true,
-                name: true,
-                logo: true,
-                pageId: true
-              }
-            }
-          },
-          orderBy: [
-            { createdAt: 'desc' },
-            { id: 'desc' }
-          ],
-          take: limit + 1 // Get one extra to check if there are more
-        });
+
+        let query = supabase
+          .from('ads')
+          .select(`
+            id,
+            library_id,
+            type,
+            content,
+            image_url,
+            video_url,
+            text,
+            headline,
+            description,
+            created_at,
+            updated_at,
+            brand_id,
+            local_image_url,
+            local_video_url,
+            media_status,
+            media_downloaded_at,
+            brand:brands (
+              id,
+              name,
+              logo,
+              page_id
+            )
+          `)
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
+          .limit(limit + 1); // Get one extra to check if there are more
+
+        // Apply search filter if provided
+        if (search) {
+          query = query.or(`text.ilike.%${search}%,headline.ilike.%${search}%,description.ilike.%${search}%,library_id.ilike.%${search}%`);
+        }
+
+        const { data, error: searchError } = await query;
+
+        if (searchError) {
+          console.error('Error fetching ads:', searchError);
+          ads = [];
+        } else {
+          // Transform snake_case to camelCase for compatibility
+          ads = (data || []).map((ad: any) => ({
+            ...ad,
+            libraryId: ad.library_id,
+            imageUrl: ad.image_url,
+            videoUrl: ad.video_url,
+            createdAt: new Date(ad.created_at),
+            updatedAt: new Date(ad.updated_at),
+            brandId: ad.brand_id,
+            localImageUrl: ad.local_image_url,
+            localVideoUrl: ad.local_video_url,
+            mediaStatus: ad.media_status,
+            mediaDownloadedAt: ad.media_downloaded_at ? new Date(ad.media_downloaded_at) : null,
+            brand: ad.brand ? {
+              ...ad.brand,
+              pageId: ad.brand.page_id
+            } : null
+          }));
+        }
       }
 
       // Handle pagination and cursor logic

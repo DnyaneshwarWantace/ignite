@@ -1,9 +1,16 @@
 import messages from "@apiUtils/messages";
 import { createError, createResponse } from "@apiUtils/responseutils";
 import { authMiddleware } from "@middleware";
-import { User } from "@prisma/client";
-import prisma from "@prisma/index";
+import { supabase } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
+
+// Type definition for User (matching Supabase schema)
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -12,16 +19,13 @@ export const GET = authMiddleware(
     const brandId = context.params.id;
 
     // Fetch brand with ads
-    const brand = await prisma.brand.findUnique({
-      where: {
-        id: brandId,
-      },
-      include: {
-        ads: true,
-      },
-    });
+    const { data: brand, error: brandError } = await supabase
+      .from('brands')
+      .select('*, ads(*)')
+      .eq('id', brandId)
+      .single();
 
-    if (!brand) {
+    if (brandError || !brand) {
       return createError({
         message: "Brand not found",
       });
@@ -92,6 +96,7 @@ export const GET = authMiddleware(
       noOfImageAds: imageAds,
       noOfGifAds: carouselAds, // Using carousel count for "gif" ads
       totalAds: ads.length, // Real count from database
+      total_ads: ads.length,
     };
 
     return createResponse({

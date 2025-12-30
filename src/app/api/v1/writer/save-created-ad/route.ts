@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { User } from "@prisma/client";
 import { authMiddleware } from "@middleware";
 import { createResponse, createError } from "@apiUtils/responseutils";
 import messages from "@apiUtils/messages";
-import prisma from "@prisma/index";
+import { supabase } from "@/lib/supabase";
+
+// Type definition for User (matching Supabase schema)
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -20,18 +27,28 @@ export const POST = authMiddleware(
       }
 
       // Save the created ad
-      const createdAd = await prisma.createdAd.create({
-        data: {
+      const { data: createdAd, error: insertError } = await supabase
+        .from('created_ads')
+        .insert({
           headline,
           description,
           text,
           type: type || 'image',
-          brandName,
-          imageUrl: imageUrl || null,
-          userId: user.id,
-          isGenerated: true
-        }
-      });
+          brand_name: brandName,
+          image_url: imageUrl || null,
+          user_id: user.id,
+          is_generated: true
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Error saving created ad:', insertError);
+        return createError({
+          message: "Failed to save ad",
+          payload: { error: insertError.message }
+        });
+      }
 
       return createResponse({
         message: "Ad saved successfully",
@@ -59,24 +76,32 @@ export const GET = authMiddleware(
       const limit = parseInt(searchParams.get('limit') || '20');
       const offset = (page - 1) * limit;
 
-      // Fetch created ads
-      const createdAds = await prisma.createdAd.findMany({
-        where: {
-          userId: user.id
-        },
-        orderBy: {
-          createdAt: 'desc'
-        },
-        skip: offset,
-        take: limit
-      });
+      // Fetch created ads with count
+      const { data: createdAdsData, error: fetchError, count: totalCount } = await supabase
+        .from('created_ads')
+        .select('*', { count: 'exact' })
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
 
-      // Get total count
-      const totalCount = await prisma.createdAd.count({
-        where: {
-          userId: user.id
-        }
-      });
+      if (fetchError) {
+        console.error('Error fetching created ads:', fetchError);
+        return createError({
+          message: "Failed to fetch created ads",
+          payload: { error: fetchError.message }
+        });
+      }
+
+      // Transform snake_case to camelCase for compatibility
+      const createdAds = (createdAdsData || []).map((ad: any) => ({
+        ...ad,
+        brandName: ad.brand_name,
+        imageUrl: ad.image_url,
+        userId: ad.user_id,
+        isGenerated: ad.is_generated,
+        createdAt: new Date(ad.created_at),
+        updatedAt: new Date(ad.updated_at)
+      }));
 
       return createResponse({
         message: messages.SUCCESS,
@@ -85,8 +110,8 @@ export const GET = authMiddleware(
           pagination: {
             page,
             limit,
-            total: totalCount,
-            totalPages: Math.ceil(totalCount / limit)
+            total: totalCount || 0,
+            totalPages: Math.ceil((totalCount || 0) / limit)
           }
         }
       });

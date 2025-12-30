@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authMiddleware } from "@middleware";
-import { User } from "@prisma/client";
+// Type definition for User (matching Supabase schema)
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+}
 import { createResponse, createError } from "@apiUtils/responseutils";
 import messages from "@apiUtils/messages";
 import { DiscoverCache, isRedisAvailable } from "@/lib/redis-cache";

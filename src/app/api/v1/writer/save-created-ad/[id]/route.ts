@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { User } from "@prisma/client";
 import { authMiddleware } from "@middleware";
 import { createResponse, createError } from "@apiUtils/responseutils";
-import prisma from "@prisma/index";
+import { supabase } from "@/lib/supabase";
+
+// Type definition for User (matching Supabase schema)
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -20,33 +27,42 @@ export const PATCH = authMiddleware(
       }
 
       // Verify the ad belongs to the user
-      const existingAd = await prisma.createdAd.findFirst({
-        where: {
-          id: id,
-          userId: user.id
-        }
-      });
+      const { data: existingAd, error: checkError } = await supabase
+        .from('created_ads')
+        .select('*')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .limit(1)
+        .single();
 
-      if (!existingAd) {
+      if (checkError || !existingAd) {
         return createError({
           message: "Ad not found or access denied"
         });
       }
 
       // Update the ad
-      const updatedAd = await prisma.createdAd.update({
-        where: {
-          id: id
-        },
-        data: {
+      const { data: updatedAd, error: updateError } = await supabase
+        .from('created_ads')
+        .update({
           headline,
           description,
           text,
           type: type || 'image',
-          brandName,
-          imageUrl: imageUrl || null
-        }
-      });
+          brand_name: brandName,
+          image_url: imageUrl || null
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Error updating created ad:', updateError);
+        return createError({
+          message: "Failed to update ad",
+          payload: { error: updateError.message }
+        });
+      }
 
       return createResponse({
         message: "Ad updated successfully",
@@ -78,25 +94,33 @@ export const DELETE = authMiddleware(
       }
 
       // Verify the ad belongs to the user
-      const existingAd = await prisma.createdAd.findFirst({
-        where: {
-          id: id,
-          userId: user.id
-        }
-      });
+      const { data: existingAd, error: checkError } = await supabase
+        .from('created_ads')
+        .select('*')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .limit(1)
+        .single();
 
-      if (!existingAd) {
+      if (checkError || !existingAd) {
         return createError({
           message: "Ad not found or access denied"
         });
       }
 
       // Delete the ad
-      await prisma.createdAd.delete({
-        where: {
-          id: id
-        }
-      });
+      const { error: deleteError } = await supabase
+        .from('created_ads')
+        .delete()
+        .eq('id', id);
+
+      if (deleteError) {
+        console.error('Error deleting created ad:', deleteError);
+        return createError({
+          message: "Failed to delete ad",
+          payload: { error: deleteError.message }
+        });
+      }
 
       return createResponse({
         message: "Ad deleted successfully"

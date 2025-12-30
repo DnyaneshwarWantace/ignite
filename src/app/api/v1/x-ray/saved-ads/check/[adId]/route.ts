@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { User } from "@prisma/client";
 import { authMiddleware } from "@middleware";
 import { createResponse, createError } from "@apiUtils/responseutils";
 import messages from "@apiUtils/messages";
-import prisma from "@prisma/index";
+import { supabase } from "@/lib/supabase";
+
+// Type definition for User (matching Supabase schema)
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -20,17 +27,18 @@ export const GET = authMiddleware(
       }
 
       // Check if ad is saved
-      const savedAd = await prisma.savedAd.findFirst({
-        where: {
-          adId: adId,
-          userId: user.id
-        }
-      });
+      const { data: savedAd, error: savedAdError } = await supabase
+        .from('saved_ads')
+        .select('*')
+        .eq('ad_id', adId)
+        .eq('user_id', user.id)
+        .limit(1)
+        .single();
 
       return createResponse({
         message: messages.SUCCESS,
         payload: {
-          isSaved: !!savedAd
+          isSaved: !!savedAd && !savedAdError
         }
       });
 

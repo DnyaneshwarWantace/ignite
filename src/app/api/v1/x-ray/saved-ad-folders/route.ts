@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { User } from "@prisma/client";
 import { authMiddleware } from "@middleware";
 import { createResponse, createError } from "@apiUtils/responseutils";
 import messages from "@apiUtils/messages";
-import prisma from "@prisma/index";
+import { supabase } from "@/lib/supabase";
+
+// Type definition for User (matching Supabase schema)
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -14,31 +21,30 @@ export const GET = authMiddleware(
       const searchParams = request.nextUrl.searchParams;
       const search = searchParams.get('search') || '';
 
-      let whereClause: any = {
-        userId: user.id
-      };
+      let query = supabase
+        .from('saved_ad_folders')
+        .select('*, saved_ads(*)')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
       if (search && search !== "") {
-        whereClause.name = {
-          contains: search,
-          mode: "insensitive",
-        };
+        query = query.ilike('name', `%${search}%`);
       }
 
-      const folders = await prisma.savedAdFolder.findMany({
-        where: whereClause,
-        include: {
-          savedAds: true
-        },
-        orderBy: {
-          createdAt: 'desc'
-        }
-      });
+      const { data: folders, error: fetchError } = await query;
+
+      if (fetchError) {
+        console.error('Error fetching saved ad folders:', fetchError);
+        return createError({
+          message: "Failed to fetch saved ad folders",
+          payload: fetchError.message
+        });
+      }
 
       return createResponse({
         message: messages.SUCCESS,
         payload: {
-          folders: folders
+          folders: folders || []
         }
       });
 
@@ -79,14 +85,15 @@ export const POST = authMiddleware(
       }
 
       // Check if folder with same name already exists for this user
-      const existingFolder = await prisma.savedAdFolder.findFirst({
-        where: {
-          name: name.trim(),
-          userId: user.id
-        }
-      });
+      const { data: existingFolder, error: checkError } = await supabase
+        .from('saved_ad_folders')
+        .select('*')
+        .eq('name', name.trim())
+        .eq('user_id', user.id)
+        .limit(1)
+        .single();
 
-      if (existingFolder) {
+      if (existingFolder && !checkError) {
         console.log('Folder already exists:', { name: name.trim(), userId: user.id });
         return createError({
           message: "A folder with this name already exists",
@@ -94,12 +101,22 @@ export const POST = authMiddleware(
         });
       }
 
-      const folder = await prisma.savedAdFolder.create({
-        data: {
+      const { data: folder, error: createFolderError } = await supabase
+        .from('saved_ad_folders')
+        .insert({
           name: name.trim(),
-          userId: user.id
-        }
-      });
+          user_id: user.id
+        })
+        .select()
+        .single();
+
+      if (createFolderError) {
+        console.error('Error creating folder:', createFolderError);
+        return createError({
+          message: "Failed to create folder",
+          payload: createFolderError.message
+        });
+      }
 
       console.log('Folder created successfully:', folder);
 

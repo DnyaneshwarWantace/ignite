@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@prisma/index";
+import { supabase } from "@/lib/supabase";
 
 // Force route to be dynamic and prevent static optimization
 export const dynamic = "force-dynamic";

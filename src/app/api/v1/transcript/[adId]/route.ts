@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { supabase } from "@/lib/supabase";
 
 // GET - Retrieve transcript by ad ID
 export async function GET(
@@ -18,11 +16,13 @@ export async function GET(
       );
     }
 
-    const transcript = await prisma.adTranscript.findUnique({
-      where: { adId }
-    });
+    const { data: transcript, error } = await supabase
+      .from('ad_transcripts')
+      .select('*')
+      .eq('ad_id', adId)
+      .single();
 
-    if (!transcript) {
+    if (error || !transcript) {
       return NextResponse.json(
         { error: "Transcript not found" },
         { status: 404 }
@@ -32,8 +32,8 @@ export async function GET(
     return NextResponse.json({
       success: true,
       transcript: transcript.transcript,
-      createdAt: transcript.createdAt,
-      updatedAt: transcript.updatedAt
+      createdAt: new Date(transcript.created_at),
+      updatedAt: new Date(transcript.updated_at)
     });
 
   } catch (error) {

@@ -1,9 +1,16 @@
 import messages from "@apiUtils/messages";
 import { createError, createResponse } from "@apiUtils/responseutils";
 import { authMiddleware } from "@middleware";
-import { User } from "@prisma/client";
-import prisma from "@prisma/index";
+import { supabase } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
+
+// Type definition for User (matching Supabase schema)
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -12,11 +19,13 @@ export const GET = authMiddleware(
     const brandId = context.params.id;
 
     // Validate that brand exists
-    const brand = await prisma.brand.findUnique({
-      where: { id: brandId },
-    });
+    const { data: brand, error: brandError } = await supabase
+      .from('brands')
+      .select('*')
+      .eq('id', brandId)
+      .single();
 
-    if (!brand) {
+    if (brandError || !brand) {
       return createError({
         message: "Brand not found",
       });
@@ -24,52 +33,68 @@ export const GET = authMiddleware(
 
     // Get query parameters for filtering
     const searchParams = request.nextUrl.searchParams;
-    // Note: Filtering logic has been removed
-    // We're keeping the parameters for UI compatibility but not using them for filtering
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
     const offset = (page - 1) * limit;
 
-    // Build query - REMOVED FILTERING LOGIC
-    let whereClause: any = {
-      brandId: brandId,
-    };
+    // Fetch ads with pagination
+    const { data: adsData, error: adsError } = await supabase
+      .from('ads')
+      .select(`
+        *,
+        brand:brands (*)
+      `)
+      .eq('brand_id', brandId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
-    // Note: All type, status, and search filtering has been removed
-    // The UI will still show filter options, but they won't affect the results
-
-    // Fetch ads
-    const ads = await prisma.ad.findMany({
-      where: whereClause,
-      include: {
-        brand: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      skip: offset,
-      take: limit,
-    });
+    if (adsError) {
+      console.error("Error fetching ads:", adsError);
+      return createError({
+        message: "Failed to fetch ads",
+        payload: adsError.message,
+      });
+    }
 
     // Get total count for pagination
-    const totalCount = await prisma.ad.count({
-      where: whereClause,
-    });
+    const { count: totalCount, error: countError } = await supabase
+      .from('ads')
+      .select('*', { count: 'exact', head: true })
+      .eq('brand_id', brandId);
 
-    // Status filtering logic has been removed
-    let filteredAds = ads;
-    // Note: We're keeping the variable name for compatibility with the rest of the code
-    // but not applying any filtering
+    if (countError) {
+      console.error("Error counting ads:", countError);
+    }
+
+    // Transform snake_case to camelCase for compatibility
+    const ads = (adsData || []).map((ad: any) => ({
+      ...ad,
+      libraryId: ad.library_id,
+      imageUrl: ad.image_url,
+      videoUrl: ad.video_url,
+      createdAt: new Date(ad.created_at),
+      updatedAt: new Date(ad.updated_at),
+      brandId: ad.brand_id,
+      localImageUrl: ad.local_image_url,
+      localVideoUrl: ad.local_video_url,
+      mediaStatus: ad.media_status,
+      mediaDownloadedAt: ad.media_downloaded_at ? new Date(ad.media_downloaded_at) : null,
+      brand: ad.brand ? {
+        ...ad.brand,
+        pageId: ad.brand.page_id,
+        totalAds: ad.brand.total_ads
+      } : null
+    }));
 
     return createResponse({
       message: messages.SUCCESS,
       payload: {
-        ads: filteredAds,
+        ads: ads,
         pagination: {
           page,
           limit,
-          total: totalCount,
-          totalPages: Math.ceil(totalCount / limit),
+          total: totalCount || 0,
+          totalPages: Math.ceil((totalCount || 0) / limit),
         },
       },
     });

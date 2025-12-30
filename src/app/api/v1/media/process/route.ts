@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@prisma/index";
-import { v2 as cloudinary } from 'cloudinary';
-
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+import { supabase } from "@/lib/supabase";
+import { uploadImageFromUrl, uploadVideoFromUrl } from "@/lib/supabase-storage";
 
 // Helper function to check if URL is accessible
 async function isUrlAccessible(url: string): Promise<boolean> {
@@ -96,27 +89,29 @@ export async function GET(request: NextRequest) {
     console.log('🔄 Starting media processing...');
     
     // Get pending ads
-    const pendingAds = await prisma.ad.findMany({
-      where: { 
-        OR: [
-          { mediaStatus: 'pending' },
-          {
-            AND: [
-              { mediaStatus: 'failed' },
-              { mediaRetryCount: { lt: 5 } }
-            ]
-          }
-        ]
-      },
-      include: {
-        brand: { select: { name: true } }
-      },
-      take: batchSize,
-      orderBy: [
-        { mediaRetryCount: 'asc' },
-        { createdAt: 'desc' }
-      ]
-    });
+    const { data: pendingAds, error: fetchError } = await supabase
+      .from('ads')
+      .select('*, brand:brands(name)')
+      .or(`media_status.eq.pending,and(media_status.eq.failed,media_retry_count.lt.5)`)
+      .order('media_retry_count', { ascending: true })
+      .order('created_at', { ascending: false })
+      .limit(batchSize);
+
+    if (fetchError) {
+      console.error('Error fetching pending ads:', fetchError);
+      return NextResponse.json({
+        success: false,
+        error: fetchError.message
+      }, { status: 500 });
+    }
+
+    if (!pendingAds) {
+      return NextResponse.json({
+        success: true,
+        message: 'No pending ads found',
+        results: { processed: 0, success: 0, failed: 0, errors: [] }
+      });
+    }
 
     console.log(`Found ${pendingAds.length} ads to process`);
 
@@ -130,10 +125,10 @@ export async function GET(request: NextRequest) {
     for (const ad of pendingAds) {
       try {
         // Update status to processing
-        await prisma.ad.update({
-          where: { id: ad.id },
-          data: { mediaStatus: 'processing' }
-        });
+        await supabase
+          .from('ads')
+          .update({ media_status: 'processing' })
+          .eq('id', ad.id);
 
         const { imageUrls, videoUrls } = extractMediaUrls(ad);
         let localImageUrl = null;
@@ -141,7 +136,7 @@ export async function GET(request: NextRequest) {
 
         // Process ALL images for carousel ads
         const localImageUrls: string[] = [];
-        if (imageUrls.length > 0 && !ad.localImageUrl) {
+        if (imageUrls.length > 0 && !ad.local_image_url) {
           for (let i = 0; i < imageUrls.length; i++) {
             const imageUrl = imageUrls[i];
             try {
@@ -159,19 +154,17 @@ export async function GET(request: NextRequest) {
                 continue;
               }
               
-              const result = await cloudinary.uploader.upload(imageUrl, {
+              const uploadedUrl = await uploadImageFromUrl(imageUrl, {
                 folder: 'ads/images',
-                public_id: `ad_${ad.id}_img${i+1}_${Date.now()}`,
-                resource_type: 'image',
-                timeout: 60000 // Keep reasonable timeout
+                filename: `ad_${ad.id}_img${i+1}_${Date.now()}.jpg`
               });
-              
-              // Store both original and Cloudinary URLs
-              localImageUrls.push(imageUrl);
-              
+
+              // Store uploaded Supabase URL
+              localImageUrls.push(uploadedUrl);
+
               // For now, use first successful upload as primary image
               if (!localImageUrl) {
-                localImageUrl = imageUrl;
+                localImageUrl = uploadedUrl;
               }
               
             } catch (imageError) {
@@ -187,28 +180,20 @@ export async function GET(request: NextRequest) {
           console.log(`📊 Successfully processed ${localImageUrls.length}/${imageUrls.length} images for ad ${ad.libraryId}`);
         }
 
-        // Process videos  
-        if (videoUrls.length > 0 && !ad.localVideoUrl) {
+        // Process videos
+        if (videoUrls.length > 0 && !ad.local_video_url) {
           for (const videoUrl of videoUrls) {
             try {
               const isAccessible = await isUrlAccessible(videoUrl);
               if (!isAccessible) continue;
 
               console.log(`🎥 Processing video for ad ${ad.libraryId}`);
-              const result = await cloudinary.uploader.upload(videoUrl, {
+              const uploadedUrl = await uploadVideoFromUrl(videoUrl, {
                 folder: 'ads/videos',
-                public_id: `ad_${ad.id}_${Date.now()}`,
-                resource_type: 'video',
-                timeout: 60000,
-                // FIXED: Control video transformations
-                transformation: [{
-                  quality: 'auto:good',
-                  format: 'mp4'
-                }],
-                eager: false // Don't create eager transformations
+                filename: `ad_${ad.id}_${Date.now()}.mp4`
               });
-              
-              localVideoUrl = result.secure_url;
+
+              localVideoUrl = uploadedUrl;
               console.log(`✅ Video uploaded: ${localVideoUrl}`);
               break;
             } catch (videoError) {
@@ -220,51 +205,51 @@ export async function GET(request: NextRequest) {
 
         // Update ad with results
         if (localImageUrl || localVideoUrl) {
-          await prisma.ad.update({
-            where: { id: ad.id },
-            data: {
-              mediaStatus: 'success',
-              localImageUrl: localImageUrl || ad.localImageUrl,
-              localVideoUrl: localVideoUrl || ad.localVideoUrl,
-              mediaDownloadedAt: new Date(),
-              mediaError: null,
+          await supabase
+            .from('ads')
+            .update({
+              media_status: 'success',
+              local_image_url: localImageUrl || ad.local_image_url,
+              local_video_url: localVideoUrl || ad.local_video_url,
+              media_downloaded_at: new Date().toISOString(),
+              media_error: null,
               content: JSON.stringify({
                 ...JSON.parse(ad.content),
                 originalImageUrls: localImageUrls
               })
-            }
-          });
+            })
+            .eq('id', ad.id);
           results.success++;
         } else {
-          const newRetryCount = (ad.mediaRetryCount || 0) + 1;
-          await prisma.ad.update({
-            where: { id: ad.id },
-            data: {
-              mediaStatus: newRetryCount >= 5 ? 'failed' : 'pending',
-              mediaRetryCount: newRetryCount,
-              mediaError: 'No accessible media found'
-            }
-          });
+          const newRetryCount = (ad.media_retry_count || 0) + 1;
+          await supabase
+            .from('ads')
+            .update({
+              media_status: newRetryCount >= 5 ? 'failed' : 'pending',
+              media_retry_count: newRetryCount,
+              media_error: 'No accessible media found'
+            })
+            .eq('id', ad.id);
           results.failed++;
         }
 
         results.processed++;
 
       } catch (error) {
-        console.error(`Error processing ad ${ad.libraryId}:`, error);
-        const newRetryCount = (ad.mediaRetryCount || 0) + 1;
-        
-        await prisma.ad.update({
-          where: { id: ad.id },
-          data: {
-            mediaStatus: newRetryCount >= 5 ? 'failed' : 'pending',
-            mediaRetryCount: newRetryCount,
-            mediaError: (error as Error).message
-          }
-        });
-        
+        console.error(`Error processing ad ${ad.library_id}:`, error);
+        const newRetryCount = (ad.media_retry_count || 0) + 1;
+
+        await supabase
+          .from('ads')
+          .update({
+            media_status: newRetryCount >= 5 ? 'failed' : 'pending',
+            media_retry_count: newRetryCount,
+            media_error: (error as Error).message
+          })
+          .eq('id', ad.id);
+
         results.failed++;
-        results.errors.push(`Ad ${ad.libraryId}: ${(error as Error).message}`);
+        results.errors.push(`Ad ${ad.library_id}: ${(error as Error).message}`);
       }
 
       // Small delay to prevent overwhelming Cloudinary
@@ -306,22 +291,23 @@ export async function POST(request: NextRequest) {
 
     for (const adId of adIds) {
       try {
-        const ad = await prisma.ad.findUnique({
-          where: { id: adId },
-          include: { brand: { select: { name: true } } }
-        });
+        const { data: ad, error: adError } = await supabase
+          .from('ads')
+          .select('*, brand:brands(name)')
+          .eq('id', adId)
+          .single();
 
-        if (!ad) continue;
+        if (!ad || adError) continue;
 
         // Reset status for reprocessing
-        await prisma.ad.update({
-          where: { id: ad.id },
-          data: { 
-            mediaStatus: 'processing',
-            mediaRetryCount: 0,
-            mediaError: null
-          }
-        });
+        await supabase
+          .from('ads')
+          .update({
+            media_status: 'processing',
+            media_retry_count: 0,
+            media_error: null
+          })
+          .eq('id', ad.id);
 
         const { imageUrls, videoUrls } = extractMediaUrls(ad);
         let localImageUrl = null;
@@ -334,20 +320,12 @@ export async function POST(request: NextRequest) {
               const isAccessible = await isUrlAccessible(imageUrl);
               if (!isAccessible) continue;
 
-              const result = await cloudinary.uploader.upload(imageUrl, {
+              const uploadedUrl = await uploadImageFromUrl(imageUrl, {
                 folder: 'ads/images',
-                public_id: `ad_${ad.id}_${Date.now()}`,
-                resource_type: 'image',
-                timeout: 30000,
-                transformation: [{
-                  quality: 'auto:good',
-                  fetch_format: 'auto'
-                }],
-                responsive_breakpoints: false,
-                eager: false
-              } as any);
-              
-              localImageUrl = result.secure_url;
+                filename: `ad_${ad.id}_${Date.now()}.jpg`
+              });
+
+              localImageUrl = uploadedUrl;
               break;
             } catch (error) {
               continue;
@@ -361,19 +339,12 @@ export async function POST(request: NextRequest) {
               const isAccessible = await isUrlAccessible(videoUrl);
               if (!isAccessible) continue;
 
-              const result = await cloudinary.uploader.upload(videoUrl, {
+              const uploadedUrl = await uploadVideoFromUrl(videoUrl, {
                 folder: 'ads/videos',
-                public_id: `ad_${ad.id}_${Date.now()}`,
-                resource_type: 'video',
-                timeout: 60000,
-                transformation: [{
-                  quality: 'auto:good',
-                  format: 'mp4'
-                }],
-                eager: false
+                filename: `ad_${ad.id}_${Date.now()}.mp4`
               });
-              
-              localVideoUrl = result.secure_url;
+
+              localVideoUrl = uploadedUrl;
               break;
             } catch (error) {
               continue;
@@ -383,24 +354,24 @@ export async function POST(request: NextRequest) {
 
         // Update results
         if (localImageUrl || localVideoUrl) {
-          await prisma.ad.update({
-            where: { id: ad.id },
-            data: {
-              mediaStatus: 'success',
-              localImageUrl,
-              localVideoUrl,
-              mediaDownloadedAt: new Date()
-            }
-          });
+          await supabase
+            .from('ads')
+            .update({
+              media_status: 'success',
+              local_image_url: localImageUrl,
+              local_video_url: localVideoUrl,
+              media_downloaded_at: new Date().toISOString()
+            })
+            .eq('id', ad.id);
           results.success++;
         } else {
-          await prisma.ad.update({
-            where: { id: ad.id },
-            data: {
-              mediaStatus: 'failed',
-              mediaError: 'No accessible media found'
-            }
-          });
+          await supabase
+            .from('ads')
+            .update({
+              media_status: 'failed',
+              media_error: 'No accessible media found'
+            })
+            .eq('id', ad.id);
           results.failed++;
         }
 

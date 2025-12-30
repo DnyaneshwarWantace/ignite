@@ -1,0 +1,31 @@
+import type { Metadata } from "next/types";
+
+export function createMetadata(override: Metadata): Metadata {
+	return {
+		...override,
+		openGraph: {
+			title: override.title ?? undefined,
+			description: override.description ?? undefined,
+			url: "https://scalez.dev",
+			images: "/editor/banner.png",
+			siteName: "Scalez",
+			...override.openGraph,
+		},
+		twitter: {
+			card: "summary_large_image",
+			creator: "@Ignite",
+			title: override.title ?? undefined,
+			description: override.description ?? undefined,
+			images: "/editor/banner.png",
+			...override.twitter,
+		},
+		icons: {
+			icon: "/editor/SCALEZ.svg",
+		},
+	};
+}
+//ignite
+export const baseUrl =
+	process.env.NODE_ENV === "development"
+		? new URL("http://localhost:3000")
+		: new URL("https://editor.scalez.in");

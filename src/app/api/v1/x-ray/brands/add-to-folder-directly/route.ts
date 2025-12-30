@@ -2,10 +2,17 @@ import { convertURLSearchParamsToObject } from "@apiUtils/helpers";
 import messages from "@apiUtils/messages";
 import { createError, createResponse } from "@apiUtils/responseutils";
 import { authMiddleware } from "@middleware";
-import { User } from "@prisma/client";
-import prisma from "@prisma/index";
+import { supabase } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 import validation from "./validation";
+
+// Type definition for User (matching Supabase schema)
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -25,84 +32,93 @@ export const POST = authMiddleware(
     // Handle default folder when folder id is 0
     if (folderId === "0") {
       // First, try to find an existing "Default" folder for this user
-      targetFolder = await prisma.folder.findFirst({
-        where: {
-          name: "Default",
-          userId: user.id,
-        },
-      });
+      const { data: existingFolder, error: findError } = await supabase
+        .from('folders')
+        .select('*')
+        .eq('name', 'Default')
+        .eq('user_id', user.id)
+        .limit(1)
+        .single();
 
-      // If no default folder exists, create one
-      if (!targetFolder) {
-        targetFolder = await prisma.folder.create({
-          data: {
-            name: "Default",
-            userId: user.id,
-          },
-        });
-        console.log("Created new Default folder for user:", user.id);
-      } else {
+      if (existingFolder && !findError) {
+        targetFolder = existingFolder;
         console.log("Using existing Default folder:", targetFolder.id);
+      } else {
+        // If no default folder exists, create one
+        const { data: newFolder, error: createFolderError } = await supabase
+          .from('folders')
+          .insert({
+            name: "Default",
+            user_id: user.id,
+          })
+          .select()
+          .single();
+
+        if (createFolderError) {
+          return createError({
+            message: "Failed to create default folder",
+            payload: createFolderError.message,
+          });
+        }
+        targetFolder = newFolder;
+        console.log("Created new Default folder for user:", user.id);
       }
     }
 
     // Fetch folder
     if (folderId !== "0") {
-      targetFolder = await prisma.folder.findFirst({
-        where: {
-          id: folderId,
-          userId: user.id,
-        },
-      });
+      const { data: folder, error: folderError } = await supabase
+        .from('folders')
+        .select('*')
+        .eq('id', folderId)
+        .eq('user_id', user.id)
+        .single();
 
-      if (!targetFolder) {
+      if (folderError || !folder) {
         return createError({
           message: messages.FOLDER_NOT_FOUND,
         });
       }
+      targetFolder = folder;
     }
 
     // Fetch brands
-    const targetBrands = await prisma.brand.findMany({
-      where: {
-        id: {
-          in: brandIds,
-        },
-      },
-    });
+    const { data: targetBrands, error: brandsError } = await supabase
+      .from('brands')
+      .select('*')
+      .in('id', brandIds);
 
-    // Add brand to folder
-    targetBrands.forEach(async (brand) => {
-      // Check if brand already exists in folder
-      const existingFolderBrand = await prisma.folder.findFirst({
-        where: {
-          id: targetFolder?.id,
-          brands: {
-            some: {
-              id: brand.id,
-            },
-          },
-        },
-        include: {
-          brands: true,
-        },
+    if (brandsError || !targetBrands) {
+      return createError({
+        message: "Failed to fetch brands",
+        payload: brandsError?.message,
       });
+    }
 
-      if (!existingFolderBrand) {
-        await prisma.folder.update({
-          where: {
-            id: targetFolder?.id,
-          },
-          data: {
-            brands: {
-              connect: {
-                id: brand.id,
-              },
-            },
-          },
-        });
+    // Add brands to folder (many-to-many relation)
+    for (const brand of targetBrands) {
+      // Check if brand already exists in folder
+      const { data: existingConnection, error: checkError } = await supabase
+        .from('_BrandToFolder')
+        .select('*')
+        .eq('A', brand.id)
+        .eq('B', targetFolder?.id)
+        .single();
+
+      if (!existingConnection || checkError) {
+        // Connection doesn't exist, create it
+        const { error: insertError } = await supabase
+          .from('_BrandToFolder')
+          .insert({
+            A: brand.id,
+            B: targetFolder?.id
+          });
+
+        if (insertError && !insertError.message.includes('duplicate')) {
+          console.error('Error connecting brand to folder:', insertError);
+        }
       }
-    });
+    }
 
     return createResponse({
       message: messages.SUCCESS,

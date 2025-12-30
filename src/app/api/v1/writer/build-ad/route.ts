@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { User } from "@prisma/client";
+// Type definition for User (matching Supabase schema)
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+}
 import { authMiddleware } from "@middleware";
 import { createResponse, createError } from "@apiUtils/responseutils";
 import messages from "@apiUtils/messages";
 import OpenAI from "openai";
-import prisma from "@prisma/index";
+import { supabase } from "@/lib/supabase";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -180,19 +186,37 @@ Make sure the ad is:
       // Save all ads to database
       const savedAds = [];
       for (const ad of generatedAd.ads) {
-        const savedAd = await prisma.createdAd.create({
-          data: {
+        const { data: savedAd, error: insertError } = await supabase
+          .from('created_ads')
+          .insert({
             headline: ad.headline,
             description: ad.description,
             text: ad.text,
             type: ad.type || 'image',
-            brandName: ad.brandName || briefData.productName,
-            imageUrl: null,
-            userId: user.id,
-            isGenerated: true
-          }
-        });
-        savedAds.push(savedAd);
+            brand_name: ad.brandName || briefData.productName,
+            image_url: null,
+            user_id: user.id,
+            is_generated: true
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('Error saving ad:', insertError);
+          continue; // Skip this ad if save fails
+        }
+
+        if (savedAd) {
+          savedAds.push({
+            ...savedAd,
+            brandName: savedAd.brand_name,
+            imageUrl: savedAd.image_url,
+            userId: savedAd.user_id,
+            isGenerated: savedAd.is_generated,
+            createdAt: new Date(savedAd.created_at),
+            updatedAt: new Date(savedAd.updated_at)
+          });
+        }
       }
 
       return createResponse({

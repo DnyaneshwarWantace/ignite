@@ -2,10 +2,17 @@ import messages from "@apiUtils/messages";
 import { createError, createResponse } from "@apiUtils/responseutils";
 import statuscodes from "@apiUtils/statuscodes";
 import { authMiddleware } from "@middleware";
-import { User } from "@prisma/client";
-import prisma from "@prisma/index";
+import { supabase } from "@/lib/supabase";
 import { NextRequest } from "next/server";
 import validation from "./validation";
+
+// Type definition for User (matching Supabase schema)
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -15,14 +22,14 @@ export const GET = authMiddleware(
     { params }: { params: { folderId: string } },
     user: User
   ) => {
-    const folder = await prisma.folder.findFirst({
-      where: {
-        id: params.folderId,
-        userId: user.id,
-      },
-    });
+    const { data: folder, error: folderError } = await supabase
+      .from('folders')
+      .select('*')
+      .eq('id', params.folderId)
+      .eq('user_id', user.id)
+      .single();
 
-    if (!folder) {
+    if (folderError || !folder) {
       return createError({
         message: messages.NOT_FOUND,
       });
@@ -41,12 +48,18 @@ export const DELETE = authMiddleware(
     { params }: { params: { folderId: string } },
     user: User
   ) => {
-    await prisma.folder.delete({
-      where: {
-        id: params.folderId,
-        userId: user.id,
-      },
-    });
+    const { error: deleteError } = await supabase
+      .from('folders')
+      .delete()
+      .eq('id', params.folderId)
+      .eq('user_id', user.id);
+
+    if (deleteError) {
+      return createError({
+        message: "Failed to delete folder",
+        payload: deleteError.message,
+      });
+    }
 
     return createResponse({
       message: messages.SUCCESS,
@@ -71,13 +84,13 @@ export const PATCH = authMiddleware(
 
     let { name } = value;
 
-    const folder = await prisma.folder.findFirst({
-      where: {
-        id: params.folderId,
-      },
-    });
+    const { data: folder, error: folderError } = await supabase
+      .from('folders')
+      .select('*')
+      .eq('id', params.folderId)
+      .single();
 
-    if (!folder) {
+    if (folderError || !folder) {
       return createError({
         message: messages.NOT_FOUND,
         status: statuscodes.NOT_FOUND,
@@ -86,14 +99,20 @@ export const PATCH = authMiddleware(
 
     let updatedFolder = folder;
     if (name && name !== "") {
-      updatedFolder = await prisma.folder.update({
-        where: {
-          id: params.folderId,
-        },
-        data: {
-          name,
-        },
-      });
+      const { data, error: updateError } = await supabase
+        .from('folders')
+        .update({ name })
+        .eq('id', params.folderId)
+        .select()
+        .single();
+
+      if (updateError) {
+        return createError({
+          message: "Failed to update folder",
+          payload: updateError.message,
+        });
+      }
+      updatedFolder = data;
     }
 
     return createResponse({

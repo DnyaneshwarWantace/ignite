@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { User } from "@prisma/client";
 import { authMiddleware } from "@middleware";
+
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+}
 import { createResponse, createError } from "@apiUtils/responseutils";
 import messages from "@apiUtils/messages";
 import OpenAI from "openai";
@@ -24,8 +30,9 @@ export const POST = authMiddleware(
         });
       }
 
-      // Validate that it's a Cloudinary URL or other trusted source
-      const isTrustedUrl = imageUrl.includes('res.cloudinary.com') || 
+      // Validate that it's a Supabase or other trusted source
+      const isTrustedUrl = imageUrl.includes('supabase.co/storage') ||
+                          imageUrl.includes('res.cloudinary.com') ||
                           imageUrl.includes('fbcdn.net') ||
                           imageUrl.startsWith('https://');
 

@@ -1,0 +1,21 @@
+[dotenv@17.2.3] injecting env (19) from .env -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+🚀 Migrating Image Editor Data
+
+
+📦 templates → editor_templates
+  Found: 149 records
+  Progress: 50/149  Progress: 100/149  Progress: 149/149
+  ✅ Migrated: 149/149
+
+📦 materials → editor_materials
+  Found: 1000 records
+  Progress: 50/1000  Progress: 100/1000  Progress: 150/1000  Progress: 200/1000  Progress: 250/1000  Progress: 300/1000  Progress: 350/1000  Progress: 400/1000  Progress: 450/1000  Progress: 500/1000  Progress: 550/1000  Progress: 600/1000  Progress: 650/1000  Progress: 700/1000  Progress: 750/1000  Progress: 800/1000  Progress: 850/1000  Progress: 900/1000  Progress: 950/1000  Progress: 1000/1000
+  ✅ Migrated: 1000/1000
+
+📦 fonts → editor_fonts
+  Found: 52 records
+  Progress: 50/52  Progress: 52/52
+  ✅ Migrated: 52/52
+
+✅ Done!
+

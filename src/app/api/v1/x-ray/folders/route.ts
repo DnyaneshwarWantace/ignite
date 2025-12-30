@@ -2,10 +2,17 @@ import { convertURLSearchParamsToObject } from "@apiUtils/helpers";
 import messages from "@apiUtils/messages";
 import { createError, createResponse } from "@apiUtils/responseutils";
 import { authMiddleware } from "@middleware";
-import { User } from "@prisma/client";
-import prisma from "@prisma/index";
+import { supabase } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 import validation from "./validation";
+
+// Type definition for User (matching Supabase schema)
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -24,44 +31,52 @@ export const GET = authMiddleware(
     }
     const { search } = value;
 
-    // Fetch all folders
-    let query: any = {
-      userId: user.id,
-    };
+    // Fetch all folders with brands and ads
+    let supabaseQuery = supabase
+      .from('folders')
+      .select(`
+        *,
+        brands (
+          *,
+          ads (*)
+        )
+      `)
+      .eq('user_id', user.id);
 
     if (search && search !== "") {
-      query = {
-        ...query,
-        name: {
-          contains: search,
-          mode: "insensitive",
-        },
-      };
+      supabaseQuery = supabaseQuery.ilike('name', `%${search}%`);
     }
 
-    let allFolders: any = await prisma.folder.findMany({
-      where: query,
-      include: {
-        brands: {
-          include: {
-            ads: true, // Include ads to calculate real statistics
-          },
-        },
-      },
-    });
+    let { data: allFolders, error: fetchError } = await supabaseQuery;
+
+    if (fetchError) {
+      console.error("Error fetching folders:", fetchError);
+      return createError({
+        message: "Failed to fetch folders",
+        payload: fetchError.message,
+      });
+    }
 
     // In development mode, if no folders found for mock user, get all folders
-    if (process.env.NODE_ENV === "development" && user.id === "dev-user-id" && allFolders.length === 0) {
+    if (process.env.NODE_ENV === "development" && user.id === "dev-user" && (!allFolders || allFolders.length === 0)) {
       console.log("Development mode: No folders for mock user, fetching all folders");
-      allFolders = await prisma.folder.findMany({
-        include: {
-          brands: {
-            include: {
-              ads: true, // Include ads to calculate real statistics
-            },
-          },
-        },
-      });
+      const { data, error: devError } = await supabase
+        .from('folders')
+        .select(`
+          *,
+          brands (
+            *,
+            ads (*)
+          )
+        `);
+
+      if (!devError) {
+        allFolders = data;
+      }
+    }
+
+    if (!allFolders) {
+      allFolders = [];
     }
 
     // Calculate real statistics for each brand
@@ -183,12 +198,22 @@ export const POST = authMiddleware(
     let { name } = value;
 
     // Create new folder
-    const newFolder = await prisma.folder.create({
-      data: {
+    const { data: newFolder, error: insertError } = await supabase
+      .from('folders')
+      .insert({
         name,
-        userId: user.id,
-      },
-    });
+        user_id: user.id,
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error("Error creating folder:", insertError);
+      return createError({
+        message: "Failed to create folder",
+        payload: insertError.message,
+      });
+    }
 
     return createResponse({
       message: messages.SUCCESS,

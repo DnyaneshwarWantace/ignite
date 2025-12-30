@@ -1,9 +1,16 @@
 import messages from "@apiUtils/messages";
 import { createError, createResponse } from "@apiUtils/responseutils";
 import { authMiddleware } from "@middleware";
-import { User } from "@prisma/client";
-import prisma from "@prisma/index";
+import { supabase } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
+
+// Type definition for User (matching Supabase schema)
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -415,22 +422,34 @@ export const GET = authMiddleware(
     const brandId = context.params.id;
 
     // Fetch brand with all ads
-    const brand = await prisma.brand.findUnique({
-      where: {
-        id: brandId,
-      },
-      include: {
-        ads: true,
-      },
-    });
+    const { data: brand, error: fetchError } = await supabase
+      .from('brands')
+      .select(`
+        *,
+        ads (*)
+      `)
+      .eq('id', brandId)
+      .single();
 
-    if (!brand) {
+    if (fetchError || !brand) {
+      console.error("Error fetching brand:", fetchError);
       return createError({
         message: "Brand not found",
       });
     }
 
-    const ads = brand.ads || [];
+    // Transform snake_case to camelCase for compatibility
+    const ads = (brand.ads || []).map((ad: any) => ({
+      ...ad,
+      libraryId: ad.library_id,
+      imageUrl: ad.image_url,
+      videoUrl: ad.video_url,
+      localImageUrl: ad.local_image_url,
+      localVideoUrl: ad.local_video_url,
+      createdAt: new Date(ad.created_at),
+      updatedAt: new Date(ad.updated_at),
+      brandId: ad.brand_id
+    }));
     
     // Calculate basic statistics
     const videoAds = ads.filter((ad: any) => ad.type === 'video').length;
@@ -513,14 +532,14 @@ export const GET = authMiddleware(
 
     return createResponse({
       message: messages.SUCCESS,
-      payload: { 
+      payload: {
         brand: {
           id: brand.id,
           name: brand.name,
           logo: brand.logo,
-          pageId: brand.pageId
+          pageId: brand.page_id
         },
-        analytics 
+        analytics
       },
     });
   }

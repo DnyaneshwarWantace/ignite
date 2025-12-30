@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { supabase } from "@/lib/supabase";
 
 // POST - Save transcript to database
 export async function POST(request: NextRequest) {
@@ -17,31 +15,67 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if transcript already exists for this ad
-    const existingTranscript = await prisma.adTranscript.findUnique({
-      where: { adId }
-    });
+    const { data: existingTranscript, error: checkError } = await supabase
+      .from('ad_transcripts')
+      .select('*')
+      .eq('ad_id', adId)
+      .single();
 
     let savedTranscript;
 
-    if (existingTranscript) {
+    if (existingTranscript && !checkError) {
       // Update existing transcript
-      savedTranscript = await prisma.adTranscript.update({
-        where: { adId },
-        data: {
+      const { data, error: updateError } = await supabase
+        .from('ad_transcripts')
+        .update({
           transcript: transcript,
-          updatedAt: new Date(createdAt || new Date())
-        }
-      });
+          updated_at: new Date(createdAt || new Date()).toISOString()
+        })
+        .eq('ad_id', adId)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error("Error updating transcript:", updateError);
+        return NextResponse.json(
+          { error: "Failed to update transcript" },
+          { status: 500 }
+        );
+      }
+
+      savedTranscript = {
+        ...data,
+        adId: data.ad_id,
+        createdAt: new Date(data.created_at),
+        updatedAt: new Date(data.updated_at)
+      };
     } else {
       // Create new transcript
-      savedTranscript = await prisma.adTranscript.create({
-        data: {
-          adId,
+      const { data, error: insertError } = await supabase
+        .from('ad_transcripts')
+        .insert({
+          ad_id: adId,
           transcript: transcript,
-          createdAt: new Date(createdAt || new Date()),
-          updatedAt: new Date()
-        }
-      });
+          created_at: new Date(createdAt || new Date()).toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error("Error creating transcript:", insertError);
+        return NextResponse.json(
+          { error: "Failed to create transcript" },
+          { status: 500 }
+        );
+      }
+
+      savedTranscript = {
+        ...data,
+        adId: data.ad_id,
+        createdAt: new Date(data.created_at),
+        updatedAt: new Date(data.updated_at)
+      };
     }
 
     return NextResponse.json({

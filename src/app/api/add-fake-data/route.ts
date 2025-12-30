@@ -1,9 +1,15 @@
 import messages from "@apiUtils/messages";
 import { createResponse } from "@apiUtils/responseutils";
 import { authMiddleware } from "@middleware";
-import { User } from "@prisma/client";
+// Type definition for User (matching Supabase schema)
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+}
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@prisma/index";
+import { supabase } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 

@@ -2,10 +2,17 @@ import { convertURLSearchParamsToObject } from "@apiUtils/helpers";
 import messages from "@apiUtils/messages";
 import { createError, createResponse } from "@apiUtils/responseutils";
 import { authMiddleware } from "@middleware";
-import { User } from "@prisma/client";
-import prisma from "@prisma/index";
+import { supabase } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 import validation from "./validation";
+
+// Type definition for User (matching Supabase schema)
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -25,25 +32,27 @@ export const GET = authMiddleware(
     const { search } = value;
 
     // Fetch brands
-    let query: any = {};
+    let supabaseQuery = supabase
+      .from('brands')
+      .select('*');
 
     if (search && search !== "") {
-      query = {
-        ...query,
-        name: {
-          contains: search,
-          mode: "insensitive",
-        },
-      };
+      supabaseQuery = supabaseQuery.ilike('name', `%${search}%`);
     }
 
-    const allBrands = await prisma.brand.findMany({
-      where: query,
-    });
+    const { data: allBrands, error: fetchError } = await supabaseQuery;
+
+    if (fetchError) {
+      console.error("Error fetching brands:", fetchError);
+      return createError({
+        message: "Failed to fetch brands",
+        payload: fetchError.message,
+      });
+    }
 
     return createResponse({
       message: messages.SUCCESS,
-      payload: { brands: allBrands },
+      payload: { brands: allBrands || [] },
     });
   }
 );

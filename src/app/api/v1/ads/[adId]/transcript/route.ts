@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { supabase } from '@/lib/supabase';
 
 export async function GET(
   request: NextRequest,
@@ -18,11 +16,13 @@ export async function GET(
     }
 
     // Find transcript for this ad
-    const transcript = await prisma.adTranscript.findUnique({
-      where: { adId: adId }
-    });
+    const { data: transcript, error } = await supabase
+      .from('ad_transcripts')
+      .select('*')
+      .eq('ad_id', adId)
+      .single();
 
-    if (!transcript) {
+    if (error || !transcript) {
       return NextResponse.json(
         { transcript: null, hasTranscript: false },
         { status: 200 }
@@ -35,12 +35,12 @@ export async function GET(
       language: transcript.language,
       metadata: {
         confidence: transcript.confidence,
-        wordCount: transcript.wordCount,
+        wordCount: transcript.word_count,
         duration: transcript.duration,
         service: transcript.service
       },
-      createdAt: transcript.createdAt,
-      updatedAt: transcript.updatedAt
+      createdAt: new Date(transcript.created_at),
+      updatedAt: new Date(transcript.updated_at)
     });
 
   } catch (error) {
@@ -71,9 +71,18 @@ export async function DELETE(
     }
 
     // Delete transcript for this ad
-    await prisma.adTranscript.delete({
-      where: { adId: adId }
-    });
+    const { error: deleteError } = await supabase
+      .from('ad_transcripts')
+      .delete()
+      .eq('ad_id', adId);
+
+    if (deleteError) {
+      console.error('Error deleting transcript:', deleteError);
+      return NextResponse.json(
+        { error: 'Failed to delete transcript' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

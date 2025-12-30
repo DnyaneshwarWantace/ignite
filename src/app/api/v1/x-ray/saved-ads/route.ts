@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { User } from "@prisma/client";
 import { authMiddleware } from "@middleware";
 import { createResponse, createError } from "@apiUtils/responseutils";
 import messages from "@apiUtils/messages";
-import prisma from "@prisma/index";
+import { supabase } from "@/lib/supabase";
+
+// Type definition for User (matching Supabase schema)
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -30,48 +37,57 @@ export const GET = authMiddleware(
       }
       // If folderId is 'all', don't apply any folder filter - show all saved ads
 
-      // Fetch saved ads with actual ad data
-      const savedAds = await prisma.savedAd.findMany({
-        where: whereClause,
-        include: {
-          folder: true
-        },
-        orderBy: {
-          createdAt: 'desc'
-        },
-        skip: offset,
-        take: limit
-      });
+      // Build Supabase query with proper filters
+      let query = supabase
+        .from('saved_ads')
+        .select('*, folder:saved_ad_folders(*)', { count: 'exact' })
+        .eq('user_id', user.id);
 
-      // Fetch actual ad data for each saved ad to get Cloudinary URLs
+      // If folderId is provided, filter by folder
+      if (folderId && folderId !== '0' && folderId !== 'all') {
+        query = query.eq('folder_id', folderId);
+      } else if (folderId === '0') {
+        // Default folder - saved ads not in any specific folder
+        query = query.is('folder_id', null);
+      }
+      // If folderId is 'all', don't apply any folder filter
+
+      // Execute query with pagination
+      const { data: savedAds, error: savedAdsError, count: totalCount } = await query
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (savedAdsError) {
+        console.error('Error fetching saved ads:', savedAdsError);
+        return createError({
+          message: "Failed to fetch saved ads",
+          payload: { error: savedAdsError.message }
+        });
+      }
+
+      // Fetch actual ad data for each saved ad to get Supabase URLs
       const savedAdsWithFullData = await Promise.all(
-        savedAds.map(async (savedAd) => {
-          const actualAd = await prisma.ad.findUnique({
-            where: { id: savedAd.adId },
-            select: {
-              id: true,
-              localImageUrl: true,
-              localVideoUrl: true,
-              content: true,
-              imageUrl: true,
-              videoUrl: true,
-              type: true,
-              headline: true,
-              description: true,
-              text: true
-            }
-          });
+        (savedAds || []).map(async (savedAd: any) => {
+          const { data: actualAd, error: adError } = await supabase
+            .from('ads')
+            .select('id, local_image_url, local_video_url, content, image_url, video_url, type, headline, description, text')
+            .eq('id', savedAd.ad_id)
+            .single();
+
+          if (adError) {
+            console.error(`Error fetching ad ${savedAd.ad_id}:`, adError);
+          }
 
           // Merge saved ad data with actual ad data
-          const adData = JSON.parse(savedAd.adData || '{}');
+          const adData = JSON.parse(savedAd.ad_data || '{}');
           const mergedAdData = {
             ...adData,
-            id: savedAd.adId,
-            localImageUrl: actualAd?.localImageUrl,
-            localVideoUrl: actualAd?.localVideoUrl,
+            id: savedAd.ad_id,
+            localImageUrl: actualAd?.local_image_url,
+            localVideoUrl: actualAd?.local_video_url,
             content: actualAd?.content || adData.content,
-            imageUrl: actualAd?.imageUrl || adData.imageUrl,
-            videoUrl: actualAd?.videoUrl || adData.videoUrl,
+            imageUrl: actualAd?.image_url || adData.imageUrl,
+            videoUrl: actualAd?.video_url || adData.videoUrl,
             type: actualAd?.type || adData.type,
             headline: actualAd?.headline || adData.headline,
             description: actualAd?.description || adData.description,
@@ -79,16 +95,16 @@ export const GET = authMiddleware(
           };
 
           return {
-            ...savedAd,
+            id: savedAd.id,
+            adId: savedAd.ad_id,
+            userId: savedAd.user_id,
+            folderId: savedAd.folder_id,
+            createdAt: new Date(savedAd.created_at),
+            folder: savedAd.folder,
             adData: JSON.stringify(mergedAdData)
           };
         })
       );
-
-      // Get total count
-      const totalCount = await prisma.savedAd.count({
-        where: whereClause
-      });
 
       return createResponse({
         message: messages.SUCCESS,
@@ -126,14 +142,15 @@ export const POST = authMiddleware(
       }
 
       // Check if ad is already saved
-      const existingSavedAd = await prisma.savedAd.findFirst({
-        where: {
-          adId: adId,
-          userId: user.id
-        }
-      });
+      const { data: existingSavedAd, error: checkError } = await supabase
+        .from('saved_ads')
+        .select('*')
+        .eq('ad_id', adId)
+        .eq('user_id', user.id)
+        .limit(1)
+        .single();
 
-      if (existingSavedAd) {
+      if (existingSavedAd && !checkError) {
         return createError({
           message: "Ad is already saved"
         });
@@ -142,32 +159,41 @@ export const POST = authMiddleware(
       // If folderId is provided and not '0', verify the folder exists
       let folderToUse = null;
       if (folderId && folderId !== '0') {
-        folderToUse = await prisma.savedAdFolder.findFirst({
-          where: {
-            id: folderId,
-            userId: user.id
-          }
-        });
+        const { data: folder, error: folderError } = await supabase
+          .from('saved_ad_folders')
+          .select('*')
+          .eq('id', folderId)
+          .eq('user_id', user.id)
+          .limit(1)
+          .single();
 
-        if (!folderToUse) {
+        if (folderError || !folder) {
           return createError({
             message: "Folder not found"
           });
         }
+        folderToUse = folder;
       }
 
       // Save the ad
-      const savedAd = await prisma.savedAd.create({
-        data: {
-          adId: adId,
-          adData: adData || JSON.stringify({}),
-          folderId: folderToUse?.id || null,
-          userId: user.id
-        },
-        include: {
-          folder: true
-        }
-      });
+      const { data: savedAd, error: saveError } = await supabase
+        .from('saved_ads')
+        .insert({
+          ad_id: adId,
+          ad_data: adData || JSON.stringify({}),
+          folder_id: folderToUse?.id || null,
+          user_id: user.id
+        })
+        .select('*, folder:saved_ad_folders(*)')
+        .single();
+
+      if (saveError) {
+        console.error('Error saving ad:', saveError);
+        return createError({
+          message: "Failed to save ad",
+          payload: { error: saveError.message }
+        });
+      }
 
       return createResponse({
         message: "Ad saved successfully",

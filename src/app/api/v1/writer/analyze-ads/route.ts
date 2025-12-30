@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { User } from "@prisma/client";
 import { authMiddleware } from "@middleware";
 import { createResponse, createError } from "@apiUtils/responseutils";
 import messages from "@apiUtils/messages";
 import OpenAI from "openai";
-import prisma from "@prisma/index";
+import { supabase } from "@/lib/supabase";
+
+// Type definition for User (matching Supabase schema)
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -31,32 +38,26 @@ export const POST = authMiddleware(
         });
       }
 
-      // Fetch actual ad data from database to get Cloudinary URLs
+      // Fetch actual ad data from database to get stored image URLs
       const adsWithFullData = await Promise.all(
         ads.map(async (savedAd: any) => {
           const adData = JSON.parse(savedAd.adData || '{}');
-          
-          // Fetch the actual ad from database to get Cloudinary URLs
-          const actualAd = await prisma.ad.findUnique({
-            where: { id: savedAd.adId },
-            select: {
-              id: true,
-              localImageUrl: true,
-              localVideoUrl: true,
-              content: true,
-              imageUrl: true,
-              videoUrl: true
-            }
-          });
-          
-          // Extract image URLs with priority for Cloudinary URLs
+
+          // Fetch the actual ad from database to get stored URLs (from Supabase Storage)
+          const { data: actualAd, error: adError } = await supabase
+            .from('ads')
+            .select('id, local_image_url, local_video_url, content, image_url, video_url')
+            .eq('id', savedAd.adId)
+            .single();
+
+          // Extract image URLs with priority for local stored URLs
           let imageUrls: string[] = [];
-          
-          // First priority: Use Cloudinary URLs from database
-          if (actualAd?.localImageUrl) {
-            imageUrls.push(actualAd.localImageUrl);
+
+          // First priority: Use stored URLs from Supabase Storage
+          if (actualAd?.local_image_url) {
+            imageUrls.push(actualAd.local_image_url);
           }
-          
+
           // Second priority: Extract from actual ad content
           if (actualAd?.content) {
             try {
@@ -107,9 +108,12 @@ export const POST = authMiddleware(
             console.log('Error extracting image URLs from saved ad data:', error);
           }
           
-          // Get the best image URL (prefer Cloudinary URLs)
+          // Get the best image URL (prefer Supabase Storage URLs, then Cloudinary for backward compatibility)
+          const supabaseUrls = imageUrls.filter(url => url.includes('supabase.co/storage'));
           const cloudinaryUrls = imageUrls.filter(url => url.includes('res.cloudinary.com'));
-          const bestImageUrl = cloudinaryUrls.length > 0 ? cloudinaryUrls[0] : imageUrls[0];
+          const bestImageUrl = supabaseUrls.length > 0 ? supabaseUrls[0] :
+                               cloudinaryUrls.length > 0 ? cloudinaryUrls[0] :
+                               imageUrls[0];
           
           return {
             brandName: adData.companyName,

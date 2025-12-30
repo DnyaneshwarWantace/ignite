@@ -1,9 +1,16 @@
 import messages from "@apiUtils/messages";
 import { createError, createResponse } from "@apiUtils/responseutils";
 import { authMiddleware } from "@middleware";
-import { User } from "@prisma/client";
-import prisma from "@prisma/index";
+import { supabase } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
+
+// Type definition for User (matching Supabase schema)
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  image?: string;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -12,54 +19,78 @@ export const GET = authMiddleware(
     const brandId = context.params.id;
 
     // Validate that brand exists
-    const brand = await prisma.brand.findUnique({
-      where: { id: brandId },
-    });
+    const { data: brand, error: brandError } = await supabase
+      .from('brands')
+      .select('*')
+      .eq('id', brandId)
+      .single();
 
-    if (!brand) {
+    if (brandError || !brand) {
       return createError({
         message: "Brand not found",
       });
     }
 
     // Fetch ALL ads for this brand without any filtering or pagination
-    const ads = await prisma.ad.findMany({
-      where: {
-        brandId,
-      },
-      select: {
-        id: true,
-        libraryId: true,
-        type: true,
-        content: true,
-        imageUrl: true,
-        videoUrl: true,
-        text: true,
-        headline: true,
-        description: true,
-        createdAt: true,
-        updatedAt: true,
-        brandId: true,
-        // Cloudinary media fields
-        localImageUrl: true,
-        localVideoUrl: true,
-        mediaStatus: true,
-        mediaDownloadedAt: true,
-        mediaRetryCount: true,
-        brand: {
-          select: {
-            id: true,
-            name: true,
-            logo: true,
-            pageId: true,
-            totalAds: true
-          }
-        }
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+    const { data: adsData, error: adsError } = await supabase
+      .from('ads')
+      .select(`
+        id,
+        library_id,
+        type,
+        content,
+        image_url,
+        video_url,
+        text,
+        headline,
+        description,
+        created_at,
+        updated_at,
+        brand_id,
+        local_image_url,
+        local_video_url,
+        media_status,
+        media_downloaded_at,
+        media_retry_count,
+        brand:brands (
+          id,
+          name,
+          logo,
+          page_id,
+          total_ads
+        )
+      `)
+      .eq('brand_id', brandId)
+      .order('created_at', { ascending: false });
+
+    if (adsError) {
+      console.error("Error fetching ads:", adsError);
+      return createError({
+        message: "Failed to fetch ads",
+        payload: adsError.message,
+      });
+    }
+
+    // Transform snake_case to camelCase for compatibility
+    const ads = (adsData || []).map((ad: any) => ({
+      ...ad,
+      libraryId: ad.library_id,
+      imageUrl: ad.image_url,
+      videoUrl: ad.video_url,
+      createdAt: new Date(ad.created_at),
+      updatedAt: new Date(ad.updated_at),
+      brandId: ad.brand_id,
+      localImageUrl: ad.local_image_url,
+      localVideoUrl: ad.local_video_url,
+      mediaStatus: ad.media_status,
+      mediaDownloadedAt: ad.media_downloaded_at ? new Date(ad.media_downloaded_at) : null,
+      mediaRetryCount: ad.media_retry_count,
+      brand: ad.brand ? {
+        ...ad.brand,
+        pageId: ad.brand.page_id,
+        totalAds: ad.brand.total_ads
+      } : null
+    }));
 
     // Count active vs inactive ads based on content
     let activeCount = 0;

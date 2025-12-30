@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { auth } from '../../../auth/[...nextauth]/options';
 import { supabase, TABLES } from '@/editor-lib/video/lib/supabase';
 import { generateVariationFileName } from '@/editor-lib/video/utils/variation-naming';
 
@@ -299,9 +300,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user session for cost tracking and user isolation
-    const { getServerSession } = require('next-auth');
-    const { authOptions } = require('../auth/[...nextauth]/options');
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
@@ -522,9 +521,7 @@ export async function PUT(request: NextRequest) {
   }
 
   // Get user session for authorization
-  const { getServerSession } = require('next-auth');
-  const { authOptions } = require('../auth/[...nextauth]/options');
-  const session = await getServerSession(authOptions);
+  const session = await auth();
   
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
@@ -666,9 +663,7 @@ export async function DELETE(request: NextRequest) {
   }
 
   // Get user session for authorization
-  const { getServerSession } = require('next-auth');
-  const { authOptions } = require('../auth/[...nextauth]/options');
-  const session = await getServerSession(authOptions);
+  const session = await auth();
   
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });

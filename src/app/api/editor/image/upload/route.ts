@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/options';
+import { auth } from '../../../auth/[...nextauth]/options';
 import { supabase, supabaseAdmin, TABLES, BUCKETS } from '@/editor-lib/image/lib/supabase';
 
 // Configure for large file uploads
@@ -12,7 +11,7 @@ export async function POST(request: NextRequest) {
     console.log('🔍 Upload API: Starting request...');
     
     // Get authenticated user session
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     
     if (!session?.user?.id) {
       console.log('❌ Upload API: No session or user ID');

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/options';
+import { auth } from '../../../auth/[...nextauth]/options';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -12,7 +11,7 @@ export async function GET(request: NextRequest) {
   try {
     console.log('Testing user templates table...');
     
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     console.log('Session:', session ? 'Found' : 'Not found');
     
     if (!session?.user?.id) {

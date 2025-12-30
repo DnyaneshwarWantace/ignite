@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/options';
+import { auth } from '../../../auth/[...nextauth]/options';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -11,7 +10,7 @@ const supabase = createClient(
 export async function GET(request: NextRequest) {
   try {
     // Get user from NextAuth session
-    const session = await getServerSession(authOptions);
+    const session = await auth();
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

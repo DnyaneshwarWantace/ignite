@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../../auth/[...nextauth]/options';
+import { auth } from '../../../auth/[...nextauth]/options';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -18,7 +17,7 @@ export async function GET(
     const projectId = resolvedParams.id;
 
     // Get user from NextAuth session
-    const session = await getServerSession(authOptions);
+    const session = await auth();
 
     if (!session?.user?.id) {
       console.log('No session found');
@@ -87,7 +86,7 @@ export async function PUT(
 
     console.log('PUT request received:', { projectId, id, name, template, description, isDefault, customValues });
 
-    const session = await getServerSession(authOptions);
+    const session = await auth();
 
     if (!session?.user?.id) {
       console.log('No session found');
@@ -166,7 +165,7 @@ export async function DELETE(
     const resolvedParams = await params;
     const projectId = resolvedParams.id;
 
-    const session = await getServerSession(authOptions);
+    const session = await auth();
 
     if (!session?.user?.id) {
       console.log('No session found');

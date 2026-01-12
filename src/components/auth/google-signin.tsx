@@ -6,7 +6,7 @@ export default function GoogleBtn() {
   return (
     <Button
       onClick={() => {
-        signIn("google", { redirectTo: "/x-ray" });
+        signIn("google", { callbackUrl: "/x-ray" });
       }}
       variant="outline"
       className="w-full"

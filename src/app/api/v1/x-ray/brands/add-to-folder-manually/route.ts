@@ -41,14 +41,8 @@ function extractBrandNameFromAds(scrapedAds: any[]): string | null {
   return null;
 }
 
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
 // Media processing is now handled by the dedicated /api/v1/media/process endpoint
+// which uses Supabase Storage instead of Cloudinary
 
 export const POST = authMiddleware(
   async (request: NextRequest, response: NextResponse, user: User) => {
@@ -99,7 +93,7 @@ export const POST = authMiddleware(
         console.log("Using existing Default folder:", targetFolder.id);
       } else {
         // If no default folder exists, create one
-        const { data: newFolder, error: createError } = await supabase
+        const { data: newFolder, error: folderCreateError } = await supabase
           .from('folders')
           .insert({
             name: "Default",
@@ -108,10 +102,10 @@ export const POST = authMiddleware(
           .select()
           .single();
 
-        if (createError) {
+        if (folderCreateError) {
           return createError({
             message: "Failed to create default folder",
-            payload: createError.message,
+            payload: folderCreateError.message,
           });
         }
         targetFolder = newFolder;
@@ -230,15 +224,15 @@ export const POST = authMiddleware(
         }
         finalBrand = newBrand;
 
-        // Connect brand to folder
+        // Connect brand to folder using brand_folders table
         const { error: folderBrandError } = await supabase
-          .from('_BrandToFolder')
+          .from('brand_folders')
           .insert({
-            A: newBrand.id,
-            B: targetFolder.id
+            brand_id: newBrand.id,
+            folder_id: targetFolder.id
           });
 
-        if (folderBrandError) {
+        if (folderBrandError && !folderBrandError.message.includes('duplicate')) {
           console.error('Error connecting brand to folder:', folderBrandError);
         }
       } else {
@@ -261,15 +255,24 @@ export const POST = authMiddleware(
         }
 
         // Connect to folder if not already connected
-        const { error: folderBrandError } = await supabase
-          .from('_BrandToFolder')
-          .insert({
-            A: brand.id,
-            B: targetFolder.id
-          });
+        const { data: existingConnection, error: checkError } = await supabase
+          .from('brand_folders')
+          .select('*')
+          .eq('brand_id', brand.id)
+          .eq('folder_id', targetFolder.id)
+          .single();
 
-        if (folderBrandError && !folderBrandError.message.includes('duplicate')) {
-          console.error('Error connecting brand to folder:', folderBrandError);
+        if (!existingConnection || checkError) {
+          const { error: folderBrandError } = await supabase
+            .from('brand_folders')
+            .insert({
+              brand_id: brand.id,
+              folder_id: targetFolder.id
+            });
+
+          if (folderBrandError && !folderBrandError.message.includes('duplicate')) {
+            console.error('Error connecting brand to folder:', folderBrandError);
+          }
         }
       }
 
@@ -298,6 +301,7 @@ export const POST = authMiddleware(
 
           if (!existingAd) {
             // New ad - create with pending media status
+            // Try insert first, handle race condition if duplicate
             const { data: savedAd, error: createAdError } = await supabase
               .from('ads')
               .insert({
@@ -320,39 +324,17 @@ export const POST = authMiddleware(
             if (!createAdError && savedAd) {
               savedAds.push(savedAd);
               console.log(`✅ New ad added: ${scrapedAd.id} - mediaStatus: pending`);
+            } else if (createAdError?.code === '23505') {
+              // Duplicate key - ad was created between our check and insert (race condition)
+              // This is fine, just skip it
+              console.log(`⚠️ Ad ${scrapedAd.id} already exists (race condition), skipping`);
             } else {
               console.error(`Error creating ad ${scrapedAd.id}:`, createAdError);
             }
-          } else if (existingAd.brand_id !== finalBrand.id) {
-            // Ad exists under different brand - link to current brand too
-            const { data: savedAd, error: createAdError } = await supabase
-              .from('ads')
-              .insert({
-                library_id: scrapedAd.id,
-                type: scrapedAd.type,
-                content: scrapedAd.content,
-                image_url: scrapedAd.imageUrl,
-                video_url: scrapedAd.videoUrl,
-                text: scrapedAd.text,
-                headline: scrapedAd.headline,
-                description: scrapedAd.description,
-                brand_id: finalBrand.id,
-                // Copy media status and URLs from existing ad if already processed
-                media_status: existingAd.media_status || 'pending',
-                local_image_url: existingAd.local_image_url,
-                local_video_url: existingAd.local_video_url,
-                media_retry_count: 0,
-                created_at: scrapedAd.created_time ? new Date(scrapedAd.created_time).toISOString() : new Date().toISOString()
-              })
-              .select()
-              .single();
-
-            if (!createAdError && savedAd) {
-              savedAds.push(savedAd);
-              console.log(`✅ Ad linked to brand: ${scrapedAd.id} - mediaStatus: ${savedAd.media_status}`);
-            } else {
-              console.error(`Error creating ad ${scrapedAd.id}:`, createAdError);
-            }
+          } else {
+            // Ad already exists - skip it (library_id is unique, can't have same ad under multiple brands)
+            // If it's under a different brand, we can't duplicate it due to unique constraint
+            console.log(`⏭️ Ad ${scrapedAd.id} already exists under brand ${existingAd.brand_id}, skipping`);
           }
         } catch (e) {
           console.error(`Error processing ad ${scrapedAd.id}:`, e);
@@ -362,6 +344,19 @@ export const POST = authMiddleware(
     // Log that ads were added (background worker will pick them up automatically)
     if (savedAds.length > 0) {
       console.log(`✅ Added ${savedAds.length} new ads with mediaStatus='pending' - background worker will process them automatically`);
+        
+        // Trigger media processing for the new ads
+        try {
+          const mediaProcessorUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/v1/media/process?batch=${Math.min(savedAds.length, 10)}`;
+          // Trigger processing asynchronously (don't wait for it)
+          fetch(mediaProcessorUrl).catch(err => {
+            console.log('Media processor trigger failed (will be picked up by background worker):', err.message);
+          });
+          console.log(`🔄 Triggered media processing for new ads`);
+        } catch (mediaError) {
+          console.error('Error triggering media processing:', mediaError);
+          // Don't fail the request if media processing trigger fails
+        }
         
         // Check if auto-tracking is already running before starting it
         try {

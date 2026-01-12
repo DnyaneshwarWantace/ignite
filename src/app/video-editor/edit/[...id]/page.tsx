@@ -3,7 +3,7 @@
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import Editor from "@/features/editor";
+import Editor from "@/editor-lib/video/features/editor";
 
 export default function EditPage({
 	params,
@@ -36,7 +36,7 @@ export default function EditPage({
 		const checkProjectAccess = async () => {
 			try {
 				console.log('🔍 Checking access for project:', projectId);
-				const response = await fetch(`/api/scene/${projectId}`);
+				const response = await fetch(`/api/editor/video/scene/${projectId}`);
 				console.log('📡 Response status:', response.status);
 				
 				if (!response.ok) {

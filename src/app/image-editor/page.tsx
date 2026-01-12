@@ -1,25 +1,19 @@
 "use client";
 
-import React from "react";
-import { EditorLayout } from "./editor/[projectId]/_components/editor-layout";
-import { CanvasProvider } from "@/editor-lib/image/providers/canvas-provider";
+import React, { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function ImageEditorPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // Redirect to projects page - user must create a project first
+    router.push("/projects");
+  }, [router]);
+
   return (
-    <CanvasProvider>
-      <div
-        className="h-screen"
-        style={{
-          overflow: 'hidden',
-          position: 'fixed',
-          width: '100%',
-          height: '100%',
-          top: 0,
-          left: 0,
-        }}
-      >
-        <EditorLayout />
-      </div>
-    </CanvasProvider>
+    <div className="flex items-center justify-center min-h-screen">
+      <p>Redirecting to projects...</p>
+    </div>
   );
 }

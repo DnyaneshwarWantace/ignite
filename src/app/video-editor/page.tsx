@@ -6,13 +6,13 @@ export default function VideoEditorPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Redirect to the editor
-    router.push("/video-editor/edit");
+    // Redirect to projects page - user must create a project first
+    router.push("/projects");
   }, [router]);
 
   return (
     <div className="flex items-center justify-center min-h-screen">
-      <p>Loading video editor...</p>
+      <p>Redirecting to projects...</p>
     </div>
   );
 }

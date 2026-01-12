@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
-import { supabaseAdmin } from "@/lib/supabase-storage";
+import { supabaseAdmin } from "@/lib/supabase";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -60,17 +60,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async signIn({ user, account, profile }) {
       try {
+        // Allow sign in even if database operations fail (to prevent redirect loops)
+        if (!user.email) {
+          console.warn("SignIn: No email provided");
+          return true; // Allow sign in to proceed
+        }
+
         if (!user.name || user.name === "") {
           user.name = user.email?.split("@")[0] || "User";
         }
 
-        // Save or update user in database
-        if (user.email) {
-          const { data: existingUser } = await supabaseAdmin
+        // Save or update user in database (non-blocking)
+        try {
+          const { data: existingUser, error: queryError } = await supabaseAdmin
             .from('users')
             .select('*')
             .eq('email', user.email)
-            .single();
+            .maybeSingle();
+
+          if (queryError && queryError.code !== 'PGRST116') { // PGRST116 = no rows returned
+            console.error("Error querying user:", queryError);
+            // Don't block sign in on query errors
+          }
 
           if (!existingUser) {
             // Create new user
@@ -86,12 +97,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
             if (createError) {
               console.error("Error creating user:", createError);
-              return false;
+              // Still allow sign in even if user creation fails
+              // User can be created later
+            } else if (newUser) {
+              user.id = newUser.id;
             }
-
-            user.id = newUser.id;
           } else {
-            // Update existing user
+            // Update existing user (non-blocking)
             const { error: updateError } = await supabaseAdmin
               .from('users')
               .update({
@@ -103,17 +115,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
             if (updateError) {
               console.error("Error updating user:", updateError);
-              return false;
+              // Don't block sign in on update errors
             }
 
             user.id = existingUser.id;
           }
+        } catch (dbError) {
+          console.error("Database error in signIn callback:", dbError);
+          // Allow sign in to proceed even if database operations fail
         }
 
         return true;
       } catch (error) {
         console.error("SignIn callback error:", error);
-        return false;
+        // Return true to prevent redirect loops
+        // Better to allow sign in with potential data sync issues than block entirely
+        return true;
       }
     },
 
@@ -129,6 +146,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.sub = user.id;
       }
       return token;
+    },
+
+    async redirect({ url, baseUrl }) {
+      // Handle redirects properly
+      // If url is relative, make it absolute
+      if (url.startsWith("/")) {
+        return `${baseUrl}${url}`;
+      }
+      // If url is on the same origin, allow it
+      if (new URL(url).origin === baseUrl) {
+        return url;
+      }
+      // Default to home page
+      return baseUrl;
     },
   },
   debug: process.env.NODE_ENV === "development",

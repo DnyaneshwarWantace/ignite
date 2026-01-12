@@ -6,7 +6,7 @@ import { uploadImageFromUrl, uploadVideoFromUrl } from "@/lib/supabase-storage";
 async function isUrlAccessible(url: string): Promise<boolean> {
   try {
     // Skip accessibility check for Facebook URLs as they often block HEAD requests
-    // but work fine for actual image uploads to Cloudinary
+    // but work fine for actual image uploads to Supabase Storage
     if (url.includes('fbcdn.net') || url.includes('scontent') || url.includes('facebook.com')) {
       console.log(`ℹ️ Skipping HEAD check for Facebook URL (will attempt upload directly)`);
       return true;
@@ -252,7 +252,7 @@ export async function GET(request: NextRequest) {
         results.errors.push(`Ad ${ad.library_id}: ${(error as Error).message}`);
       }
 
-      // Small delay to prevent overwhelming Cloudinary
+      // Small delay to prevent overwhelming Supabase Storage
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 

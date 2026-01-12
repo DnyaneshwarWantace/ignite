@@ -18,11 +18,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className} suppressHydrationWarning={true}>
-        <main className="min-h-screen bg-background flex flex-col overflow-hidden">
-          <ProviderWrapper>
-            <div className="flex ">{children}</div>
-          </ProviderWrapper>
-        </main>
+        <ProviderWrapper>
+          {children}
+        </ProviderWrapper>
       </body>
     </html>
   );

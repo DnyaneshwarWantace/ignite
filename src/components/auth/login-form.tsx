@@ -32,7 +32,7 @@ export default function LoginForm() {
             signIn("credentials", {
               email,
               password,
-              redirectTo: "/x-ray",
+              callbackUrl: "/x-ray",
             });
           }
         }}

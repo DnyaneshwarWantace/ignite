@@ -72,11 +72,15 @@ export default function DashboardLayout({
   }, [data]);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden">
-      <FolderContext.Provider value={value}>
-        <Sidebar />
-        <ErrorBoundary>{children}</ErrorBoundary>
-      </FolderContext.Provider>
+    <main className="min-h-screen bg-background flex flex-col overflow-hidden">
+      <div className="flex h-screen w-screen overflow-hidden">
+        <FolderContext.Provider value={value}>
+          <Sidebar />
+          <div className="flex-1 overflow-auto">
+            <ErrorBoundary>{children}</ErrorBoundary>
+          </div>
+        </FolderContext.Provider>
+      </div>
 
       <Dialog open={modal} onOpenChange={updateModal}>
         <DialogContent>
@@ -172,6 +176,6 @@ export default function DashboardLayout({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </main>
   );
 }

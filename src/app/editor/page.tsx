@@ -1,20 +1,18 @@
 "use client";
-import dynamic from "next/dynamic";
-
-// Dynamically import the editor to avoid SSR issues
-const Editor = dynamic(() => import("@/editor/src/features/editor"), {
-	ssr: false,
-	loading: () => (
-		<div className="flex h-screen w-screen items-center justify-center bg-black">
-			<div className="text-white text-lg">Loading Editor...</div>
-		</div>
-	),
-});
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function EditorPage() {
+	const router = useRouter();
+
+	useEffect(() => {
+		// Redirect to projects page - user must create a project first
+		router.push("/projects");
+	}, [router]);
+
 	return (
-		<div className="h-screen w-screen overflow-hidden">
-			<Editor />
+		<div className="flex items-center justify-center min-h-screen">
+			<p>Redirecting to projects...</p>
 		</div>
 	);
 }

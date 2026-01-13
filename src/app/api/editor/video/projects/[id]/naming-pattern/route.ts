@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { auth } from '../../../auth/[...nextauth]/options';
+import { auth } from '@/app/api/auth/[...nextauth]/options';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '../../auth/[...nextauth]/options';
+import { auth } from '@/app/api/auth/[...nextauth]/options';
 
 export async function GET(
   request: NextRequest,

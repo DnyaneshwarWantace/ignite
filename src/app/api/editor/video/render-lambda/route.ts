@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { auth } from '../../../auth/[...nextauth]/options';
+import { auth } from '@/app/api/auth/[...nextauth]/options';
 import { supabase, TABLES } from '@/editor-lib/video/lib/supabase';
 import { generateVariationFileName } from '@/editor-lib/video/utils/variation-naming';
 

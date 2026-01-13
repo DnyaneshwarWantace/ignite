@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "npx next dev",
+    "clean": "rm -rf .next node_modules/.cache tsconfig.tsbuildinfo",
     "dev:old": "npx dotenv-cli -e .env -- prisma db push && node scripts/dev-with-worker.js",
     "dev:next-only": "npx next dev",
     "dev:worker": "dotenv -c .env -- prisma db push && node scripts/dev-with-worker.js",

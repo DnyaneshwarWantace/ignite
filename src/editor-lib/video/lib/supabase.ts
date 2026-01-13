@@ -21,7 +21,6 @@ export const TABLES = {
   ASSETS: 'editor_assets',
   VARIATIONS: 'editor_variations',
   EXPORTS: 'editor_exports',
-  COMPANY_DOMAINS: 'editor_company_domains',
   USER_ACTIVITIES: 'editor_user_activities',
   CUSTOM_FONTS: 'editor_custom_fonts',
   OTP_CODES: 'editor_otp_codes',

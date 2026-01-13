@@ -200,7 +200,7 @@ export default function Navbar({
 				display: "grid",
 				gridTemplateColumns: isLargeScreen ? "280px 1fr 200px" : "1fr 1fr 1fr",
 			}}
-			className="bg-white pointer-events-none flex h-11 items-center border-b border-gray-200 px-2"
+			className="bg-white pointer-events-none flex h-11 items-center border-b border-gray-200 px-2 relative z-[100]"
 		>
 			{/* Removed old DownloadProgressModal - now using DownloadManager */}
 
@@ -248,14 +248,14 @@ export default function Navbar({
 				<div className="pointer-events-auto flex h-10 items-center gap-2 rounded-md px-2.5">
 					<Popover>
 						<PopoverTrigger asChild>
-							<Button variant="outline" className="flex items-center gap-2">
+							<Button variant="outline" className="flex items-center gap-2 pointer-events-auto cursor-pointer">
 								{getPlatformIcon(currentPlatform.icon)}
 								<span className="font-medium hidden sm:inline">{currentPlatform.name}</span>
 								<span className="text-xs text-gray-500 hidden md:inline">({currentPlatform.description})</span>
 								<ChevronDown className="w-4 h-4" />
 							</Button>
 						</PopoverTrigger>
-						<PopoverContent className="w-80 p-0" align="center">
+						<PopoverContent className="w-80 p-0 pointer-events-auto" align="center">
 							<div className="p-4">
 								<h3 className="text-sm font-medium text-gray-900 mb-3">Platform Preview</h3>
 								<div className="grid grid-cols-2 gap-2">

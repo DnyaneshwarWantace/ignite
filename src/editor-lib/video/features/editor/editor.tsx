@@ -90,7 +90,7 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 		if (id) {
 			const fetchSceneById = async () => {
 				try {
-					const response = await fetch(`/api/scene/${id}`);
+					const response = await fetch(`/api/editor/video/scene/${id}`);
 					if (!response.ok) {
 						throw new Error(`HTTP error! status: ${response.status}`);
 					}
@@ -371,7 +371,7 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 					console.log('Auto-saving - Track items to save:', trackItemsWithZIndex.length);
 					console.log('Auto-saving - Track items:', trackItemsWithZIndex);
 					
-					const response = await fetch(`/api/scene/${id}`, {
+					const response = await fetch(`/api/editor/video/scene/${id}`, {
 						method: 'PUT',
 						headers: {
 							'Content-Type': 'application/json',
@@ -487,7 +487,7 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 						layerOrder: (item as any).layerOrder || index,
 					}));
 					
-					const response = await fetch(`/api/scene/${id}`, {
+					const response = await fetch(`/api/editor/video/scene/${id}`, {
 						method: 'PUT',
 						headers: {
 							'Content-Type': 'application/json',

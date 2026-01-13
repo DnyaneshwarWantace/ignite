@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, TABLES } from '@/editor-lib/image/lib/supabase';
+import { supabase, TABLES } from '@/editor-lib/video/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {

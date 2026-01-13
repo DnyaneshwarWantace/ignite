@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/editor-lib/image/lib/supabase';
+import { supabase } from '@/editor-lib/video/lib/supabase';
 import { auth } from '@/app/api/auth/[...nextauth]/options';
 
 export async function GET() {

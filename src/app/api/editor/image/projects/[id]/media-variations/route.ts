@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '../../../auth/[...nextauth]/options';
-import { supabase, TABLES, BUCKETS } from '@/editor-lib/image/lib/supabase';
+import { supabase, TABLES, BUCKETS } from '@/editor-lib/video/lib/supabase';
 
 export async function GET(
   request: NextRequest,

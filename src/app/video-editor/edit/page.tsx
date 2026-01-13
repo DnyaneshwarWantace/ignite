@@ -6,8 +6,8 @@ export default function Page() {
 	const router = useRouter();
 
 	useEffect(() => {
-		// Redirect to projects page - user must create a project first
-		router.push("/projects");
+		// Redirect to video editor projects page - user must create a project first
+		router.push("/video-editor");
 	}, [router]);
 
 	return (

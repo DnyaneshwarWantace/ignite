@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '../../../auth/[...nextauth]/options';
-import { supabase, supabaseAdmin, TABLES, BUCKETS } from '@/editor-lib/image/lib/supabase';
+import { supabase, supabaseAdmin, TABLES, BUCKETS } from '@/editor-lib/video/lib/supabase';
 
 // Configure for large file uploads
 export const maxDuration = 300; // 5 minutes

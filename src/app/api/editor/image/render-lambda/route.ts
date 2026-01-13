@@ -3,7 +3,7 @@ import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { auth } from '../../../auth/[...nextauth]/options';
-import { supabase, TABLES } from '@/editor-lib/image/lib/supabase';
+import { supabase, TABLES } from '@/editor-lib/video/lib/supabase';
 import { generateVariationFileName } from '@/editor-lib/image/utils/variation-naming';
 
 const execAsync = promisify(exec);

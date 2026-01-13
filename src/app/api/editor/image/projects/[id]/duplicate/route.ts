@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '../../../auth/[...nextauth]/options';
-import { supabase, TABLES } from '@/editor-lib/image/lib/supabase';
+import { supabase, TABLES } from '@/editor-lib/video/lib/supabase';
 import { generateId } from '@designcombo/timeline';
 
 export async function POST(

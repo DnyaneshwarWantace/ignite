@@ -154,6 +154,11 @@ async function processLambdaJob(jobId: string, videoData: any) {
     console.log(`[Lambda Job ${jobId}] Lambda render completed`);
     console.log(`[Lambda Job ${jobId}] Output:`, stdout);
 
+    // Log stderr if present (for warnings/info)
+    if (stderr) {
+      console.log(`[Lambda Job ${jobId}] Stderr:`, stderr);
+    }
+
     // Update progress to 70% when Lambda execution completes
     if (job) {
       job.progress = 70;
@@ -206,7 +211,6 @@ async function processLambdaJob(jobId: string, videoData: any) {
           .insert({
             user_id: job.videoData.userId,
             user_email: job.videoData.userEmail || '',
-            company_domain: job.videoData.companyDomain || '',
             activity_type: 'video_download',
             project_id: job.videoData.projectId || 'unknown',
             project_name: job.videoData.projectName || 'Unknown Project',
@@ -237,8 +241,16 @@ async function processLambdaJob(jobId: string, videoData: any) {
       console.log(`[Lambda Job ${jobId}] Error cleaning up temp file:`, cleanupError);
     }
 
-  } catch (error) {
-    console.error(`[Lambda Job ${jobId}] Error in Lambda render:`, error);
+  } catch (error: any) {
+    // Log full error details for debugging
+    console.error(`[Lambda Job ${jobId}] Error in Lambda render:`, {
+      message: error?.message,
+      stderr: error?.stderr,
+      stdout: error?.stdout,
+      code: error?.code,
+      cmd: error?.cmd,
+      fullError: error
+    });
     
     // Clean up temporary file on error
     try {
@@ -251,11 +263,45 @@ async function processLambdaJob(jobId: string, videoData: any) {
       console.error(`[Lambda Job ${jobId}] Error cleaning up temp file:`, cleanupError);
     }
 
-    // Update job status to failed
+    // Update job status to failed with specific error message
     const job = lambdaJobStore.get(jobId);
     if (job) {
       job.status = 'failed';
-      job.error = 'Video rendering failed. Please try again.';
+      
+      // Extract detailed error information
+      const errorMessage = error?.message || '';
+      const errorStderr = error?.stderr || '';
+      const errorStdout = error?.stdout || '';
+      const fullErrorText = `${errorMessage}\n${errorStderr}\n${errorStdout}`.trim();
+      
+      // Parse AWS-specific errors
+      let userFriendlyError = 'Video rendering failed. Please try again.';
+      
+      if (fullErrorText.includes('AccessDenied') || fullErrorText.includes('AccessDeniedException')) {
+        // Extract the actual AWS error message if available
+        const awsErrorMatch = errorStderr.match(/AccessDeniedException[:\s]+([^\n]+)/i) || 
+                             errorStderr.match(/AccessDenied[:\s]+([^\n]+)/i);
+        const awsErrorDetail = awsErrorMatch ? awsErrorMatch[1].trim() : '';
+        
+        userFriendlyError = `AWS Access Denied: ${awsErrorDetail || 'Your AWS credentials do not have the required permissions.'}\n\nPossible causes:\n- IAM user lacks Lambda invoke permissions\n- IAM user lacks S3 read/write permissions\n- IAM user lacks CloudWatch Logs permissions\n- AWS account has service limits reached\n- Check AWS account balance/credits`;
+      } else if (fullErrorText.includes('InvalidUserID.NotFound') || fullErrorText.includes('InvalidClientTokenId')) {
+        userFriendlyError = 'Invalid AWS credentials. Please verify REMOTION_AWS_ACCESS_KEY_ID and REMOTION_AWS_SECRET_ACCESS_KEY are correct.';
+      } else if (fullErrorText.includes('Throttling') || fullErrorText.includes('TooManyRequestsException')) {
+        userFriendlyError = 'AWS rate limit exceeded. Please wait a few minutes and try again.';
+      } else if (fullErrorText.includes('ResourceNotFoundException') || fullErrorText.includes('Function not found')) {
+        userFriendlyError = `Lambda function not found: ${LAMBDA_CONFIG.functionName}. Please verify the function exists in region ${LAMBDA_CONFIG.region}.`;
+      } else if (fullErrorText.includes('credentials') || fullErrorText.includes('Credential')) {
+        userFriendlyError = 'AWS credentials are not configured. Please set REMOTION_AWS_ACCESS_KEY_ID and REMOTION_AWS_SECRET_ACCESS_KEY environment variables.';
+      } else if (fullErrorText.includes('billing') || fullErrorText.includes('payment')) {
+        userFriendlyError = 'AWS billing issue detected. Please check your AWS account balance and payment method.';
+      } else if (errorStderr) {
+        // Show the actual stderr if available (contains AWS error details)
+        userFriendlyError = `AWS Error: ${errorStderr.substring(0, 500)}${errorStderr.length > 500 ? '...' : ''}`;
+      } else if (errorMessage) {
+        userFriendlyError = errorMessage;
+      }
+      
+      job.error = userFriendlyError;
       job.completedAt = new Date();
       lambdaJobStore.set(jobId, job);
     }
@@ -346,18 +392,18 @@ export async function POST(request: NextRequest) {
       };
 
       try {
-        const { data: user, error } = await supabase
-          .from('users')
+        const { data: profile, error } = await supabase
+          .from('editor_profiles')
           .select('progress_bar_settings')
-          .eq('email', session.user.email)
+          .eq('user_id', session.user.id)
           .single();
 
-        if (!error && user?.progress_bar_settings) {
+        if (!error && profile?.progress_bar_settings) {
           // Merge user settings with defaults to ensure all properties exist
-          progressBarSettings = { ...progressBarSettings, ...user.progress_bar_settings };
-          console.log(`[Lambda Job] Loaded progress bar settings from database for user ${session.user.email}:`, progressBarSettings);
+          progressBarSettings = { ...progressBarSettings, ...profile.progress_bar_settings };
+          console.log(`[Lambda Job] Loaded progress bar settings from database for user ${session.user.id}:`, progressBarSettings);
         } else {
-          console.log(`[Lambda Job] Using default progress bar settings for user ${session.user.email}`);
+          console.log(`[Lambda Job] Using default progress bar settings for user ${session.user.id}`);
         }
       } catch (error) {
         console.error('[Lambda Job] Error fetching progress bar settings, using defaults:', error);
@@ -454,7 +500,6 @@ export async function POST(request: NextRequest) {
       progressBarSettings: progressBarSettings,
       userId: session.user.id, // Include userId for cost tracking
       userEmail: session.user.email,
-      companyDomain: session.user.companyDomain,
       userSessionId: userSessionId, // Include session ID for user isolation
       projectId: projectId || 'unknown',
       projectName: projectName || 'Unknown Project',
@@ -532,8 +577,8 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Job not found' }, { status: 404 });
   }
 
-  // Verify user owns this job or is admin
-  if (job.videoData?.userId !== session.user.id && !session.user.isAdmin) {
+  // Verify user owns this job
+  if (job.videoData?.userId !== session.user.id) {
     return NextResponse.json({ error: 'Unauthorized access to job' }, { status: 403 });
   }
   
@@ -674,8 +719,8 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Job not found' }, { status: 404 });
   }
 
-  // Verify user owns this job or is admin
-  if (job.videoData?.userId !== session.user.id && !session.user.isAdmin) {
+  // Verify user owns this job
+  if (job.videoData?.userId !== session.user.id) {
     return NextResponse.json({ error: 'Unauthorized access to job' }, { status: 403 });
   }
   

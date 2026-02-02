@@ -20,7 +20,6 @@ import {
   Trash,
   Copy,
   Settings,
-  Loader2
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -28,6 +27,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface Project {
   id: string;
@@ -54,7 +60,6 @@ export default function VideoEditorPage() {
   const [selectedPlatform, setSelectedPlatform] = useState('instagram-reel');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [renameProjectName, setRenameProjectName] = useState('');
-  const [openingProjectId, setOpeningProjectId] = useState<string | null>(null);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -194,7 +199,6 @@ export default function VideoEditorPage() {
   };
 
   const handleOpenProject = (projectId: string) => {
-    setOpeningProjectId(projectId);
     router.push(`/video-editor/edit/${projectId}`);
   };
 
@@ -299,13 +303,8 @@ export default function VideoEditorPage() {
                         <DropdownMenuItem
                           onClick={() => handleOpenProject(project.id)}
                           className="text-black hover:bg-blue-50"
-                          disabled={openingProjectId === project.id}
                         >
-                          {openingProjectId === project.id ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          ) : (
-                            <Edit className="w-4 h-4 mr-2" />
-                          )}
+                          <Edit className="w-4 h-4 mr-2" />
                           Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem
@@ -354,13 +353,8 @@ export default function VideoEditorPage() {
                       onClick={() => handleOpenProject(project.id)}
                       size="sm"
                       className="bg-black text-white hover:bg-gray-800"
-                      disabled={openingProjectId === project.id}
                     >
-                      {openingProjectId === project.id ? (
-                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                      ) : (
-                        <Play className="w-4 h-4 mr-1" />
-                      )}
+                      <Play className="w-4 h-4 mr-1" />
                       Open
                     </Button>
                   </div>
@@ -390,17 +384,25 @@ export default function VideoEditorPage() {
 
               <div>
                 <label className="block text-sm font-medium mb-2 text-black">Platform</label>
-                <select
+                <Select
                   value={selectedPlatform}
-                  onChange={(e) => setSelectedPlatform(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-black"
+                  onValueChange={setSelectedPlatform}
                 >
-                  {platformConfigs.map((platform) => (
-                    <option key={platform.id} value={platform.id}>
-                      {platform.name} ({platform.aspectRatio})
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full bg-white border-gray-300 text-black hover:bg-gray-50 focus:ring-2 focus:ring-primary/20">
+                    <SelectValue placeholder="Select platform" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-gray-200 shadow-lg z-[100]">
+                    {platformConfigs.map((platform) => (
+                      <SelectItem
+                        key={platform.id}
+                        value={platform.id}
+                        className="text-black focus:bg-primary/10 focus:text-primary cursor-pointer"
+                      >
+                        {platform.name} ({platform.aspectRatio})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -466,16 +468,6 @@ export default function VideoEditorPage() {
         </div>
       )}
 
-      {/* Full-screen loading overlay when opening project */}
-      {openingProjectId && (
-        <div className="fixed inset-0 bg-white flex items-center justify-center z-50">
-          <div className="flex flex-col items-center gap-4">
-            <ScalezLoader />
-            <div className="text-black text-lg font-medium">Opening project...</div>
-            <div className="text-gray-600 text-sm">Please wait while the editor loads</div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

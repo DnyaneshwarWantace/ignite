@@ -31,15 +31,27 @@ export const GET = authMiddleware(
           status: 400,
         });
       }
-      const limit = Math.min(parseInt(rawLimit || '20'), 50); // Allow up to 50 ads per request
+      const limit = Math.min(parseInt(rawLimit || '50'), 200); // Allow up to 200 ads per request
 
-      // Get other parameters
-      const search = searchParams.get('search') || '';
-      const format = searchParams.get('format') || '';
-      const platform = searchParams.get('platform') || '';
-      const status = searchParams.get('status') || '';
-      const language = searchParams.get('language') || '';
-      const niche = searchParams.get('niche') || '';
+      // Get filterKey parameter (JSON string with all filters)
+      const filterKeyParam = searchParams.get('filterKey');
+      let parsedFilters: any = {};
+      
+      if (filterKeyParam) {
+        try {
+          parsedFilters = JSON.parse(decodeURIComponent(filterKeyParam));
+        } catch (e) {
+          console.warn('Failed to parse filterKey:', e);
+        }
+      }
+      
+      // Get other parameters (use filterKey values if available, otherwise use individual params)
+      const search = parsedFilters.search || searchParams.get('search') || '';
+      const format = parsedFilters.format?.[0] || searchParams.get('format') || '';
+      const platform = parsedFilters.platform?.[0] || searchParams.get('platform') || '';
+      const status = parsedFilters.status?.[0] || searchParams.get('status') || '';
+      const language = parsedFilters.language?.[0] || searchParams.get('language') || '';
+      const niche = parsedFilters.niche?.[0] || searchParams.get('niche') || '';
       
       // Validate cursor parameters
       const cursorCreatedAt = searchParams.get('cursorCreatedAt');
@@ -121,15 +133,16 @@ export const GET = authMiddleware(
 
       // Check if we need to apply complex filters
       const hasComplexFilters = format || platform || status || language || niche;
+      const hasAnyFilters = hasComplexFilters || search;
       
       let ads: any[] = [];
       let totalAdsCount = 0;
       let filteredAds: any[] = [];
       let startIndex = 0;
       
-      // Always fetch all ads when no complex filters are applied (to show all ads)
-      // or when complex filters are applied (to filter them)
-      if (hasComplexFilters || (!search && !hasComplexFilters)) {
+      // If we have complex filters, fetch all ads for client-side filtering
+      // Otherwise, use efficient database pagination with limit
+      if (hasComplexFilters) {
         // For complex filters or no filters, we need to fetch ALL ads
         console.log('🔍 Fetching ALL ads for filtering or display...');
         
@@ -139,12 +152,28 @@ export const GET = authMiddleware(
           .select('*', { count: 'exact', head: true });
 
         if (countError) {
-          console.error('Error counting ads:', countError);
+          console.error('❌ Error counting ads:', countError);
           totalAdsCount = 0;
         } else {
           totalAdsCount = count || 0;
         }
         console.log('🔍 Total ads in database:', totalAdsCount);
+        
+        // If no ads in database, return empty result
+        if (totalAdsCount === 0) {
+          console.log('⚠️ No ads found in database - returning empty result');
+          return createResponse({
+            message: messages.SUCCESS,
+            payload: {
+              ads: [],
+              pagination: {
+                hasMore: false,
+                nextCursor: null,
+                limit
+              }
+            },
+          });
+        }
         
         // Optimize: If we have a large dataset, fetch in chunks to avoid memory issues
         const CHUNK_SIZE = 2000; // Increased chunk size for better performance
@@ -251,9 +280,10 @@ export const GET = authMiddleware(
             .order('id', { ascending: false });
 
           if (fetchError) {
-            console.error('Error fetching ads:', fetchError);
+            console.error('❌ Error fetching ads:', fetchError);
             allAds = [];
           } else {
+            console.log(`✅ Raw data from Supabase: ${data?.length || 0} ads`);
             // Transform snake_case to camelCase for compatibility
             allAds = (data || []).map((ad: any) => ({
               ...ad,
@@ -272,6 +302,7 @@ export const GET = authMiddleware(
                 pageId: ad.brand.page_id
               } : null
             }));
+            console.log(`✅ Transformed ${allAds.length} ads`);
           }
 
           const fetchTime = Date.now() - startTime;
@@ -279,6 +310,10 @@ export const GET = authMiddleware(
         }
         
         console.log('🔍 Fetched all ads:', allAds.length);
+        
+        if (allAds.length === 0) {
+          console.log('⚠️ No ads fetched from database - check if ads exist');
+        }
         
         // Apply client-side filters if any are specified
         if (hasComplexFilters) {
@@ -318,46 +353,59 @@ export const GET = authMiddleware(
         
         console.log(`🔍 Pagination: showing ads ${startIndex + 1}-${Math.min(endIndex, filteredAds.length)} of ${filteredAds.length} filtered ads`);
         
-      } else {
-        // For search-only queries (no complex filters), use efficient database pagination
-        console.log('🔍 Search-only query, using database pagination');
+        } else {
+         // For simple queries (no complex filters), use efficient database pagination
+         console.log('🔍 Simple query (no complex filters), using database pagination with limit:', limit);
 
-        let query = supabase
-          .from('ads')
-          .select(`
-            id,
-            library_id,
-            type,
-            content,
-            image_url,
-            video_url,
-            text,
-            headline,
-            description,
-            created_at,
-            updated_at,
-            brand_id,
-            local_image_url,
-            local_video_url,
-            media_status,
-            media_downloaded_at,
-            brand:brands (
+          let query = supabase
+            .from('ads')
+            .select(`
               id,
-              name,
-              logo,
-              page_id
-            )
-          `)
-          .order('created_at', { ascending: false })
-          .order('id', { ascending: false })
-          .limit(limit + 1); // Get one extra to check if there are more
+              library_id,
+              type,
+              content,
+              image_url,
+              video_url,
+              text,
+              headline,
+              description,
+              created_at,
+              updated_at,
+              brand_id,
+              local_image_url,
+              local_video_url,
+              media_status,
+              media_downloaded_at,
+              brand:brands (
+                id,
+                name,
+                logo,
+                page_id
+              )
+            `)
+            .order('created_at', { ascending: false })
+            .order('id', { ascending: false })
+            .limit(limit + 1); // Get one extra to check if there are more
 
-        // Apply search filter if provided
-        if (search) {
-          query = query.or(`text.ilike.%${search}%,headline.ilike.%${search}%,description.ilike.%${search}%,library_id.ilike.%${search}%`);
-        }
+          // Apply cursor pagination if provided
+          if (cursorCreatedAt && cursorId) {
+            const cursorDate = new Date(cursorCreatedAt);
+            query = query.or(`created_at.lt.${cursorDate.toISOString()},and(created_at.eq.${cursorDate.toISOString()},id.lt.${cursorId})`);
+          }
 
-        const { data, error: searchError } = await query;
+          // Apply search filter if provided
+          if (search) {
+            query = query.or(`text.ilike.%${search}%,headline.ilike.%${search}%,description.ilike.%${search}%,library_id.ilike.%${search}%`);
+          }
+
+          console.log('🔍 Executing database query...');
+          const { data, error: searchError } = await query;
+          
+          if (searchError) {
+            console.error('❌ Database query error:', searchError);
+          } else {
+            console.log(`✅ Database query returned ${data?.length || 0} ads`);
+          }
 
         if (searchError) {
           console.error('Error fetching ads:', searchError);
@@ -389,34 +437,43 @@ export const GET = authMiddleware(
       let adsToReturn = ads;
       let nextCursor = null;
       
-      if (hasComplexFilters || (!search && !hasComplexFilters)) {
-        // For complex filters or no filters, check if there are more filtered results after the current page
+      if (hasComplexFilters) {
+        // For complex filters, check if there are more filtered results after the current page
         const totalFilteredCount = filteredAds.length;
         const currentPageEnd = startIndex + limit;
         hasMore = currentPageEnd < totalFilteredCount;
-        adsToReturn = ads; // No need to slice, we already sliced in the filtering logic
+        adsToReturn = ads; // Already sliced in the filtering logic above
       } else {
-        // For search-only queries, check if we got more than requested
+        // For simple queries, check if we got more than requested
         hasMore = ads.length > limit;
-        adsToReturn = hasMore ? ads.slice(0, -1) : ads;
+        adsToReturn = hasMore ? ads.slice(0, limit) : ads;
       }
       
       // Get cursor for next page
       if (hasMore && adsToReturn.length > 0) {
         const lastAd = adsToReturn[adsToReturn.length - 1];
+        const createdAt = lastAd.createdAt instanceof Date 
+          ? lastAd.createdAt.toISOString() 
+          : (lastAd.createdAt || new Date().toISOString());
         nextCursor = {
-          createdAt: lastAd.createdAt.toISOString(),
+          createdAt,
           id: lastAd.id
         };
       }
 
-            console.log('Discover API response:', {
+      console.log('Discover API response:', {
         adsCount: adsToReturn.length,
         hasMore,
         nextCursor,
         filtersApplied: { search, format, platform, status, language, niche },
-        totalAdsBeforeFilter: (hasComplexFilters || (!search && !hasComplexFilters)) ? totalAdsCount : ads.length,
-        totalAdsAfterFilter: adsToReturn.length
+        totalAdsBeforeFilter: hasComplexFilters ? totalAdsCount : ads.length,
+        totalAdsAfterFilter: adsToReturn.length,
+        sampleAd: adsToReturn.length > 0 ? {
+          id: adsToReturn[0].id,
+          hasImage: !!adsToReturn[0].localImageUrl,
+          hasVideo: !!adsToReturn[0].localVideoUrl,
+          hasBrand: !!adsToReturn[0].brand
+        } : null
       });
 
       return createResponse({

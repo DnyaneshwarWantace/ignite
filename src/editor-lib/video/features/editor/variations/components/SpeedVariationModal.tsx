@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, Input, Select, message, Card, Typography, Tooltip, Tag } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined, PlayCircleOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { TimelineElement, SpeedVariation } from '../types/variation-types';
+import { Button as ShadcnButton } from '@/editor-lib/video/components/ui/button';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -42,14 +43,16 @@ export const SpeedVariationModal: React.FC<SpeedVariationModalProps> = ({
     try {
       // Get project ID from URL
       const pathParts = window.location.pathname.split('/');
-      const projectId = pathParts[2]; // Assuming URL is /edit/[projectId]/...
+      // URL structure: /video-editor/edit/[id]
+      // pathParts: ['', 'video-editor', 'edit', 'projectId']
+      const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
 
       if (!projectId) {
         console.error('Project ID not found in URL');
         return;
       }
 
-      const response = await fetch(`/api/projects/${projectId}/speed-variations`);
+      const response = await fetch(`/api/editor/video/projects/${projectId}/speed-variations`);
       if (response.ok) {
         const data = await response.json();
         const elementVariations = data.speedVariations?.find((v: any) => v.elementId === element.id);
@@ -155,7 +158,7 @@ export const SpeedVariationModal: React.FC<SpeedVariationModalProps> = ({
         return;
       }
 
-      const response = await fetch(`/api/projects/${projectId}/speed-variations`, {
+      const response = await fetch(`/api/editor/video/projects/${projectId}/speed-variations`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ variationId })
@@ -193,7 +196,7 @@ export const SpeedVariationModal: React.FC<SpeedVariationModalProps> = ({
 
   const getSpeedColor = (speed: number) => {
     if (speed < 1.0) return '#52c41a'; // Green for slow
-    if (speed === 1.0) return '#1890ff'; // Blue for normal
+    if (speed === 1.0) return 'hsl(var(--primary))'; // Primary color for normal
     return '#ff4d4f'; // Red for fast
   };
 
@@ -247,7 +250,7 @@ export const SpeedVariationModal: React.FC<SpeedVariationModalProps> = ({
     <Modal
       title={
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <PlayCircleOutlined style={{ color: '#1890ff', fontSize: '18px' }} />
+          <PlayCircleOutlined className="text-primary" style={{ fontSize: '18px' }} />
           <span style={{ fontSize: '16px', fontWeight: 600 }}>Speed Variations - {element.elementName}</span>
         </div>
       }
@@ -261,9 +264,15 @@ export const SpeedVariationModal: React.FC<SpeedVariationModalProps> = ({
         <Button key="cancel" onClick={onClose} size="large">
           Cancel
         </Button>,
-        <Button key="save" type="primary" onClick={handleSaveAll} loading={isLoading} size="large">
-          Save All Variations ({speedVariations.length})
-        </Button>
+        <ShadcnButton 
+          key="save" 
+          onClick={handleSaveAll} 
+          disabled={isLoading}
+          variant="default"
+          size="lg"
+        >
+          {isLoading ? 'Saving...' : `Save All Variations (${speedVariations.length})`}
+        </ShadcnButton>
       ]}
     >
       <div style={{ maxHeight: '70vh', overflowY: 'auto' }}>
@@ -285,7 +294,7 @@ export const SpeedVariationModal: React.FC<SpeedVariationModalProps> = ({
           <Text strong style={{ display: 'block', marginBottom: '12px', fontSize: '14px' }}>
             Add Custom Speed:
           </Text>
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
             <div style={{ flex: 1 }}>
               <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '13px' }}>
                 Speed Value (0.1 to 2.0)
@@ -319,9 +328,8 @@ export const SpeedVariationModal: React.FC<SpeedVariationModalProps> = ({
                 size="middle"
               />
             </div>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', height: '100%', paddingTop: '22px' }}>
+              <ShadcnButton
               onClick={() => {
                 const speedValue = parseFloat(customSpeed);
                 if (isNaN(speedValue) || speedValue < 0.1 || speedValue > 2.0) {
@@ -351,11 +359,14 @@ export const SpeedVariationModal: React.FC<SpeedVariationModalProps> = ({
                 setCustomSpeed('1.0');
                 setEditForm({ speed: 1.0, label: 'Normal Speed' });
               }}
-              size="middle"
-              style={{ height: '32px' }}
+                variant="default"
+                size="sm"
+                className="h-8"
             >
+                <PlusOutlined style={{ fontSize: '14px' }} />
               Add Speed
-            </Button>
+              </ShadcnButton>
+            </div>
           </div>
         </div>
 
@@ -391,12 +402,13 @@ export const SpeedVariationModal: React.FC<SpeedVariationModalProps> = ({
                       <div style={{ display: 'flex', gap: '4px' }}>
                         {editingVariation === variation.id ? (
                           <>
-                            <Button
-                              type="primary"
-                              size="small"
-                              icon={<CheckOutlined />}
+                            <ShadcnButton
+                              variant="default"
+                              size="sm"
                               onClick={() => handleSaveVariation(variation.id)}
-                            />
+                            >
+                              <CheckOutlined style={{ fontSize: '12px' }} />
+                            </ShadcnButton>
                             <Button
                               size="small"
                               icon={<CloseOutlined />}

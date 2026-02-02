@@ -92,20 +92,18 @@ export const GET = authMiddleware(
       } : null
     }));
 
-    // Count active vs inactive ads based on content
+    // Count active vs inactive ads based on is_active field
+    // Auto-tracker updates this field every 15 days using direct ad ID API
     let activeCount = 0;
     let inactiveCount = 0;
-    
+
     ads.forEach((ad: any) => {
       try {
         const content = JSON.parse(ad.content);
-        const isActive = content.is_active ?? content.active ?? content.status === 'active';
-        if (isActive === true) {
-          activeCount++;
-        } else if (isActive === false) {
+        if (content.is_active === false) {
           inactiveCount++;
         } else {
-          activeCount++; // Assume active if unknown
+          activeCount++; // Default to active (true or undefined means active)
         }
       } catch (e) {
         activeCount++; // Assume active if can't parse

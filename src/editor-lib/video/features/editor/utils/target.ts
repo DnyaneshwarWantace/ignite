@@ -134,16 +134,7 @@ export const getSelectionByIds = (ids: string[]): SelectionInfo => {
 		const targetType = getTypeFromClassName(target.className)!;
 		const ables = getTargetAbles(targetType);
 		const controls = getTargetControls(targetType);
-		
-		// Debug logging
-		console.log('Selection info for single target:', {
-			targetType,
-			className: target.className,
-			ables,
-			controls,
-			target
-		});
-		
+
 		return { targets: [target], layerType: targetType, ables, controls };
 	} else {
 		return {

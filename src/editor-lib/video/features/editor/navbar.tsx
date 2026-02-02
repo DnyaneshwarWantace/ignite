@@ -9,6 +9,7 @@ import {
 	PopoverTrigger,
 } from "@/editor-lib/video/components/ui/popover";
 import {
+	ArrowLeft,
 	ChevronDown,
 	Download,
 	ProportionsIcon,
@@ -25,6 +26,7 @@ import {
 	Loader2,
 	Video,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Label } from "@/editor-lib/video/components/ui/label";
 import { usePlatformStoreClient, PLATFORM_CONFIGS, getPlatformIcon } from "./platform-preview";
 import VariationModal from "./variations/components/VariationModal";
@@ -61,6 +63,7 @@ export default function Navbar({
 	setProjectName: (name: string) => void;
 	projectName: string;
 }) {
+	const router = useRouter();
 	const [title, setTitle] = useState(projectName);
 	console.log('Navbar initial projectName:', projectName, 'title:', title);
 	const isLargeScreen = useIsLargeScreen();
@@ -68,6 +71,7 @@ export default function Navbar({
 	const isSmallScreen = useIsSmallScreen();
 	const { showOverlay, toggleOverlay, currentPlatform, setCurrentPlatform } = usePlatformStoreClient();
 	const [isVariationModalOpen, setIsVariationModalOpen] = useState(false);
+	const [isPlatformPopoverOpen, setIsPlatformPopoverOpen] = useState(false);
 
 	// Update title when projectName prop changes
 	useEffect(() => {
@@ -200,15 +204,24 @@ export default function Navbar({
 				display: "grid",
 				gridTemplateColumns: isLargeScreen ? "280px 1fr 200px" : "1fr 1fr 1fr",
 			}}
-			className="bg-white pointer-events-none flex h-11 items-center border-b border-gray-200 px-2 relative z-[100]"
+			className="bg-white pointer-events-none flex h-11 items-center border-b border-gray-200 px-2 relative z-10"
 		>
 			{/* Removed old DownloadProgressModal - now using DownloadManager */}
 
 			<div className="flex items-center gap-2">
+				<Button
+					variant="ghost"
+					size="icon"
+					className="pointer-events-auto h-11 w-11 shrink-0 rounded-md text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+					onClick={() => router.push('/video-editor')}
+					title="Back to Ignite"
+				>
+					<ArrowLeft className="h-5 w-5" />
+				</Button>
 				<div 
 					className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-md text-gray-900 hover:bg-gray-100 cursor-pointer transition-colors"
-					onClick={() => window.location.href = '/projects'}
-					title="Go to Projects"
+					onClick={() => router.push('/video-editor')}
+					title="Go to Video Projects"
 				>
 					<LogoIcons.scalezStatic />
 				</div>
@@ -245,42 +258,63 @@ export default function Navbar({
 						/>
 					</div>
 				)}
-				<div className="pointer-events-auto flex h-10 items-center gap-2 rounded-md px-2.5">
-					<Popover>
-						<PopoverTrigger asChild>
-							<Button variant="outline" className="flex items-center gap-2 pointer-events-auto cursor-pointer">
-								{getPlatformIcon(currentPlatform.icon)}
-								<span className="font-medium hidden sm:inline">{currentPlatform.name}</span>
-								<span className="text-xs text-gray-500 hidden md:inline">({currentPlatform.description})</span>
-								<ChevronDown className="w-4 h-4" />
-							</Button>
-						</PopoverTrigger>
-						<PopoverContent className="w-80 p-0 pointer-events-auto" align="center">
-							<div className="p-4">
-								<h3 className="text-sm font-medium text-gray-900 mb-3">Platform Preview</h3>
-								<div className="grid grid-cols-2 gap-2">
-									{PLATFORM_CONFIGS.map((platform) => (
-										<Button
-											key={platform.id}
-											variant={currentPlatform.id === platform.id ? "default" : "outline"}
-											size="sm"
-											onClick={() => handlePlatformChange(platform)}
-											className="h-auto p-3 flex flex-col items-center gap-2 text-xs"
-										>
-											<div className="flex items-center gap-2">
-												{getPlatformIcon(platform.icon)}
-												<span className="font-medium">{platform.name}</span>
-											</div>
-											<div className="flex flex-col items-center gap-1">
-												<span className="text-xs font-medium text-gray-700">{platform.label}</span>
-												<span className="text-xs text-gray-500">{platform.description}</span>
-											</div>
-										</Button>
-									))}
+				<div className="pointer-events-auto flex h-10 items-center gap-2 rounded-md px-2.5 relative z-10">
+					<div className="relative">
+						<Button
+							variant="outline"
+							className="flex items-center gap-2 pointer-events-auto cursor-pointer"
+							onClick={() => {
+								console.log('Platform button clicked, current state:', isPlatformPopoverOpen);
+								setIsPlatformPopoverOpen(!isPlatformPopoverOpen);
+							}}
+						>
+							{getPlatformIcon(currentPlatform.icon)}
+							<span className="font-medium hidden sm:inline">{currentPlatform.name}</span>
+							<span className="text-xs text-gray-500 hidden md:inline">({currentPlatform.description})</span>
+							<ChevronDown className="w-4 h-4" />
+						</Button>
+
+						{isPlatformPopoverOpen && (
+							<>
+								{/* Backdrop to close on outside click */}
+								<div
+									className="fixed inset-0 z-[9998]"
+									onClick={() => setIsPlatformPopoverOpen(false)}
+								/>
+								{/* Dropdown content */}
+								<div
+									className="absolute top-full left-0 mt-2 w-80 p-4 bg-white border border-gray-200 rounded-md shadow-xl z-[9999] pointer-events-auto"
+								>
+									<h3 className="text-sm font-medium text-gray-900 mb-3">Platform Preview</h3>
+									<div className="grid grid-cols-2 gap-2">
+										{PLATFORM_CONFIGS.map((platform) => (
+											<Button
+												key={platform.id}
+												variant={currentPlatform.id === platform.id ? "default" : "outline"}
+												size="sm"
+												onClick={() => {
+													handlePlatformChange(platform);
+													setIsPlatformPopoverOpen(false);
+												}}
+												className={`h-auto p-3 flex flex-col items-center gap-2 text-xs pointer-events-auto ${
+													currentPlatform.id === platform.id ? 'text-white' : ''
+												}`}
+											>
+												<div className="flex items-center gap-2">
+													{getPlatformIcon(platform.icon)}
+													<span className="font-medium">{platform.name}</span>
+												</div>
+												<div className="flex flex-col items-center gap-1">
+													<span className={`text-xs font-medium ${currentPlatform.id === platform.id ? 'text-white' : 'text-gray-700'}`}>{platform.label}</span>
+													<span className={`text-xs ${currentPlatform.id === platform.id ? 'text-white' : 'text-gray-500'}`}>{platform.description}</span>
+												</div>
+											</Button>
+										))}
+									</div>
 								</div>
-							</div>
-						</PopoverContent>
-					</Popover>
+							</>
+						)}
+					</div>
 					<Button
 						onClick={toggleOverlay}
 						className="text-gray-600 hover:text-gray-900"
@@ -441,7 +475,7 @@ const ResizeVideo = () => {
 					<div>Resize</div>
 				</Button>
 			</PopoverTrigger>
-			<PopoverContent className="z-[250] w-60 px-2.5 py-3">
+			<PopoverContent className="z-20 w-60 px-2.5 py-3">
 				<div className="text-sm">
 					{RESIZE_OPTIONS.map((option, index) => (
 						<ResizeOption

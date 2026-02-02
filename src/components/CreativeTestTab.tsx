@@ -20,6 +20,11 @@ interface CreativeTestAd {
     isWinner?: boolean;
     score?: number;
   };
+  // Internal properties for tie-breaking (not displayed)
+  _originalAd?: any;
+  _dbCreatedAt?: number;
+  _dbUpdatedAt?: number;
+  score?: number;
 }
 
 interface CreativeTest {
@@ -161,6 +166,10 @@ export default function CreativeTests({ ads = [] }: CreativeTestsProps) {
               "Creative Test Ad"
             );
 
+            // Get database timestamps for tie-breaking
+            const dbCreatedAt = ad.created_at ? new Date(ad.created_at).getTime() : 0;
+            const dbUpdatedAt = ad.updated_at ? new Date(ad.updated_at).getTime() : 0;
+            
             return {
               id: ad.id,
               image: imageUrl,
@@ -171,9 +180,13 @@ export default function CreativeTests({ ads = [] }: CreativeTestsProps) {
               ctaUrl,
               platform,
               headline: headline.substring(0, 50) + (headline.length > 50 ? '...' : ''),
+              // Store original ad data for tie-breaking
+              _originalAd: ad,
+              _dbCreatedAt: dbCreatedAt,
+              _dbUpdatedAt: dbUpdatedAt,
               performance: {
-                isWinner: false, // Could be enhanced with actual performance metrics
-                score: Math.random() * 100 // Placeholder - could use real metrics
+                isWinner: false,
+                score: 0 // Will be calculated in winner determination
               }
             };
           } catch (e) {
@@ -181,12 +194,117 @@ export default function CreativeTests({ ads = [] }: CreativeTestsProps) {
           }
         }).filter(Boolean) as CreativeTestAd[];
 
-        // Determine winner (ad with longest run time for now)
+        // Determine winner using multiple factors (since performance metrics aren't available from Ad Library)
+        // IMPORTANT: Auto-tracker runs every 15 days to update ad statuses
+        // So we can only reliably determine winners after 15+ days when statuses have been updated
         if (testAds.length > 0) {
-          const winner = testAds.reduce((prev, current) => 
-            (prev.days > current.days) ? prev : current
-          );
-          winner.performance!.isWinner = true;
+          const adDays = testAds.map(ad => ad.days).filter((d): d is number => typeof d === 'number' && !isNaN(d));
+          const oldestAdDays = adDays.length > 0 ? Math.max(...adDays) : 0;
+          const allSameStartDate = testAds.every(ad => ad.days === testAds[0].days);
+          const allActive = testAds.every(ad => ad.isActive);
+          const activeAds = testAds.filter(ad => ad.isActive);
+          const inactiveAds = testAds.filter(ad => !ad.isActive);
+          
+          // Check if test is still too early to determine winner
+          // Auto-tracker runs every 15 days, so we need at least 15 days + one check cycle
+          const isTooEarly = oldestAdDays < 15;
+          
+          // Calculate score for each ad
+          const adsWithScores = testAds.map(ad => {
+            let score = 0;
+            
+            // Factor 1: Active status (50% weight) - only active ads can win
+            // This is the most important factor since it shows which ads are still running
+            if (ad.isActive) {
+              score += 50;
+            } else {
+              // Inactive ads get 0 for this factor (they've been stopped)
+              score += 0;
+            }
+            
+            // Factor 2: Run time (30% weight) - longer running = better performance
+            // But only if ad is still active
+            if (ad.isActive) {
+              score += ad.days * 0.3;
+            }
+            
+            // Factor 3: No end date (20% weight) - ongoing campaigns are likely winners
+            try {
+              const adData = adsForDate.find((a: any) => a.id === ad.id);
+              if (adData) {
+                const content = JSON.parse(adData.content);
+                const hasEndDate = content.end_date || content.end_date_string;
+                if (!hasEndDate && ad.isActive) {
+                  score += 20; // Bonus for ongoing campaigns that are still active
+                }
+              }
+            } catch (e) {
+              // If we can't parse, assume no end date (ongoing)
+              if (ad.isActive) {
+                score += 20;
+              }
+            }
+            
+            return { ...ad, score };
+          });
+          
+          // Winner determination logic:
+          // 1. If test is < 15 days old: No winner yet (auto-tracker hasn't run)
+          // 2. If test is 15+ days old: Winner is the ad that's still active (survived)
+          // 3. If multiple ads still active: Use tie-breakers
+          
+          let winner: CreativeTestAd | null = null;
+          
+          if (isTooEarly) {
+            // Too early - auto-tracker hasn't run yet, can't determine winner
+            // All ads will show as active from initial scrape
+            // Don't mark any winner
+            console.log(`Test too early (${oldestAdDays} days) - auto-tracker hasn't run yet. No winner determined.`);
+          } else if (inactiveAds.length > 0) {
+            // Some ads have stopped - winner is the one that's still active
+            // If multiple still active, use longest run time
+            const activeWithScores = adsWithScores.filter(ad => ad.isActive);
+            if (activeWithScores.length > 0) {
+              winner = activeWithScores.reduce((prev, current) => {
+                if (current.score > prev.score) return current;
+                if (current.score === prev.score && current.days > prev.days) return current;
+                return prev;
+              });
+            }
+          } else if (allActive) {
+            // All ads still active after 15+ days - use tie-breakers
+            // This means all ads are performing well, but we pick one based on run time
+            winner = adsWithScores.reduce((prev, current) => {
+              // Primary: highest score
+              if (current.score > prev.score) return current;
+              if (prev.score > current.score) return prev;
+              
+              // Tie-breaker 1: longest run time
+              if (current.days > prev.days) return current;
+              if (prev.days > current.days) return prev;
+              
+              // Tie-breaker 2: earliest in database (scraped first = longer in our system)
+              if (current._dbCreatedAt && prev._dbCreatedAt) {
+                if (current._dbCreatedAt < prev._dbCreatedAt) return current;
+                if (prev._dbCreatedAt < current._dbCreatedAt) return prev;
+              }
+              
+              // Tie-breaker 3: most recently updated
+              if (current._dbUpdatedAt && prev._dbUpdatedAt) {
+                if (current._dbUpdatedAt > prev._dbUpdatedAt) return current;
+                if (prev._dbUpdatedAt > current._dbUpdatedAt) return prev;
+              }
+              
+              // Tie-breaker 4: deterministic fallback (alphabetical by ID)
+              return current.id < prev.id ? current : prev;
+            });
+          }
+          
+          // Mark winner if we have one
+          if (winner && winner.score !== undefined) {
+            winner.performance!.isWinner = true;
+            winner.performance!.score = Math.round(winner.score);
+          }
         }
 
         // Calculate test statistics

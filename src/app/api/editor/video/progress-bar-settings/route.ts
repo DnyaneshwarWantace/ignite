@@ -6,31 +6,38 @@ export async function GET() {
   try {
     const session = await auth();
     
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const userId = session.user.id;
     
-    // Get user's progress bar settings
-    const { data: user, error } = await supabase
-      .from('users')
+    // Get user's progress bar settings from editor_profiles table
+    const { data: profile, error } = await supabase
+      .from('editor_profiles')
       .select('progress_bar_settings')
-      .eq('email', session.user.email)
+      .eq('user_id', userId)
       .single();
 
     if (error) {
+      // If profile doesn't exist, return default settings
+      if (error.code === 'PGRST116') {
+        return NextResponse.json({ 
+          settings: null 
+        });
+      }
       console.error('Error fetching progress bar settings:', error);
       return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 });
     }
 
     console.log('[Progress Bar API] User settings from database:', {
-      userEmail: session.user.email,
-      hasSettings: !!user?.progress_bar_settings,
-      settings: user?.progress_bar_settings
+      userId,
+      hasSettings: !!profile?.progress_bar_settings,
+      settings: profile?.progress_bar_settings
     });
 
     return NextResponse.json({ 
-      settings: user?.progress_bar_settings || null 
+      settings: profile?.progress_bar_settings || null 
     });
 
   } catch (error) {
@@ -43,10 +50,11 @@ export async function POST(request: NextRequest) {
   try {
     const session = await auth();
     
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const userId = session.user.id;
     const body = await request.json();
     const { settings } = body;
 
@@ -54,15 +62,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Settings are required' }, { status: 400 });
     }
 
-    
-    // Update user's progress bar settings
+    // Upsert progress bar settings in editor_profiles table
     const { error } = await supabase
-      .from('users')
-      .update({ 
+      .from('editor_profiles')
+      .upsert({ 
+        user_id: userId,
         progress_bar_settings: settings,
         updated_at: new Date().toISOString()
-      })
-      .eq('email', session.user.email);
+      }, {
+        onConflict: 'user_id'
+      });
 
     if (error) {
       console.error('Error updating progress bar settings:', error);

@@ -27,7 +27,10 @@ export const Uploads = () => {
 	const fetchAssets = async () => {
 		try {
 			setLoading(true);
-			const projectId = window.location.pathname.split('/')[2]; // Get project ID from URL
+			const pathParts = window.location.pathname.split('/');
+			// URL structure: /video-editor/edit/[id]
+			// pathParts: ['', 'video-editor', 'edit', 'projectId']
+			const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
 			const response = await fetch(`/api/assets?projectId=${projectId}`);
 			if (response.ok) {
 				const data = await response.json();

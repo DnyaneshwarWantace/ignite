@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Input, Select, message, List, Card, Space, Typography, Divider, Tag } from 'antd';
+import { Button as ShadcnButton } from '@/editor-lib/video/components/ui/button';
 import { 
   FontSizeOutlined, 
   PlusOutlined, 
@@ -110,7 +111,7 @@ export const FontVariationModal: React.FC<FontVariationModalProps> = ({
   const loadCustomFonts = async () => {
     setIsLoadingCustomFonts(true);
     try {
-      const response = await fetch('/api/fonts/upload');
+      const response = await fetch('/api/editor/video/fonts/upload');
       if (response.ok) {
         const data = await response.json();
         setCustomFonts(data.fonts || []);
@@ -152,10 +153,13 @@ export const FontVariationModal: React.FC<FontVariationModalProps> = ({
     setIsLoading(true);
     try {
       // Get project ID from URL
-      const projectId = window.location.pathname.split('/')[2];
+      const pathParts = window.location.pathname.split('/');
+      // URL structure: /video-editor/edit/[id]
+      // pathParts: ['', 'video-editor', 'edit', 'projectId']
+      const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
       
       // Load font variations from backend
-      const response = await fetch(`/api/projects/${projectId}/font-variations`);
+      const response = await fetch(`/api/editor/video/projects/${projectId}/font-variations`);
       if (response.ok) {
         const data = await response.json();
         
@@ -257,9 +261,12 @@ export const FontVariationModal: React.FC<FontVariationModalProps> = ({
     setIsDeleting(variationId);
     try {
       // Get project ID from URL
-      const projectId = window.location.pathname.split('/')[2];
+      const pathParts = window.location.pathname.split('/');
+      // URL structure: /video-editor/edit/[id]
+      // pathParts: ['', 'video-editor', 'edit', 'projectId']
+      const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
       
-      const response = await fetch(`/api/projects/${projectId}/font-variations`, {
+      const response = await fetch(`/api/editor/video/projects/${projectId}/font-variations`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -292,10 +299,13 @@ export const FontVariationModal: React.FC<FontVariationModalProps> = ({
 
     try {
       // Get project ID from URL
-      const projectId = window.location.pathname.split('/')[2];
+      const pathParts = window.location.pathname.split('/');
+      // URL structure: /video-editor/edit/[id]
+      // pathParts: ['', 'video-editor', 'edit', 'projectId']
+      const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
       
       // Save to backend
-      const response = await fetch(`/api/projects/${projectId}/font-variations`, {
+      const response = await fetch(`/api/editor/video/projects/${projectId}/font-variations`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -384,7 +394,7 @@ export const FontVariationModal: React.FC<FontVariationModalProps> = ({
     <Modal
       title={
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <FontSizeOutlined style={{ color: '#1890ff', fontSize: '18px' }} />
+          <FontSizeOutlined className="text-primary" style={{ fontSize: '18px' }} />
           <span style={{ fontSize: '16px', fontWeight: 600 }}>Font Variations - {element.elementName}</span>
         </div>
       }
@@ -398,9 +408,9 @@ export const FontVariationModal: React.FC<FontVariationModalProps> = ({
         <Button key="cancel" onClick={onClose} size="large">
           Cancel
         </Button>,
-        <Button key="save" type="primary" onClick={handleSaveAll} size="large">
+        <ShadcnButton key="save" onClick={handleSaveAll} variant="default" size="lg">
           Save All Variations ({fontVariations.length})
-        </Button>
+        </ShadcnButton>
       ]}
     >
       <div style={{ maxHeight: '70vh', overflowY: 'auto' }}>
@@ -470,14 +480,14 @@ export const FontVariationModal: React.FC<FontVariationModalProps> = ({
                     <div style={{ display: 'flex', gap: '8px' }}>
                       {editingVariation === variation.id ? (
                         <>
-                          <Button
-                            type="primary"
-                            size="small"
-                            icon={<CheckOutlined />}
+                          <ShadcnButton
+                            variant="default"
+                            size="sm"
                             onClick={() => handleSaveVariation(variation.id)}
                           >
+                            <CheckOutlined style={{ fontSize: '12px' }} />
                             Save
-                          </Button>
+                          </ShadcnButton>
                           <Button
                             size="small"
                             icon={<CloseOutlined />}
@@ -545,7 +555,7 @@ export const FontVariationModal: React.FC<FontVariationModalProps> = ({
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <span style={{ 
                                   fontFamily: font.value,
-                                  color: font.isCustom ? '#1890ff' : '#000'
+                                  color: font.isCustom ? 'hsl(var(--primary))' : '#000'
                                 }}>
                                   {font.label}
                                 </span>

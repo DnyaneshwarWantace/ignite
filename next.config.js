@@ -63,7 +63,8 @@ const nextConfig = {
     return config;
   },
   experimental: {
-    serverComponentsExternalPackages: ['vosk-koffi', 'koffi', 'fluent-ffmpeg', 'fs-extra', 'adm-zip']
+    serverComponentsExternalPackages: ['vosk-koffi', 'koffi', 'fluent-ffmpeg', 'fs-extra', 'adm-zip'],
+    instrumentationHook: true // Re-enabled with non-blocking initialization
   }
 };
 

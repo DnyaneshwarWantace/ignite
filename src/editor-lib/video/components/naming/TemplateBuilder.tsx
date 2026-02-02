@@ -34,7 +34,7 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
   const [templateName, setTemplateName] = useState('');
   const [description, setDescription] = useState('');
   const [preview, setPreview] = useState('');
-  const [validation, setValidation] = useState({ isValid: true, errors: [] });
+  const [validation, setValidation] = useState<{ isValid: boolean; errors: string[] }>({ isValid: true, errors: [] });
   const [isLoading, setIsLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [editableValues, setEditableValues] = useState<Record<string, string>>({});
@@ -45,7 +45,7 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
   // Load user templates
   const loadUserTemplates = async () => {
     try {
-      const response = await fetch('/api/user/naming-templates', {
+      const response = await fetch('/api/editor/video/user/naming-templates', {
         credentials: 'include'
       });
       
@@ -83,7 +83,7 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
       
       console.log('Saving custom template with data:', requestBody);
       
-      const response = await fetch('/api/user/naming-templates', {
+      const response = await fetch('/api/editor/video/user/naming-templates', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -232,8 +232,11 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
       };
       
       // Save to database (implement API call)
-      const projectId = window.location.pathname.split('/')[2];
-      const response = await fetch(`/api/projects/${projectId}/naming-template`, {
+      const pathParts = window.location.pathname.split('/');
+      // URL structure: /video-editor/edit/[id]
+      // pathParts: ['', 'video-editor', 'edit', 'projectId']
+      const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
+      const response = await fetch(`/api/editor/video/projects/${projectId}/naming-template`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

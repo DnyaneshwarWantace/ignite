@@ -42,44 +42,16 @@ export const GET = authMiddleware(
     let activeAds = 0;
     let inactiveAds = 0;
     
+    // Count active/inactive ads based on is_active field
+    // Auto-tracker updates this field every 15 days using direct ad ID API
     ads.forEach((ad: any) => {
       try {
         const content = JSON.parse(ad.content);
-        // Check if ad is active based on ScrapeCreators API format
-        // Try multiple possible field names for active status
-        const isActive = content.is_active ?? content.active ?? content.status === 'active' ?? 
-                       content.ad_delivery_status === 'active' ?? content.delivery_status === 'active';
-        
-        if (isActive === true) {
-          activeAds++;
-        } else if (isActive === false) {
+        if (content.is_active === false) {
           inactiveAds++;
         } else {
-          // Check if ad has end_date to determine if it's inactive
-          const endDate = content.end_date || content.end_date_string;
-          const startDate = content.start_date || content.start_date_string;
-          
-          if (endDate) {
-            const endDateTime = new Date(endDate).getTime();
-            const now = Date.now();
-            if (endDateTime < now) {
-              inactiveAds++;
-            } else {
-              activeAds++;
-            }
-          } else if (startDate) {
-            // If no end date but has start date, consider it active if recent
-            const startDateTime = new Date(startDate).getTime();
-            const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-            if (startDateTime > thirtyDaysAgo) {
-              activeAds++;
-            } else {
-              inactiveAds++;
-            }
-          } else {
-            // If no date info, assume active for recently scraped ads
-            activeAds++;
-          }
+          // Default to active (true or undefined means active)
+          activeAds++;
         }
       } catch (e) {
         // If we can't parse content, assume active

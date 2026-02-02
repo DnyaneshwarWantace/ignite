@@ -41,37 +41,25 @@ import { ContextMenu } from "./context-menu";
 
 interface CanvasAreaProps {
   rulerEnabled: boolean;
+  /** Project with platform dimensions (width/height) - canvas size matches selected platform */
+  project?: { width?: number; height?: number } | null;
 }
 
-export function CanvasArea({ rulerEnabled }: CanvasAreaProps) {
+const DEFAULT_CANVAS_SIZE = { width: 1080, height: 1080 };
+
+export function CanvasArea({ rulerEnabled, project }: CanvasAreaProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { setCanvas, setEditor, canvas } = useCanvasContext();
   const [zoom, setZoom] = useState(1);
+  const projectWidth = project?.width != null ? Number(project.width) : null;
+  const projectHeight = project?.height != null ? Number(project.height) : null;
   const [canvasSize, setCanvasSize] = useState({
-    width: 1080,
-    height: 1080,
+    width: projectWidth ?? DEFAULT_CANVAS_SIZE.width,
+    height: projectHeight ?? DEFAULT_CANVAS_SIZE.height,
   });
 
-  // Fetch fonts from Supabase API
-  const [fonts, setFonts] = useState<any[]>([]);
-
-  useEffect(() => {
-    const fetchFonts = async () => {
-      try {
-        const response = await fetch('/api/fonts');
-        if (response.ok) {
-          const data = await response.json();
-          setFonts(data);
-        }
-      } catch (error) {
-        console.error('Error fetching fonts:', error);
-      }
-    };
-    fetchFonts();
-  }, []);
-
-
+  // Image editor uses system fonts only; no database fonts
   // Calculate zoom to fit canvas in container
   const calculateZoom = () => {
     if (!containerRef.current || !canvasSize.width || !canvasSize.height) return 1;
@@ -111,9 +99,6 @@ export function CanvasArea({ rulerEnabled }: CanvasAreaProps) {
     setZoom(newZoom);
   }, [canvasSize.width, canvasSize.height]);
 
-  // Canvas size is fixed at 1080x1080
-  // No need to update from project
-
   // Listen for custom canvas size change events (from templates)
   useEffect(() => {
     const handleCanvasSizeChange = (event: CustomEvent) => {
@@ -151,15 +136,12 @@ export function CanvasArea({ rulerEnabled }: CanvasAreaProps) {
     document.body.classList.add('editor-mode');
     document.documentElement.classList.add('editor-mode');
 
-    // Prevent default browser context menu on canvas
+    // Prevent default browser context menu on canvas (custom menu is shown by context-menu.tsx)
     const preventContextMenu = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      // Only prevent if clicking on canvas or canvas container
       if (target.tagName === 'CANVAS' || target.closest('.canvas-container')) {
         e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        return false;
+        // Do NOT stopPropagation/stopImmediatePropagation so context-menu's listener can run
       }
     };
 
@@ -254,17 +236,8 @@ export function CanvasArea({ rulerEnabled }: CanvasAreaProps) {
 
       (canvasEditor as any).getCanvasSize = () => canvasSize;
 
-      // Transform Convex fonts to FontPlugin format (if loaded)
-      const fontList = fonts
-        ? fonts
-            .filter((f) => f.url && f.imageUrl) // Only include fonts with both font file and preview
-            .map((font) => ({
-              name: font.name,
-              type: font.type || 'cn',
-              file: font.url!,
-              img: font.imageUrl!,
-            }))
-        : [];
+      // No database fonts; image editor uses system fonts only
+      const fontList: { name: string; type: string; file: string; img: string }[] = [];
 
       // Load all plugins (removed WorkspacePlugin, ResizePlugin, MaskPlugin)
       const plugins = [
@@ -310,29 +283,29 @@ export function CanvasArea({ rulerEnabled }: CanvasAreaProps) {
       // Load canvas state from localStorage if exists
       const savedCanvasState = localStorage.getItem('canvas-state');
       if (savedCanvasState && fabricCanvas) {
-        // Extract workspace dimensions from canvas state before loading
+        // Prefer project (platform) dimensions when available so canvas size matches selected platform
         let loadedWidth = canvasSize.width;
         let loadedHeight = canvasSize.height;
 
-        try {
-          const canvasState = JSON.parse(savedCanvasState);
-
-          // Check if canvas state has width/height
-          if (canvasState.width && canvasState.height) {
-            loadedWidth = canvasState.width;
-            loadedHeight = canvasState.height;
-          }
-
-          // Check for workspace object in canvas state
-          if (canvasState.objects) {
-            const workspace = canvasState.objects.find((obj: any) => obj.id === 'workspace');
-            if (workspace && workspace.width && workspace.height) {
-              loadedWidth = workspace.width;
-              loadedHeight = workspace.height;
+        if (projectWidth != null && projectHeight != null) {
+          loadedWidth = projectWidth;
+          loadedHeight = projectHeight;
+        } else {
+          try {
+            const canvasState = JSON.parse(savedCanvasState);
+            if (canvasState.width && canvasState.height) {
+              loadedWidth = canvasState.width;
+              loadedHeight = canvasState.height;
+            } else if (canvasState.objects) {
+              const workspace = canvasState.objects.find((obj: any) => obj.id === 'workspace');
+              if (workspace?.width && workspace?.height) {
+                loadedWidth = workspace.width;
+                loadedHeight = workspace.height;
+              }
             }
+          } catch (e) {
+            console.warn('Could not parse canvas state for dimensions:', e);
           }
-        } catch (e) {
-          console.warn('Could not parse canvas state for dimensions:', e);
         }
 
         // Update canvas size state with loaded dimensions
@@ -828,53 +801,7 @@ export function CanvasArea({ rulerEnabled }: CanvasAreaProps) {
         delete (canvasRef.current as any).__fabricCanvas;
       }
     };
-  }, [fonts, setCanvas, setEditor]); // Removed canvasSize dependencies to prevent canvas recreation
-
-  // Re-render canvas when fonts are loaded to ensure text displays correctly
-  useEffect(() => {
-    if (!fonts || fonts.length === 0) return;
-    
-    const canvas = (canvasRef.current as any)?.__fabricCanvas;
-    if (!canvas) return;
-    
-    // Check if canvas context is ready
-    const context = canvas.getContext();
-    if (!context) return;
-
-    // Wait a bit for fonts to be fully loaded into the DOM
-    const timeout = setTimeout(() => {
-      // Check context again before rendering
-      const ctx = canvas.getContext();
-      if (!ctx) return;
-      
-      // Force re-render all text objects to apply fonts
-      const objects = canvas.getObjects();
-      const textObjects = objects.filter((obj: any) => 
-        obj.type === 'text' || obj.type === 'i-text' || obj.type === 'textbox'
-      );
-      
-      if (textObjects.length > 0) {
-        // Update each text object to trigger font re-render
-        textObjects.forEach((obj: any) => {
-          const fontFamily = obj.fontFamily;
-          if (fontFamily) {
-            // Force re-application of font
-            obj.set('fontFamily', fontFamily);
-          }
-        });
-        
-        // Use requestAnimationFrame to ensure context is ready
-        requestAnimationFrame(() => {
-          const ctx = canvas.getContext();
-          if (ctx) {
-            canvas.requestRenderAll();
-          }
-        });
-      }
-    }, 100);
-
-    return () => clearTimeout(timeout);
-  }, [fonts]);
+  }, [setCanvas, setEditor]); // Removed canvasSize dependencies to prevent canvas recreation
 
   // Separate effect to handle canvas size changes without recreating canvas
   useEffect(() => {

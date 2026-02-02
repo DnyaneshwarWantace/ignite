@@ -34,36 +34,9 @@ export function AttributeFont() {
   const [linethrough, setLinethrough] = useState(false);
   const [lineHeight, setLineHeight] = useState(1.2);
   const [textAlign, setTextAlign] = useState("left");
-  const [dbFonts, setDbFonts] = useState<any[]>([]);
 
-  // Fetch fonts from database using REST API
-  useEffect(() => {
-    const fetchFonts = async () => {
-      try {
-        const response = await fetch('/api/fonts');
-        if (response.ok) {
-          const data = await response.json();
-          setDbFonts(data.fonts || []);
-        }
-      } catch (error) {
-        console.error('Error fetching fonts:', error);
-      }
-    };
-    fetchFonts();
-  }, []);
-
-  // Combine default fonts with database fonts
-  const allFonts = useMemo(() => {
-    const fonts = [...FONT_FAMILIES];
-    if (dbFonts && dbFonts.length > 0) {
-      dbFonts.forEach((font: any) => {
-        if (!fonts.includes(font.font_family)) {
-          fonts.push(font.font_family);
-        }
-      });
-    }
-    return fonts.sort();
-  }, [dbFonts]);
+  // Image editor uses system fonts only (no database fonts)
+  const allFonts = useMemo(() => [...FONT_FAMILIES].sort(), []);
 
   useEffect(() => {
     if (!canvas) return;

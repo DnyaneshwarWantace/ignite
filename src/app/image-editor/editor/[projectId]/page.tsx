@@ -16,24 +16,26 @@ export default function EditorPage() {
   useEffect(() => {
     const fetchProject = async () => {
       try {
-        const response = await fetch(`/api/projects/${projectId}`);
+        const response = await fetch(`/api/editor/image/projects/${projectId}`);
 
         if (response.ok) {
           const data = await response.json();
-          setCurrentProject({
-            _id: data.id,
-            id: data.id,
-            title: data.title,
-            width: data.width,
-            height: data.height,
-            canvasState: data.canvas_state,
-            imageUrl: data.image_url || null,
-            userId: data.user_id || null,
-            createdAt: data.created_at,
-            updatedAt: data.updated_at,
-          });
-          setIsLoading(false);
-          return;
+          if (data.success && data.project) {
+            setCurrentProject({
+              _id: data.project.id,
+              id: data.project.id,
+              title: data.project.name,
+              width: data.project.width,
+              height: data.project.height,
+              canvasState: data.project.trackItems,
+              imageUrl: data.project.thumbnail || null,
+              userId: data.project.userId || null,
+              createdAt: data.project.createdAt,
+              updatedAt: data.project.updatedAt,
+            });
+            setIsLoading(false);
+            return;
+          }
         }
 
         // If project not found in Supabase, fallback to localStorage
@@ -87,13 +89,13 @@ export default function EditorPage() {
     fetchProject();
   }, [projectId]);
 
-  // Loading state
+  // Loading state (single loader, light background)
   if (isLoading || !currentProject) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-white" />
-          <p className="text-white/70">Loading editor...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-gray-600">Loading project...</p>
         </div>
       </div>
     );

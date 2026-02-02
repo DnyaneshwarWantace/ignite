@@ -27,7 +27,7 @@ export const discoverApi = createApi({
       niche?: string;
       filterKey?: string;
     }>({
-      query: ({ limit = 30, cursorCreatedAt, cursorId, search, format, platform, status, language, niche, filterKey }) => {
+      query: ({ limit = 200, cursorCreatedAt, cursorId, search, format, platform, status, language, niche, filterKey }) => {
         const params = new URLSearchParams();
         
         // Add pagination parameters - use cursor instead of page
@@ -57,7 +57,7 @@ export const discoverApi = createApi({
       serializeQueryArgs: ({ queryArgs }) => {
         const { limit, cursorCreatedAt, cursorId, search, format, platform, status, language, niche, filterKey } = queryArgs;
         return JSON.stringify({
-          limit: limit || 30,
+          limit: limit || 200,
           cursor: cursorCreatedAt && cursorId ? `${cursorCreatedAt}_${cursorId}` : null,
           filters: { search, format, platform, status, language, niche },
           filterKey

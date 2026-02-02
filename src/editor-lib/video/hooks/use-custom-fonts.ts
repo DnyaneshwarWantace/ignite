@@ -12,7 +12,7 @@ export function useCustomFonts() {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch('/api/fonts/upload');
+      const response = await fetch('/api/editor/video/fonts/upload');
       const result = await response.json();
 
       if (response.ok) {

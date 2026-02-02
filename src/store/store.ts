@@ -7,9 +7,20 @@ import CustomizerReducer from "./customizer/CustomizerSlice";
 import { xrayApi, xray_slice } from "./slices/xray";
 import { discoverApi } from "./slices/discover";
 
+// Use noop storage on server (SSR) so redux-persist doesn't fail; real storage in browser
+function createNoopStorage() {
+  return {
+    getItem: () => Promise.resolve(null),
+    setItem: (_key: string, value: unknown) => Promise.resolve(value),
+    removeItem: () => Promise.resolve(),
+  };
+}
+
+const safeStorage = typeof window !== "undefined" ? storage : createNoopStorage();
+
 const persistConfig = {
   key: "root",
-  storage,
+  storage: safeStorage,
 };
 
 const rootReducer = combineReducers({

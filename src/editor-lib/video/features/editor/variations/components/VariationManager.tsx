@@ -204,14 +204,14 @@ export const VariationManager: React.FC<VariationManagerProps> = ({
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                					<h4 className="text-sm font-medium" style={{ color: 'rgb(80, 118, 178)' }}>
+                					<h4 className="text-sm font-medium text-primary">
                   Variation Summary
                 </h4>
-                					<p className="text-xs" style={{ color: 'rgb(80, 118, 178)' }}>
+                					<p className="text-xs text-primary">
                   {elements.length} element{elements.length !== 1 ? 's' : ''} • {calculateTotalCombinations()} total video combinations
                 </p>
               </div>
-              					<Badge variant="default" style={{ backgroundColor: 'rgb(80, 118, 178)' }}>
+              					<Badge variant="default" className="bg-primary">
                 {calculateTotalCombinations()} videos
               </Badge>
             </div>

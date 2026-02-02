@@ -39,26 +39,18 @@ export function FontVariationsPanel() {
   const [variationCounts, setVariationCounts] = useState<Record<string, number>>({});
   const [availableFonts, setAvailableFonts] = useState<any[]>([]);
 
-  // Fetch variation counts and fonts from REST API
+  // Fetch variation counts only; image editor uses system fonts (no database fonts)
   useEffect(() => {
     if (!projectId) return;
 
     const fetchData = async () => {
       try {
-        const [countsRes, fontsRes] = await Promise.all([
-          fetch(`/api/variations/counts?projectId=${projectId}&type=font`),
-          fetch('/api/fonts')
-        ]);
-
+        const countsRes = await fetch(`/api/variations/counts?projectId=${projectId}&type=font`);
         if (countsRes.ok) {
           const countsData = await countsRes.json();
           setVariationCounts(countsData || {});
         }
-
-        if (fontsRes.ok) {
-          const fontsData = await fontsRes.json();
-          setAvailableFonts(fontsData || []);
-        }
+        setAvailableFonts([]);
       } catch (error) {
         console.error('Error fetching data:', error);
       }
@@ -245,22 +237,25 @@ export function FontVariationsPanel() {
           <div className="space-y-2">
             <Label className="text-xs">Quick Add from Library ({availableFonts.length} fonts)</Label>
             <div className="max-h-48 overflow-y-auto space-y-1 border rounded p-2 bg-gray-50 scrollbar-thin">
-              {availableFonts.map((font: any) => (
-                <button
-                  key={font._id}
-                  onClick={() => {
-                    const variation: FontVariation = {
-                      id: `font-${Date.now()}-${Math.random()}`,
-                      fontFamily: font.fontFamily,
-                    };
-                    setFontVariations([...fontVariations, variation]);
-                  }}
-                  className="w-full text-left px-3 py-2 text-sm rounded hover:bg-purple-100 transition-colors border border-transparent hover:border-purple-300 text-black"
-                  style={{ fontFamily: font.fontFamily }}
-                >
-                  {font.name}
-                </button>
-              ))}
+              {availableFonts.map((font: any) => {
+                const fontFamily = font.font_family || font.fontFamily || font.name;
+                return (
+                  <button
+                    key={font.id || font._id || font.name}
+                    onClick={() => {
+                      const variation: FontVariation = {
+                        id: `font-${Date.now()}-${Math.random()}`,
+                        fontFamily,
+                      };
+                      setFontVariations([...fontVariations, variation]);
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm rounded hover:bg-purple-100 transition-colors border border-transparent hover:border-purple-300 text-black"
+                    style={{ fontFamily }}
+                  >
+                    {font.name || font.font_family}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

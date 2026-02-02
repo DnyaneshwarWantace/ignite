@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 import validation from "./validation";
 import { scrapeCompanyAds, extractPageIdFromInput } from "@apiUtils/adScraper";
-import { startAutoTracking } from "../../../../../../../lib/auto-tracker";
+import { startAutoTracking } from "@/lib/auto-tracker";
 
 // Type definition for User (matching Supabase schema)
 interface User {
@@ -167,6 +167,7 @@ export const POST = authMiddleware(
       const effectiveOffset = offset || existingAdsCount;
       console.log(`Using offset: ${effectiveOffset} (provided: ${offset}, existing: ${existingAdsCount})`);
       
+      // Limit to 200 ads per request (one API call)
       let scrapedAds = await scrapeCompanyAds(extractedPageId, 200, effectiveOffset);
       
       if (scrapedAds.length === 0) {
@@ -263,24 +264,35 @@ export const POST = authMiddleware(
           .single();
 
         if (!existingConnection || checkError) {
-          const { error: folderBrandError } = await supabase
+        const { error: folderBrandError } = await supabase
             .from('brand_folders')
-            .insert({
+          .insert({
               brand_id: brand.id,
               folder_id: targetFolder.id
-            });
+          });
 
-          if (folderBrandError && !folderBrandError.message.includes('duplicate')) {
-            console.error('Error connecting brand to folder:', folderBrandError);
+        if (folderBrandError && !folderBrandError.message.includes('duplicate')) {
+          console.error('Error connecting brand to folder:', folderBrandError);
           }
         }
       }
 
       // Save scraped ads to database with improved duplicate checking
       const savedAds = [];
-      const newAdIds = scrapedAds.map(ad => ad.id);
+      
+      // Step 1: Deduplicate scrapedAds by library_id (same ad might appear multiple times in API response)
+      const uniqueScrapedAdsMap = new Map();
+      for (const ad of scrapedAds) {
+        if (!uniqueScrapedAdsMap.has(ad.id)) {
+          uniqueScrapedAdsMap.set(ad.id, ad);
+        }
+      }
+      const uniqueScrapedAds = Array.from(uniqueScrapedAdsMap.values());
+      const newAdIds = uniqueScrapedAds.map(ad => ad.id);
 
-      // GLOBAL duplicate check - check across ALL brands, not just current brand
+      console.log(`📊 Processing ${uniqueScrapedAds.length} unique ads (${scrapedAds.length} total scraped, ${scrapedAds.length - uniqueScrapedAds.length} duplicates removed)`);
+
+      // Step 2: GLOBAL duplicate check - check across ALL brands, not just current brand
       const { data: existingAds, error: existingAdsError } = await supabase
         .from('ads')
         .select('library_id, brand_id, media_status, local_image_url, local_video_url')
@@ -293,15 +305,24 @@ export const POST = authMiddleware(
         });
       }
 
-      console.log(`Found ${existingAds?.length || 0} existing ads globally out of ${newAdIds.length} scraped ads`);
+      console.log(`Found ${existingAds?.length || 0} existing ads globally out of ${newAdIds.length} unique scraped ads`);
       
-      for (const scrapedAd of scrapedAds) {
+      // Step 3: Track ads we've processed in this batch to avoid duplicates
+      const processedInBatch = new Set();
+      
+      // Step 4: Process ads - use upsert to handle race conditions gracefully
+      for (const scrapedAd of uniqueScrapedAds) {
         try {
+          // Skip if we've already processed this ad in this batch
+          if (processedInBatch.has(scrapedAd.id)) {
+            continue;
+          }
+          processedInBatch.add(scrapedAd.id);
+
           const existingAd = existingAdMap.get(scrapedAd.id);
 
           if (!existingAd) {
-            // New ad - create with pending media status
-            // Try insert first, handle race condition if duplicate
+            // New ad - try insert, handle race condition if duplicate
             const { data: savedAd, error: createAdError } = await supabase
               .from('ads')
               .insert({
@@ -324,18 +345,15 @@ export const POST = authMiddleware(
             if (!createAdError && savedAd) {
               savedAds.push(savedAd);
               console.log(`✅ New ad added: ${scrapedAd.id} - mediaStatus: pending`);
-            } else if (createAdError?.code === '23505') {
+            } else if (createAdError?.code === '23505' || createAdError?.message?.includes('duplicate') || createAdError?.message?.includes('unique')) {
               // Duplicate key - ad was created between our check and insert (race condition)
-              // This is fine, just skip it
-              console.log(`⚠️ Ad ${scrapedAd.id} already exists (race condition), skipping`);
-            } else {
+              // This is fine, just skip it silently - don't log to avoid spam
+            } else if (createAdError) {
+              // Only log actual errors, not duplicates
               console.error(`Error creating ad ${scrapedAd.id}:`, createAdError);
             }
-          } else {
-            // Ad already exists - skip it (library_id is unique, can't have same ad under multiple brands)
-            // If it's under a different brand, we can't duplicate it due to unique constraint
-            console.log(`⏭️ Ad ${scrapedAd.id} already exists under brand ${existingAd.brand_id}, skipping`);
           }
+          // If existingAd exists, skip silently (already in database)
         } catch (e) {
           console.error(`Error processing ad ${scrapedAd.id}:`, e);
         }

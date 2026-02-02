@@ -7,7 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Typography } from "@/components/ui/typography";
 import { Flex } from "@radix-ui/themes";
-import { Link, Presentation, Loader2, AlertCircle } from "lucide-react";
+import { Link, Presentation, Loader2, AlertCircle, ArrowLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
+import CommonTopbar from "@/components/common-topbar";
 import React, { useState, useMemo, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { Chip } from "@/components/ui/chip";
@@ -34,6 +36,7 @@ import Masonry from "react-masonry-css";
 const OverallStats = dynamic(() => import("@/components/overall-statistics"), { ssr: false });
 
 export default function Brand({ params }: { params: { brand: string } }) {
+  const router = useRouter();
   const [adfilters, updateAdFilters] = useState<any>({
     format: [],
     platform: [],
@@ -466,8 +469,42 @@ export default function Brand({ params }: { params: { brand: string } }) {
   }
 
   return (
-    <PageWrapper top={selectedBrand && <FolderNavigator folder={selectedFolder} {...(selectedBrand ?? {})} />}>
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+    <PageWrapper
+      bb
+      top={
+        <>
+          <div className="flex-1 flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.back()}
+              className="flex items-center gap-2 hover:bg-gray-100 -ml-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            {currentBrand?.logo && (
+              <img 
+                src={currentBrand.logo} 
+                alt={currentBrand.name || 'Brand'} 
+                className="w-10 h-10 rounded-full object-cover border border-gray-200"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            )}
+            <div className="flex-1 flex-col items-start">
+              <Typography variant="title">{currentBrand?.name || 'Brand'}</Typography>
+              <Typography variant="subtitle">View brand details and ads</Typography>
+            </div>
+          </div>
+          <div className="flex items-center space-x-5">
+            {/* Space for future buttons if needed */}
+          </div>
+        </>
+      }
+    >
+      <Flex direction="column" gap="4" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="ad">Ad Library</TabsTrigger>
           <TabsTrigger value="ct">Creative Tests</TabsTrigger>
@@ -826,6 +863,7 @@ export default function Brand({ params }: { params: { brand: string } }) {
           </Suspense>
         </TabsContent>
       </Tabs>
+      </Flex>
     </PageWrapper>
   );
 }

@@ -16,7 +16,7 @@ export interface RenderVideoOptions {
 export class RemotionRendererService {
   static async renderVideo(options: RenderVideoOptions): Promise<Blob> {
     try {
-      	       	const response = await fetch('/api/render-lambda', {
+      	       	const response = await fetch('/api/editor/video/render-lambda', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

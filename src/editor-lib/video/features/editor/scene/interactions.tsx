@@ -183,6 +183,19 @@ export function SceneInteractions({
 	useEffect(() => {
 		setSceneMoveableRef(moveableRef as React.RefObject<Moveable>);
 	}, [moveableRef]);
+
+	// No tooltips – selector only (image editor style). Strip title so browser tooltip never shows.
+	useEffect(() => {
+		const stripTitles = () => {
+			document.querySelectorAll(".designcombo-scene-moveable [title]").forEach((el) => {
+				el.removeAttribute("title");
+			});
+		};
+		const id = setInterval(stripTitles, 200);
+		stripTitles();
+		return () => clearInterval(id);
+	}, [targets]);
+
 	return (
 		<Moveable
 			ref={moveableRef}

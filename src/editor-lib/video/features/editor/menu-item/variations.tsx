@@ -142,10 +142,13 @@ const Variations: React.FC<VariationsProps> = ({
 
     try {
       // Get project ID from URL
-      const projectId = window.location.pathname.split('/')[2];
+      const pathParts = window.location.pathname.split('/');
+      // URL structure: /video-editor/edit/[id]
+      // pathParts: ['', 'video-editor', 'edit', 'projectId']
+      const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
       
       // Save to backend
-      const response = await fetch(`/api/projects/${projectId}/text-variations`, {
+      const response = await fetch(`/api/editor/video/projects/${projectId}/text-variations`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -180,9 +183,12 @@ const Variations: React.FC<VariationsProps> = ({
 
     try {
       // Get project ID from URL
-      const projectId = window.location.pathname.split('/')[2];
+      const pathParts = window.location.pathname.split('/');
+      // URL structure: /video-editor/edit/[id]
+      // pathParts: ['', 'video-editor', 'edit', 'projectId']
+      const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
       
-      const response = await fetch(`/api/projects/${projectId}/text-variations`);
+      const response = await fetch(`/api/editor/video/projects/${projectId}/text-variations`);
       if (response.ok) {
         const data = await response.json();
         const elementVariations = data.textVariations.find((v: any) => v.elementId === elementId);
@@ -330,10 +336,9 @@ const Variations: React.FC<VariationsProps> = ({
             <Button 
                   type="primary" 
                   icon={<PlusOutlined />}
+                  className="add-variant-btn"
                   style={{ 
                     width: '100%', 
-                    backgroundColor: '#333', 
-                    borderColor: '#333',
                     marginBottom: 16
                   }}
                   onClick={() => {

@@ -8,7 +8,11 @@ import { CanvasArea } from "./canvas-area";
 import { RingLoader } from "react-spinners";
 import { useCanvasContext } from "@/editor-lib/image/providers/canvas-provider";
 
-export function EditorLayout() {
+interface EditorLayoutProps {
+  project?: any;
+}
+
+export function EditorLayout({ project }: EditorLayoutProps) {
   const [rulerEnabled, setRulerEnabled] = useState(true);
   const { processingMessage } = useCanvasContext();
 
@@ -57,9 +61,10 @@ export function EditorLayout() {
         {/* Left Sidebar - 380px when expanded, 65px when collapsed */}
         <LeftSidebar />
 
-        {/* Canvas Area - Flexible center */}
+        {/* Canvas Area - Flexible center (project dimensions set canvas size) */}
         <CanvasArea
           rulerEnabled={rulerEnabled}
+          project={project}
         />
 
         {/* Right Sidebar - 380px when expanded */}

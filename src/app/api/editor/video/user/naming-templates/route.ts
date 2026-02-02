@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/app/api/auth/[...nextauth]/options';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/editor-lib/video/lib/supabase';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = supabaseAdmin;
 
 // Default templates that every user should have
 const DEFAULT_TEMPLATES = [
@@ -54,7 +51,7 @@ export async function GET(request: NextRequest) {
 
     // Check if user has any templates
     const { data: existingTemplates, error: fetchError } = await supabase
-      .from('user_naming_templates')
+      .from('editor_user_naming_templates')
       .select('*')
       .eq('user_id', userId)
       .order('is_default', { ascending: false })
@@ -79,7 +76,7 @@ export async function GET(request: NextRequest) {
       }));
 
       const { data: insertedTemplates, error: insertError } = await supabase
-        .from('user_naming_templates')
+        .from('editor_user_naming_templates')
         .insert(defaultTemplatesToInsert)
         .select();
 
@@ -142,7 +139,7 @@ export async function POST(request: NextRequest) {
 
     // Create new template
     const { data: newTemplate, error: insertError } = await supabase
-      .from('user_naming_templates')
+      .from('editor_user_naming_templates')
       .insert(insertData)
       .select()
       .single();
@@ -180,7 +177,7 @@ export async function PUT(request: NextRequest) {
 
     // Update template
     const { data: updatedTemplate, error: updateError } = await supabase
-      .from('user_naming_templates')
+      .from('editor_user_naming_templates')
       .update({
         name,
         description: description || '',
@@ -225,7 +222,7 @@ export async function DELETE(request: NextRequest) {
 
     // Delete template (only custom templates, not default ones)
     const { error: deleteError } = await supabase
-      .from('user_naming_templates')
+      .from('editor_user_naming_templates')
       .delete()
       .eq('id', templateId)
       .eq('user_id', userId)

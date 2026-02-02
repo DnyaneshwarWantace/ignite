@@ -78,7 +78,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
             console.log(`[Download Manager] Cancelling Lambda job ${download.jobId} for download ${id}`);
             
             // Call the DELETE endpoint to properly cancel the Lambda job
-            const response = await fetch(`/api/render-lambda?jobId=${download.jobId}`, {
+            const response = await fetch(`/api/editor/video/render-lambda?jobId=${download.jobId}`, {
               method: 'DELETE'
             });
             
@@ -189,7 +189,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
         }
 
         // Start the Lambda render job
-        const response = await fetch('/api/render-lambda', {
+        const response = await fetch('/api/editor/video/render-lambda', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -224,7 +224,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
           }
           
           // Check job status to get real progress
-          const statusResponse = await fetch(`/api/render-lambda?jobId=${jobId}`);
+          const statusResponse = await fetch(`/api/editor/video/render-lambda?jobId=${jobId}`);
           
           if (!statusResponse.ok) {
             if (statusResponse.status === 404) {
@@ -263,7 +263,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
           
           if (statusData.status === 'completed') {
             // Download the completed video from Lambda
-            const downloadResponse = await fetch(`/api/render-lambda?jobId=${jobId}`, {
+            const downloadResponse = await fetch(`/api/editor/video/render-lambda?jobId=${jobId}`, {
               method: 'PUT'
             });
             
@@ -337,7 +337,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
         }
 
         // Start the Lambda render job for variation
-        const response = await fetch('/api/render-lambda', {
+        const response = await fetch('/api/editor/video/render-lambda', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -376,7 +376,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
           get().updateDownload(download.id, { progress: estimatedProgress });
           
           // Check job status
-          const statusResponse = await fetch(`/api/render-lambda?jobId=${jobId}`);
+          const statusResponse = await fetch(`/api/editor/video/render-lambda?jobId=${jobId}`);
           
           if (!statusResponse.ok) {
             console.error(`Failed to check Lambda job status for ${download.name}:`, statusResponse.status);
@@ -387,7 +387,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
           
           if (statusData.status === 'completed') {
             // Download the completed variation from Lambda
-            const downloadResponse = await fetch(`/api/render-lambda?jobId=${jobId}`, {
+            const downloadResponse = await fetch(`/api/editor/video/render-lambda?jobId=${jobId}`, {
               method: 'PUT'
             });
             

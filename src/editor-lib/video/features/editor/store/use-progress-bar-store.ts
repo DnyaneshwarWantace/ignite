@@ -72,7 +72,7 @@ export const useProgressBarStore = create<ProgressBarStore>((set, get) => ({
     set({ isLoading: true });
     
     try {
-      const response = await fetch('/api/progress-bar-settings');
+      const response = await fetch('/api/editor/video/progress-bar-settings');
       
       if (!response.ok) {
         throw new Error('Failed to load settings');
@@ -104,7 +104,7 @@ export const useProgressBarStore = create<ProgressBarStore>((set, get) => ({
     set({ isSaving: true });
     
     try {
-      const response = await fetch('/api/progress-bar-settings', {
+      const response = await fetch('/api/editor/video/progress-bar-settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

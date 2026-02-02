@@ -56,18 +56,27 @@
 }
 
 .element-item:hover {
-  border-color: #1890ff;
-  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
+  border-color: hsl(var(--primary));
+  box-shadow: 0 2px 8px hsla(var(--primary), 0.15);
   transform: translateY(-1px);
 }
 
+.element-item:hover .element-icon {
+  color: hsl(var(--primary));
+  transform: scale(1.1);
+  transition: all 0.2s ease;
+}
+
 .element-icon {
-  margin-right: 8px;
-  font-size: 16px;
-  color: #1890ff;
-  width: 20px;
+  margin-right: 12px;
+  font-size: 18px;
+  color: hsl(var(--primary));
+  width: 24px;
   text-align: center;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .element-content {
@@ -191,4 +200,181 @@
 
 .variations-manager .ant-card-body {
   padding: 8px 12px;
+}
+
+/* Override Ant Design button colors to use primary color */
+.variations-manager .ant-btn-primary,
+.variations-manager .ant-btn-primary:hover,
+.variations-manager .ant-btn-primary:focus {
+  background-color: hsl(var(--primary)) !important;
+  border-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+}
+
+.variations-manager .ant-btn-primary:active {
+  background-color: hsl(var(--primary)) !important;
+  border-color: hsl(var(--primary)) !important;
+}
+
+.variations-manager .ant-btn:hover:not(.ant-btn-primary):not(.ant-btn-danger) {
+  border-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary)) !important;
+}
+
+.variations-manager .ant-btn:focus:not(.ant-btn-primary):not(.ant-btn-danger) {
+  border-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary)) !important;
+}
+
+/* Override input focus colors */
+.variations-manager .ant-input:focus,
+.variations-manager .ant-input-focused,
+.variations-manager .ant-input-search .ant-input:focus {
+  border-color: hsl(var(--primary)) !important;
+  box-shadow: 0 0 0 2px hsla(var(--primary), 0.2) !important;
+}
+
+.variations-manager .ant-input-search:hover .ant-input {
+  border-color: hsl(var(--primary)) !important;
+}
+
+/* Override select hover and focus */
+.variations-manager .ant-select:not(.ant-select-disabled):hover .ant-select-selector,
+.variations-manager .ant-select-focused:not(.ant-select-disabled) .ant-select-selector {
+  border-color: hsl(var(--primary)) !important;
+}
+
+.variations-manager .ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
+  background-color: hsla(var(--primary), 0.1) !important;
+  color: hsl(var(--primary)) !important;
+}
+
+.variations-manager .ant-select-item-option:hover {
+  background-color: hsla(var(--primary), 0.05) !important;
+}
+
+/* Override for all modals within variations manager */
+.variations-manager .ant-modal .ant-btn-primary,
+.variations-manager .ant-modal .ant-btn-primary:hover,
+.variations-manager .ant-modal .ant-btn-primary:focus {
+  background-color: hsl(var(--primary)) !important;
+  border-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+}
+
+.variations-manager .ant-modal .ant-btn:hover:not(.ant-btn-primary):not(.ant-btn-danger),
+.variations-manager .ant-modal .ant-btn:focus:not(.ant-btn-primary):not(.ant-btn-danger) {
+  border-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary)) !important;
+}
+
+.variations-manager .ant-modal .ant-input:focus,
+.variations-manager .ant-modal .ant-input-focused {
+  border-color: hsl(var(--primary)) !important;
+  box-shadow: 0 0 0 2px hsla(var(--primary), 0.2) !important;
+}
+
+.variations-manager .ant-modal .ant-select:not(.ant-select-disabled):hover .ant-select-selector,
+.variations-manager .ant-modal .ant-select-focused:not(.ant-select-disabled) .ant-select-selector {
+  border-color: hsl(var(--primary)) !important;
+}
+
+/* Add variant button specific styling */
+.add-variant-btn,
+.add-variant-btn:hover,
+.add-variant-btn:focus {
+  background-color: hsl(var(--primary)) !important;
+  border-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+}
+
+/* Global overrides for all Ant Design components in variations area */
+.variations-manager .ant-btn-primary,
+.variations-manager .ant-btn-primary:hover,
+.variations-manager .ant-btn-primary:focus,
+.variations-manager .ant-btn-primary:active {
+  background: hsl(var(--primary)) !important;
+  border-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+}
+
+.variations-manager .ant-btn:not(.ant-btn-primary):not(.ant-btn-danger):hover,
+.variations-manager .ant-btn:not(.ant-btn-primary):not(.ant-btn-danger):focus {
+  border-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary)) !important;
+}
+
+.variations-manager .ant-input:hover,
+.variations-manager .ant-input:focus,
+.variations-manager .ant-input-focused {
+  border-color: hsl(var(--primary)) !important;
+}
+
+.variations-manager .ant-input:focus,
+.variations-manager .ant-input-focused {
+  box-shadow: 0 0 0 2px hsla(var(--primary), 0.2) !important;
+}
+
+.variations-manager .ant-select:hover .ant-select-selector,
+.variations-manager .ant-select-focused .ant-select-selector {
+  border-color: hsl(var(--primary)) !important;
+}
+
+.variations-manager .ant-select-item-option-selected {
+  background-color: hsla(var(--primary), 0.1) !important;
+  color: hsl(var(--primary)) !important;
+}
+
+.variations-manager .ant-select-item-option:hover {
+  background-color: hsla(var(--primary), 0.05) !important;
+}
+
+/* Override for modals rendered inside variations manager */
+.ant-modal .variations-manager .ant-btn-primary,
+.ant-modal .variations-manager .ant-btn-primary:hover,
+.ant-modal .variations-manager .ant-btn-primary:focus {
+  background: hsl(var(--primary)) !important;
+  border-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+}
+
+/* Global overrides for Ant Design components in modals (modals render at root level) */
+.ant-modal .ant-btn-primary,
+.ant-modal .ant-btn-primary:hover,
+.ant-modal .ant-btn-primary:focus,
+.ant-modal .ant-btn-primary:active {
+  background: hsl(var(--primary)) !important;
+  border-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+}
+
+.ant-modal .ant-btn:not(.ant-btn-primary):not(.ant-btn-danger):hover,
+.ant-modal .ant-btn:not(.ant-btn-primary):not(.ant-btn-danger):focus {
+  border-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary)) !important;
+}
+
+.ant-modal .ant-input:focus,
+.ant-modal .ant-input-focused,
+.ant-modal .ant-input:hover {
+  border-color: hsl(var(--primary)) !important;
+}
+
+.ant-modal .ant-input:focus,
+.ant-modal .ant-input-focused {
+  box-shadow: 0 0 0 2px hsla(var(--primary), 0.2) !important;
+}
+
+.ant-modal .ant-select:not(.ant-select-disabled):hover .ant-select-selector,
+.ant-modal .ant-select-focused:not(.ant-select-disabled) .ant-select-selector {
+  border-color: hsl(var(--primary)) !important;
+}
+
+.ant-modal .ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
+  background-color: hsla(var(--primary), 0.1) !important;
+  color: hsl(var(--primary)) !important;
+}
+
+.ant-modal .ant-select-item-option:hover {
+  background-color: hsla(var(--primary), 0.05) !important;
 }

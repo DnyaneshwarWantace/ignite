@@ -76,8 +76,8 @@ export default function DiscoverPage() {
   const [isFilterApplied, setIsFilterApplied] = useState(false);
   const [lastServerFilter, setLastServerFilter] = useState<string>("");
 
-  // Initial load - increase to get more diverse content
-  const initialLimit = useMemo(() => Math.max(getInitialLoadCount(), 50), []);
+  // Initial load - request up to 200 so all scraped ads can show
+  const initialLimit = useMemo(() => Math.max(getInitialLoadCount(), 200), []);
 
   // Create a stable filter key that changes when filters change
   const filterKey = useMemo(() => {

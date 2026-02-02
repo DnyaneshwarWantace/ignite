@@ -15,7 +15,7 @@ interface ScrapedAd {
   created_time: string;
 }
 
-export async function scrapeCompanyAds(pageId: string, limit: number = 50, offset: number = 0): Promise<ScrapedAd[]> {
+export async function scrapeCompanyAds(pageId: string, limit: number = 200, offset: number = 0): Promise<ScrapedAd[]> {
   try {
     if (!SCRAPE_CREATORS_API_KEY) {
       throw new Error('ScrapeCreators API key not found. Please set SCRAPE_CREATORS_API_KEY in your environment variables.');
@@ -159,6 +159,14 @@ export async function scrapeIndividualAd(libraryId: string): Promise<ScrapedAd |
   }
 }
 
+/**
+ * Alias for scrapeIndividualAd - used by auto-tracker
+ * Gets a single ad by its library ID to check status
+ */
+export async function getAdById(libraryId: string): Promise<ScrapedAd | null> {
+  return scrapeIndividualAd(libraryId);
+}
+
 function determineAdType(ad: any): 'video' | 'image' | 'carousel' {
   const snapshot = ad.snapshot || {};
   
@@ -265,4 +273,5 @@ export function extractPageIdFromInput(input: string): string | null {
   }
   
   return null;
-} 
+}
+

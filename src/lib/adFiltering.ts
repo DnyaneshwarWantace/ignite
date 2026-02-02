@@ -159,29 +159,20 @@ export const getAdPlatform = (ad: any): string[] => {
 };
 
 // Helper function to get ad status
+// Status is maintained by auto-tracker which checks every 15 days using direct ad ID API
 export const getAdStatus = (ad: any): string[] => {
   try {
     const content = typeof ad.content === 'string' ? JSON.parse(ad.content) : ad.content;
-    
-    // Check is_active field from content (this is how it's stored in database)
+
+    // Simple check: if is_active is false, it's not running
+    // Auto-tracker updates this field every 15 days
     if (content.is_active === false) return ['Not Running'];
-    if (content.is_active === true) return ['Running'];
-    
-    // Fallback checks for other status indicators
-    const hasEndDate = content.end_date || content?.snapshot?.end_date;
-    const endDate = hasEndDate ? new Date(content.end_date || content?.snapshot?.end_date) : null;
-    const now = new Date();
-    
-    // Check if ad has ended
-    if (endDate && endDate < now) {
-      return ['Not Running'];
-    }
-      
-    // Default to running if no clear indication
+
+    // Default to running (either explicitly true or undefined means active)
     return ['Running'];
-    } catch (e) {
-    console.error('Error in getAdStatus:', e);
-    return ['Running']; // Default to running if can't determine
+  } catch (e) {
+    // If can't parse content, assume running
+    return ['Running'];
   }
 };
 

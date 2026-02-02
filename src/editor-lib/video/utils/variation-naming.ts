@@ -631,8 +631,11 @@ const defaultNamingPattern: NamingPattern = {
 // Get user's naming pattern (async version for database)
 async function getUserNamingPatternAsync(): Promise<NamingPattern> {
   try {
-    const projectId = window.location.pathname.split('/')[2];
-    const response = await fetch(`/api/projects/${projectId}/naming-pattern`, {
+    const pathParts = window.location.pathname.split('/');
+    // URL structure: /video-editor/edit/[id]
+    // pathParts: ['', 'video-editor', 'edit', 'projectId']
+    const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
+    const response = await fetch(`/api/editor/video/projects/${projectId}/naming-pattern`, {
       credentials: 'include' // Include cookies for authentication
     });
 
@@ -829,8 +832,11 @@ export async function generateTemplateBasedFileName(
 async function getUserNamingTemplateAsync(): Promise<{ template: string; name: string; description: string; customValues?: Record<string, string> }> {
   try {
     // First try to get project-specific template
-    const projectId = window.location.pathname.split('/')[2];
-    const projectResponse = await fetch(`/api/projects/${projectId}/naming-template`, {
+    const pathParts = window.location.pathname.split('/');
+    // URL structure: /video-editor/edit/[id]
+    // pathParts: ['', 'video-editor', 'edit', 'projectId']
+    const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
+    const projectResponse = await fetch(`/api/editor/video/projects/${projectId}/naming-template`, {
       credentials: 'include'
     });
 
@@ -842,7 +848,7 @@ async function getUserNamingTemplateAsync(): Promise<{ template: string; name: s
     }
 
     // If no project-specific template, get user's default template
-    const userResponse = await fetch('/api/user/naming-templates', {
+    const userResponse = await fetch('/api/editor/video/user/naming-templates', {
       credentials: 'include'
     });
 

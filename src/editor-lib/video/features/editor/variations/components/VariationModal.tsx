@@ -55,8 +55,11 @@ const VariationModal: React.FC<VariationModalProps> = ({
   // Load naming pattern when modal opens
   const loadNamingPattern = async () => {
     try {
-      const projectId = window.location.pathname.split('/')[2];
-      const response = await fetch(`/api/projects/${projectId}/naming-pattern`, {
+      const pathParts = window.location.pathname.split('/');
+      // URL structure: /video-editor/edit/[id]
+      // pathParts: ['', 'video-editor', 'edit', 'projectId']
+      const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
+      const response = await fetch(`/api/editor/video/projects/${projectId}/naming-pattern`, {
         credentials: 'include'
       });
       
@@ -72,8 +75,11 @@ const VariationModal: React.FC<VariationModalProps> = ({
   // Load naming template when modal opens
   const loadNamingTemplate = async () => {
     try {
-      const projectId = window.location.pathname.split('/')[2];
-      const response = await fetch(`/api/projects/${projectId}/naming-template`, {
+      const pathParts = window.location.pathname.split('/');
+      // URL structure: /video-editor/edit/[id]
+      // pathParts: ['', 'video-editor', 'edit', 'projectId']
+      const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
+      const response = await fetch(`/api/editor/video/projects/${projectId}/naming-template`, {
         credentials: 'include'
       });
       
@@ -117,10 +123,13 @@ const VariationModal: React.FC<VariationModalProps> = ({
   // Load project name - wait for actual name, no fallbacks
   const loadProjectName = async () => {
     try {
-      const projectId = window.location.pathname.split('/')[2];
+      const pathParts = window.location.pathname.split('/');
+      // URL structure: /video-editor/edit/[id]
+      // pathParts: ['', 'video-editor', 'edit', 'projectId']
+      const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
       console.log('Loading project name for project ID:', projectId);
 
-      const response = await fetch(`/api/projects/${projectId}`, {
+      const response = await fetch(`/api/editor/video/projects/${projectId}`, {
         credentials: 'include'
       });
 
@@ -255,10 +264,10 @@ const VariationModal: React.FC<VariationModalProps> = ({
           variations: []
         };
       })
-      .filter(Boolean);
+      .filter((el): el is NonNullable<typeof el> => el !== null);
 
     // Create font elements from text elements
-    const textElements = timelineElements.filter(el => el.type === 'text');
+    const textElements = timelineElements.filter((el): el is NonNullable<typeof el> => el !== null && el.type === 'text');
     const fontElements = textElements.map(textEl => ({
       id: `font-${textEl.id}`,
       type: 'font' as const,
@@ -283,22 +292,25 @@ const VariationModal: React.FC<VariationModalProps> = ({
     
     try {
       // Get project ID from URL
-      const projectId = window.location.pathname.split('/')[2];
+      const pathParts = window.location.pathname.split('/');
+      // URL structure: /video-editor/edit/[id]
+      // pathParts: ['', 'video-editor', 'edit', 'projectId']
+      const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
       
       // Load text variations
-      const textResponse = await fetch(`/api/projects/${projectId}/text-variations`);
+      const textResponse = await fetch(`/api/editor/video/projects/${projectId}/text-variations`);
       const textData = textResponse.ok ? await textResponse.json() : { textVariations: [] };
       
       // Load media variations
-      const mediaResponse = await fetch(`/api/projects/${projectId}/media-variations`);
+      const mediaResponse = await fetch(`/api/editor/video/projects/${projectId}/media-variations`);
       const mediaData = mediaResponse.ok ? await mediaResponse.json() : { mediaVariations: [] };
       
       // Load font variations
-      const fontResponse = await fetch(`/api/projects/${projectId}/font-variations`);
+      const fontResponse = await fetch(`/api/editor/video/projects/${projectId}/font-variations`);
       const fontData = fontResponse.ok ? await fontResponse.json() : { fontVariations: [] };
       
       // Load speed variations
-      const speedResponse = await fetch(`/api/projects/${projectId}/speed-variations`);
+      const speedResponse = await fetch(`/api/editor/video/projects/${projectId}/speed-variations`);
       const speedData = speedResponse.ok ? await speedResponse.json() : { speedVariations: [] };
       console.log(`🔍 Loaded speed variations:`, speedData);
     
@@ -773,10 +785,13 @@ const VariationModal: React.FC<VariationModalProps> = ({
     
     try {
       // Get project ID from URL
-      const projectId = window.location.pathname.split('/')[2];
+      const pathParts = window.location.pathname.split('/');
+      // URL structure: /video-editor/edit/[id]
+      // pathParts: ['', 'video-editor', 'edit', 'projectId']
+      const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
       
       // Load variations from backend first
-      const response = await fetch(`/api/projects/${projectId}/text-variations`);
+      const response = await fetch(`/api/editor/video/projects/${projectId}/text-variations`);
       let backendVariations: any[] = [];
       
       if (response.ok) {
@@ -893,7 +908,13 @@ const VariationModal: React.FC<VariationModalProps> = ({
           // Try to generate proper name immediately if project name is available
           if (projectName && projectName !== 'Untitled Project') {
             try {
-              const variationNamingData = {
+              const variationNamingData: {
+                variation: { id: string; isOriginal: boolean };
+                videoTrackItems: any;
+                audioTrackItems: any;
+                textOverlays: TextOverlayData[];
+                metadata: any;
+              } = {
                 variation: {
                   id: `combination-${index}`,
                   isOriginal: index === 0
@@ -910,15 +931,32 @@ const VariationModal: React.FC<VariationModalProps> = ({
               };
 
               // Set text overlays for naming (will be created properly below)
-              const tempTextOverlays = textElements.map((textItem) => ({
-                text: textItem.value,
+              const tempTextOverlays: TextOverlayData[] = textElements.map((textItem) => {
+                // Find the original trackItem to get the correct ID and positioning
+                const originalTrackItem = Object.values(trackItemsMap).find((item: any) => 
+                  item.type === 'text' && item.id === textItem.elementId
+                ) as any;
+                
+                return {
+                  id: textItem.elementId || `text-${Date.now()}`,
+                  text: textItem.value || '',
+                  position: {
+                    top: originalTrackItem?.details?.top || 0,
+                    left: originalTrackItem?.details?.left || 0
+                  },
                 style: {
-                  fontFamily: 'Arial, sans-serif',
-                  fontSize: 48,
-                  fontWeight: 'bold',
-                  color: '#ffffff'
-                }
-              }));
+                    fontFamily: originalTrackItem?.details?.fontFamily || 'Arial, sans-serif',
+                    fontSize: originalTrackItem?.details?.fontSize || 48,
+                    fontWeight: originalTrackItem?.details?.fontWeight || 'bold',
+                    color: originalTrackItem?.details?.color || '#ffffff',
+                    textAlign: originalTrackItem?.details?.textAlign || 'center'
+                  },
+                  timing: {
+                    from: originalTrackItem?.display?.from || 0,
+                    to: originalTrackItem?.display?.to || 5000
+                  }
+                };
+              });
               variationNamingData.textOverlays = tempTextOverlays;
 
               // Use default title format - proper naming will be handled by updateVariationNames

@@ -34,19 +34,22 @@ function extractMediaUrls(ad: any): { imageUrls: string[], videoUrls: string[] }
   const imageUrls: string[] = [];
   const videoUrls: string[] = [];
 
-  // Add direct URLs
-  if (ad.imageUrl && ad.imageUrl.trim() !== '') {
-    imageUrls.push(ad.imageUrl);
+  // Add direct URLs (check both snake_case and camelCase)
+  const imageUrl = ad.image_url || ad.imageUrl;
+  const videoUrl = ad.video_url || ad.videoUrl;
+
+  if (imageUrl && imageUrl.trim() !== '') {
+    imageUrls.push(imageUrl);
   }
-  if (ad.videoUrl && ad.videoUrl.trim() !== '') {
-    videoUrls.push(ad.videoUrl);
+  if (videoUrl && videoUrl.trim() !== '') {
+    videoUrls.push(videoUrl);
   }
 
   // Parse content for additional URLs
   try {
     const content = JSON.parse(ad.content);
     const snapshot = content.snapshot || {};
-    
+
     // Extract from images array (prefer resized for faster uploads)
     if (snapshot.images && Array.isArray(snapshot.images)) {
       snapshot.images.forEach((img: any) => {
@@ -54,7 +57,7 @@ function extractMediaUrls(ad: any): { imageUrls: string[], videoUrls: string[] }
         else if (img.original_image_url) imageUrls.push(img.original_image_url);
       });
     }
-    
+
     // Extract from cards array (prefer resized for faster uploads)
     if (snapshot.cards && Array.isArray(snapshot.cards)) {
       snapshot.cards.forEach((card: any) => {
@@ -71,7 +74,8 @@ function extractMediaUrls(ad: any): { imageUrls: string[], videoUrls: string[] }
       });
     }
   } catch (error) {
-    console.log(`Could not parse content for ad ${ad.libraryId}:`, error);
+    const libraryId = ad.library_id || ad.libraryId;
+    console.log(`Could not parse content for ad ${libraryId}:`, error);
   }
 
   // Remove duplicates
@@ -146,14 +150,15 @@ export async function GET(request: NextRequest) {
                 continue;
               }
 
-              console.log(`📷 Processing image ${i+1}/${imageUrls.length} for ad ${ad.libraryId}`);
-              
+              const libraryId = ad.library_id || ad.libraryId;
+              console.log(`📷 Processing image ${i+1}/${imageUrls.length} for ad ${libraryId}`);
+
               // Add delay to check URL format
               if (!imageUrl.startsWith('https://')) {
                 console.log(`⚠️ Invalid URL format: ${imageUrl}`);
                 continue;
               }
-              
+
               const uploadedUrl = await uploadImageFromUrl(imageUrl, {
                 folder: 'ads/images',
                 filename: `ad_${ad.id}_img${i+1}_${Date.now()}.jpg`
@@ -166,18 +171,19 @@ export async function GET(request: NextRequest) {
               if (!localImageUrl) {
                 localImageUrl = uploadedUrl;
               }
-              
+
             } catch (imageError) {
               console.error(`❌ Image ${i+1}/${imageUrls.length} upload failed:`, imageError);
               // Continue with next image instead of breaking
               continue;
             }
-            
+
             // Small delay between image uploads
             await new Promise(resolve => setTimeout(resolve, 500));
           }
-          
-          console.log(`📊 Successfully processed ${localImageUrls.length}/${imageUrls.length} images for ad ${ad.libraryId}`);
+
+          const libraryId = ad.library_id || ad.libraryId;
+          console.log(`📊 Successfully processed ${localImageUrls.length}/${imageUrls.length} images for ad ${libraryId}`);
         }
 
         // Process videos
@@ -187,18 +193,49 @@ export async function GET(request: NextRequest) {
               const isAccessible = await isUrlAccessible(videoUrl);
               if (!isAccessible) continue;
 
-              console.log(`🎥 Processing video for ad ${ad.libraryId}`);
-              const uploadedUrl = await uploadVideoFromUrl(videoUrl, {
-                folder: 'ads/videos',
-                filename: `ad_${ad.id}_${Date.now()}.mp4`
-              });
+              const libraryId = ad.library_id || ad.libraryId;
+              console.log(`🎥 Processing video for ad ${libraryId}`);
+              
+              try {
+                const uploadedUrl = await uploadVideoFromUrl(videoUrl, {
+                  folder: 'ads/videos',
+                  filename: `ad_${ad.id}_${Date.now()}.mp4`
+                });
 
-              localVideoUrl = uploadedUrl;
-              console.log(`✅ Video uploaded: ${localVideoUrl}`);
-              break;
-            } catch (videoError) {
-              console.error(`Video upload failed:`, videoError);
-              continue;
+                localVideoUrl = uploadedUrl;
+                console.log(`✅ Video uploaded: ${localVideoUrl}`);
+                break;
+              } catch (uploadError: any) {
+                // Check if it's a size limit error (Supabase free tier: 50MB limit)
+                if (uploadError.statusCode === '413' || 
+                    uploadError.status === 400 && 
+                    (uploadError.message?.includes('exceeded') || 
+                     uploadError.message?.includes('too large') ||
+                     uploadError.message?.includes('maximum allowed size'))) {
+                  console.error(`❌ Video too large for ad ${libraryId} (exceeds 50MB limit)`);
+                  // Mark as failed with specific error - don't retry
+                  await supabase
+                    .from('ads')
+                    .update({
+                      media_status: 'failed',
+                      media_error: 'Video file exceeds Supabase 50MB size limit',
+                      media_retry_count: 5 // Don't retry large files
+                    })
+                    .eq('id', ad.id);
+                  break; // Don't try other video URLs if size is the issue
+                }
+                // Re-throw other errors to be caught by outer catch
+                throw uploadError;
+              }
+            } catch (videoError: any) {
+              console.error(`Video upload failed for ad ${ad.library_id}:`, videoError);
+              // Continue to next video URL only if it's not a size error
+              if (videoError.statusCode !== '413' && 
+                  !(videoError.status === 400 && videoError.message?.includes('exceeded'))) {
+                continue;
+              } else {
+                break; // Stop trying if size is the issue
+              }
             }
           }
         }

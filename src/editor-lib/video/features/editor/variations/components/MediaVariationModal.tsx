@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Modal, Button, Input, Upload } from 'antd';
+import { Button as ShadcnButton } from '@/editor-lib/video/components/ui/button';
 import { 
   UploadOutlined, 
   VideoCameraOutlined, 
@@ -49,13 +50,13 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
   const getElementIcon = () => {
     switch (element.elementType) {
       case 'video':
-        return <VideoCameraOutlined style={{ color: '#1890ff' }} />;
+        return <VideoCameraOutlined className="text-primary" />;
       case 'image':
-        return <PictureOutlined style={{ color: '#1890ff' }} />;
+        return <PictureOutlined className="text-primary" />;
       case 'audio':
-        return <SoundOutlined style={{ color: '#1890ff' }} />;
+        return <SoundOutlined className="text-primary" />;
       default:
-        return <FileOutlined style={{ color: '#1890ff' }} />;
+        return <FileOutlined className="text-primary" />;
     }
   };
 
@@ -95,8 +96,11 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
   const loadExistingVariations = async () => {
     setIsLoading(true);
     try {
-      const projectId = window.location.pathname.split('/')[2];
-      const response = await fetch(`/api/projects/${projectId}/media-variations`);
+      const pathParts = window.location.pathname.split('/');
+      // URL structure: /video-editor/edit/[id]
+      // pathParts: ['', 'video-editor', 'edit', 'projectId']
+      const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
+      const response = await fetch(`/api/editor/video/projects/${projectId}/media-variations`);
       
       if (response.ok) {
         const data = await response.json();
@@ -137,8 +141,11 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
   const handleDeleteVariation = async (variationId: string) => {
     setIsDeleting(variationId);
     try {
-      const projectId = window.location.pathname.split('/')[2];
-      const response = await fetch(`/api/projects/${projectId}/media-variations`, {
+      const pathParts = window.location.pathname.split('/');
+      // URL structure: /video-editor/edit/[id]
+      // pathParts: ['', 'video-editor', 'edit', 'projectId']
+      const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
+      const response = await fetch(`/api/editor/video/projects/${projectId}/media-variations`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -232,7 +239,10 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
         
         try {
           // Get project ID from URL
-          const projectId = window.location.pathname.split('/')[2];
+          const pathParts = window.location.pathname.split('/');
+      // URL structure: /video-editor/edit/[id]
+      // pathParts: ['', 'video-editor', 'edit', 'projectId']
+      const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
           
           // Create form data for upload
           const formData = new FormData();
@@ -355,8 +365,8 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
     
     if (element.elementType === 'audio') {
       return (
-        			<div className="w-full h-full flex flex-col items-center justify-center rounded-lg relative overflow-hidden" style={{ background: 'linear-gradient(to bottom right, rgb(80, 118, 178), rgb(80, 118, 178))' }}>
-				<div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom right, rgba(80, 118, 178, 0.2), rgba(80, 118, 178, 0.4))' }}></div>
+        			<div className="w-full h-full flex flex-col items-center justify-center rounded-lg relative overflow-hidden bg-primary">
+				<div className="absolute inset-0 opacity-30 bg-primary"></div>
           <SoundOutlined style={{ fontSize: '48px', color: 'white', marginBottom: '8px' }} />
           <span className="text-white text-xs text-center px-2 truncate max-w-full">
             {fileName}
@@ -376,7 +386,7 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
     <Modal
       title={
         <div className="flex items-center gap-3">
-          				<div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgb(80, 118, 178)' }}>
+          				<div className="w-10 h-10 rounded-lg flex items-center justify-center bg-primary">
             {getElementIcon()}
           </div>
           <div>
@@ -426,7 +436,7 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
               )}
               
               {/* Original badge */}
-              				<div className="absolute top-2 left-2 text-white text-xs px-2 py-1 rounded-md font-medium" style={{ backgroundColor: 'rgb(80, 118, 178)' }}>
+              				<div className="absolute top-2 left-2 text-white text-xs px-2 py-1 rounded-md font-medium bg-primary">
                 Original
               </div>
             </div>
@@ -451,7 +461,7 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
                 }}
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading}
-                icon={<UploadOutlined style={{ fontSize: '32px', color: '#1890ff' }} />}
+                icon={<UploadOutlined className="text-primary" style={{ fontSize: '32px' }} />}
               >
                 <div className="text-center">
                   <p className="text-sm font-medium text-gray-900">Add Variant</p>
@@ -488,9 +498,8 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
                 {renderMediaPreview(variation.videoUrl, element.elementType, variation.metadata?.fileName || `Variation ${index + 1}`)}
                 
                 {/* Delete Button */}
-                <div className="absolute top-2 right-2 z-[9999] pointer-events-auto">
+                <div className="absolute top-2 right-2 z-30 pointer-events-auto">
                   <Button
-                    type="primary"
                     danger
                     size="small"
                     loading={isDeleting === variation.id}
@@ -533,9 +542,8 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
                 {renderMediaPreview(URL.createObjectURL(file), file.type, file.name, false)}
                 
                 {/* Remove Button */}
-                <div className="absolute top-2 right-2 z-[9999] pointer-events-auto">
+                <div className="absolute top-2 right-2 z-30 pointer-events-auto">
                 <Button
-                  type="primary"
                   danger
                   size="small"
                   onClick={() => handleRemoveFile(index)}
@@ -589,7 +597,7 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
           <div className="text-sm text-gray-600">
             {selectedFiles.length > 0 || existingVariations.length > 0 ? (
               <span className="flex items-center gap-2">
-                				<div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: 'rgb(80, 118, 178)' }}></div>
+                				<div className="w-2 h-2 rounded-full animate-pulse bg-primary"></div>
                 {selectedFiles.length + existingVariations.length + 1} variants total (including original)
               </span>
             ) : (
@@ -604,20 +612,24 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
             >
               Cancel
             </Button>
-            <Button
-              type="primary"
+            <ShadcnButton
               onClick={handleUpload}
               disabled={isUploading || selectedFiles.length === 0}
-              				className="text-white min-w-[140px]"
-				style={{ backgroundColor: 'rgb(80, 118, 178)' }}
-              icon={isUploading ? <LoadingOutlined /> : <UploadOutlined />}
+              variant="default"
+              className="min-w-[140px]"
             >
               {isUploading ? (
-                'Processing...'
+                <>
+                  <LoadingOutlined />
+                  Processing...
+                </>
               ) : (
-                `Add ${selectedFiles.length} Variant${selectedFiles.length !== 1 ? 's' : ''}`
+                <>
+                  <UploadOutlined />
+                  Add {selectedFiles.length} Variant{selectedFiles.length !== 1 ? 's' : ''}
+                </>
               )}
-            </Button>
+            </ShadcnButton>
           </div>
         </div>
       </div>

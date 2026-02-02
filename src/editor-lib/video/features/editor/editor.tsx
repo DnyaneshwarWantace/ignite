@@ -40,7 +40,11 @@ const stateManager = new StateManager({
 	},
 });
 
-const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
+export type InitialSceneData = { success: boolean; scene: any; project?: { name: string } } | null;
+
+export type EditorProps = { tempId?: string; id?: string; initialSceneData?: InitialSceneData };
+
+const Editor = ({ tempId, id, initialSceneData }: EditorProps) => {
 	const [projectName, setProjectName] = useState<string>("Untitled video");
 	const { scene } = useSceneStore();
 	const timelinePanelRef = useRef<ImperativePanelHandle>(null);
@@ -79,15 +83,81 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 					const payload = data.videoJson.json;
 					if (payload) {
 						dispatch(DESIGN_LOAD, { payload });
+						setLoaded(true);
 					}
 				} catch (error) {
 					console.error("Error fetching video JSON:", error);
+					setLoaded(true); // Set loaded even on error
 				}
 			};
 			fetchVideoJson();
-		}
+		} else if (id) {
+			const applySceneResponse = (data: { success: boolean; scene: any; project?: { name: string } }) => {
+				if (data.project?.name) {
+					setProjectName(data.project.name);
+				} else {
+					setProjectName("Untitled video");
+				}
+				if (data.scene?.content?.trackItems) {
+					const trackItemsMap: Record<string, any> = {};
+					const trackItemIds: string[] = [];
+					data.scene.content.trackItems.forEach((item: any, index: number) => {
+						const processedItem = {
+							...item,
+							zIndex: item.zIndex || (data.scene.content.trackItems.length - index),
+							layerOrder: item.layerOrder || index,
+						};
+						trackItemsMap[item.id] = processedItem;
+						trackItemIds.push(item.id);
+					});
+					trackItemIds.sort((a, b) => {
+						const itemA = trackItemsMap[a];
+						const itemB = trackItemsMap[b];
+						return (itemB.zIndex || 0) - (itemA.zIndex || 0);
+					});
+					const tracksByType: Record<string, string[]> = {};
+					data.scene.content.trackItems.forEach((item: any) => {
+						if (!tracksByType[item.type]) tracksByType[item.type] = [];
+						tracksByType[item.type].push(item.id);
+					});
+					const tracks = Object.entries(tracksByType).map(([type, items]) => ({
+						id: `track-${type}-${Date.now()}`,
+						type,
+						items,
+					}));
+					const validContent = {
+						trackItemsMap,
+						trackItemIds,
+						tracks,
+						transitionIds: [],
+						transitionsMap: {},
+						size: data.scene.content.size || { width: 1080, height: 1920 },
+						metadata: data.scene.content.metadata || {},
+					};
+					setTrackItems(data.scene.content.trackItems);
+					dispatch(DESIGN_LOAD, { payload: validContent });
+					window.dispatchEvent(new CustomEvent('projectLoaded', { detail: { projectId: id, trackItems: data.scene.content.trackItems } }));
+				} else {
+					const emptyContent = {
+						trackItemsMap: {},
+						trackItemIds: [],
+						tracks: [],
+						transitionIds: [],
+						transitionsMap: {},
+						size: { width: 1080, height: 1920 },
+						metadata: {},
+					};
+					setTrackItems([]);
+					dispatch(DESIGN_LOAD, { payload: emptyContent });
+				}
+				setLoaded(true);
+			};
 
-		if (id) {
+			if (initialSceneData?.scene) {
+				applySceneResponse(initialSceneData);
+				return;
+			}
+
 			const fetchSceneById = async () => {
 				try {
 					const response = await fetch(`/api/editor/video/scene/${id}`);
@@ -97,111 +167,8 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 					const data = await response.json();
 
 					if (data.success && data.scene) {
-						// Set project name if available
-						console.log('Scene data fetched:', data);
-						if (data.project?.name) {
-							console.log('Setting project name to:', data.project.name);
-							setProjectName(data.project.name);
-						} else {
-							console.log('No project name found, using default');
-							// Keep default name if no project name is available
-							setProjectName("Untitled video");
-						}
-
-						// Load the scene content into the editor
-						if (data.scene.content && data.scene.content.trackItems) {
-							// Convert trackItems array to trackItemsMap object
-							const trackItemsMap: Record<string, any> = {};
-							const trackItemIds: string[] = [];
-							
-							// Process track items to ensure proper z-index and layer order
-							data.scene.content.trackItems.forEach((item: any, index: number) => {
-								// Ensure z-index is preserved or assigned properly
-								const processedItem = {
-									...item,
-									zIndex: item.zIndex || (data.scene.content.trackItems.length - index),
-									layerOrder: item.layerOrder || index,
-								};
-								
-								trackItemsMap[item.id] = processedItem;
-								trackItemIds.push(item.id);
-							});
-							
-							// Sort track items by z-index to maintain layer order
-							trackItemIds.sort((a, b) => {
-								const itemA = trackItemsMap[a];
-								const itemB = trackItemsMap[b];
-								return (itemB.zIndex || 0) - (itemA.zIndex || 0);
-							});
-							
-							// Group track items by type for tracks array
-							const tracksByType: Record<string, string[]> = {};
-							data.scene.content.trackItems.forEach((item: any) => {
-								if (!tracksByType[item.type]) {
-									tracksByType[item.type] = [];
-								}
-								tracksByType[item.type].push(item.id);
-							});
-							
-							// Create tracks array
-							const tracks = Object.entries(tracksByType).map(([type, items]) => ({
-								id: `track-${type}-${Date.now()}`,
-								type: type,
-								items: items
-							}));
-							
-							// Ensure we have valid data before dispatching
-							const validContent = {
-								trackItemsMap: trackItemsMap,
-								trackItemIds: trackItemIds,
-								tracks: tracks,
-								transitionIds: [],
-								transitionsMap: {},
-								size: data.scene.content.size || { width: 1080, height: 1920 },
-								metadata: data.scene.content.metadata || {},
-							};
-							
-							// Update the trackItems state
-							setTrackItems(data.scene.content.trackItems);
-							
-							// Load scene data immediately when available
-							try {
-								// Ensure validContent is not null/undefined
-								if (validContent && validContent.trackItemsMap) {
-									// Dispatch data immediately
-									dispatch(DESIGN_LOAD, { payload: validContent });
-									
-									// Trigger a custom event to notify that project is loaded
-									window.dispatchEvent(new CustomEvent('projectLoaded', { 
-										detail: { 
-											projectId: id,
-											trackItems: data.scene.content.trackItems 
-										} 
-									}));
-								}
-							} catch (error) {
-								console.error('Error loading scene data:', error);
-							}
-						} else {
-							console.log('No valid scene content found, using default state');
-							// Initialize with empty state
-							const emptyContent = {
-								trackItemsMap: {},
-								trackItemIds: [],
-								tracks: [],
-								transitionIds: [],
-								transitionsMap: {},
-								size: { width: 1080, height: 1920 },
-								metadata: {},
-							};
-							setTrackItems([]);
-							
-							// Load empty scene immediately
-							dispatch(DESIGN_LOAD, { payload: emptyContent });
-						}
+						applySceneResponse(data);
 					} else {
-						console.error("Failed to fetch scene:", data.error);
-						// Initialize with empty state on error
 						const emptyContent = {
 							trackItemsMap: {},
 							trackItemIds: [],
@@ -212,9 +179,8 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 							metadata: {},
 						};
 						setTrackItems([]);
-						
-						// Load empty scene immediately
 						dispatch(DESIGN_LOAD, { payload: emptyContent });
+						setLoaded(true);
 					}
 				} catch (error) {
 					console.error("Error fetching scene by ID:", error);
@@ -229,14 +195,19 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 						metadata: {},
 					};
 					setTrackItems([]);
-					
+
 					// Load empty scene immediately
 					dispatch(DESIGN_LOAD, { payload: emptyContent });
+					setLoaded(true);
 				}
 			};
 			fetchSceneById();
+		} else {
+			// If neither tempId nor id is provided, set loaded to true
+			// This prevents infinite loading screen
+			setLoaded(true);
 		}
-	}, [id, tempId, loaded]);
+	}, [id, tempId]);
 
 	useEffect(() => {
 		console.log("scene", scene);
@@ -321,9 +292,7 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 		setTypeControlItem("");
 	}, [isLargeScreen]);
 
-	useEffect(() => {
-		setLoaded(true);
-	}, []);
+	// Removed - loaded state is now set after scene data is fetched
 
 	// Effect to handle size changes and recalculate zoom
 	useEffect(() => {
@@ -517,6 +486,18 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 		}
 	}, [trackItems, id, trackItemsMap, size, currentPlatform]);
 
+
+	// Show loading screen while data is being fetched
+	if (!loaded) {
+		return (
+			<div className="flex h-screen w-screen items-center justify-center bg-gray-50">
+				<div className="text-center">
+					<div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
+					<p className="mt-4 text-gray-600">Loading editor...</p>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="flex h-screen w-screen flex-col">

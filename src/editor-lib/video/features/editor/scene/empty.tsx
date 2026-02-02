@@ -76,7 +76,11 @@ const SceneEmpty = () => {
 				// Upload file to Cloudinary first
 				const formData = new FormData();
 				formData.append('file', file);
-				formData.append('projectId', window.location.pathname.split('/')[2]); // Get project ID from URL
+				const pathParts = window.location.pathname.split('/');
+				// URL structure: /video-editor/edit/[id]
+				// pathParts: ['', 'video-editor', 'edit', 'projectId']
+				const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
+				formData.append('projectId', projectId);
 				
 				console.log(`Uploading ${file.name} to Cloudinary...`);
 				const uploadResponse = await fetch('/api/upload', {

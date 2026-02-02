@@ -154,8 +154,8 @@ export default function Timeline({ timelineData = [], ads = [] }: TimelineProps)
         const ctaText = cleanText(snapshot.cta_text || snapshot.call_to_action?.value || "Learn More", "Learn More");
         const ctaUrl = snapshot.link_url || content.link_url || content.url || "";
 
-        // Check if ad is active
-        const isActive = content.is_active !== undefined ? content.is_active : (endDate ? endDate > now : true);
+        // Check if ad is active - auto-tracker updates this every 15 days
+        const isActive = content.is_active !== false;
 
         // Get platform
         const platform = content.publisher_platform?.[0] || "FACEBOOK";

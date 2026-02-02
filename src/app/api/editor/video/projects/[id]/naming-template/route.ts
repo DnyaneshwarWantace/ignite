@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '@/editor-lib/video/lib/supabase';
 import { auth } from '@/app/api/auth/[...nextauth]/options';
-
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 // GET - Load naming template for project
 export async function GET(
@@ -28,16 +23,30 @@ export async function GET(
     console.log('User ID from session:', userId);
 
     // Load template from database
-    const { data, error } = await supabase
-      .from('project_naming_templates')
+    const { data, error } = await supabaseAdmin
+      .from('editor_project_naming_templates')
       .select('*')
       .eq('project_id', projectId)
       .eq('user_id', userId)
       .single();
 
     if (error) {
+      // PGRST116 = no rows found (expected when no template exists yet)
+      if (error.code === 'PGRST116') {
+        // Return default template if none found - don't log this as an error
+        return NextResponse.json({
+          template: {
+            id: 'default',
+            name: 'Default Template',
+            template: '{ProjectName}-{Headline}-{VideoSpeed}-{FontName}-{FontSize}-{ProgressBar}',
+            description: 'Standard template with project name, headline, speed, font, and progress bar',
+            isDefault: true
+          }
+        });
+      }
+      // Log actual errors (not expected "no rows" errors)
       console.error('Error loading naming template:', error);
-      // Return default template if none found
+      // Return default template on error as fallback
       return NextResponse.json({
         template: {
           id: 'default',
@@ -117,8 +126,8 @@ export async function PUT(
     
     console.log('Attempting upsert with data:', upsertData);
     
-    const { data, error } = await supabase
-      .from('project_naming_templates')
+    const { data, error } = await supabaseAdmin
+      .from('editor_project_naming_templates')
       .upsert(upsertData, {
         onConflict: 'project_id,user_id'
       })
@@ -175,8 +184,8 @@ export async function DELETE(
     const userId = session.user.id;
     console.log('User ID from session:', userId);
 
-    const { error } = await supabase
-      .from('project_naming_templates')
+    const { error } = await supabaseAdmin
+      .from('editor_project_naming_templates')
       .delete()
       .eq('project_id', projectId)
       .eq('user_id', userId);

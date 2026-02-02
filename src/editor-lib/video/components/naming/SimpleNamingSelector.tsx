@@ -74,8 +74,11 @@ export const SimpleNamingSelector: React.FC<SimpleNamingSelectorProps> = ({
   const loadNamingPattern = async () => {
     setIsLoading(true);
     try {
-      const projectId = window.location.pathname.split('/')[2];
-      const response = await fetch(`/api/projects/${projectId}/naming-pattern`, {
+      const pathParts = window.location.pathname.split('/');
+      // URL structure: /video-editor/edit/[id]
+      // pathParts: ['', 'video-editor', 'edit', 'projectId']
+      const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
+      const response = await fetch(`/api/editor/video/projects/${projectId}/naming-pattern`, {
         credentials: 'include' // Include cookies for authentication
       });
 
@@ -96,9 +99,12 @@ export const SimpleNamingSelector: React.FC<SimpleNamingSelectorProps> = ({
   const handleApply = async () => {
     setIsLoading(true);
     try {
-      const projectId = window.location.pathname.split('/')[2];
+      const pathParts = window.location.pathname.split('/');
+      // URL structure: /video-editor/edit/[id]
+      // pathParts: ['', 'video-editor', 'edit', 'projectId']
+      const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
 
-      const response = await fetch(`/api/projects/${projectId}/naming-pattern`, {
+      const response = await fetch(`/api/editor/video/projects/${projectId}/naming-pattern`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

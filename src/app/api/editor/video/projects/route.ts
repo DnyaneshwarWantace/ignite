@@ -106,7 +106,29 @@ export async function POST(request: NextRequest) {
     // Generate unique project ID
     const projectId = generateId();
 
-    // Create new project with initial data
+    // Default text track item so new projects open with one text box
+    const defaultTextId = generateId();
+    const defaultTextTrackItem = {
+      id: defaultTextId,
+      display: { from: 0, to: 5000 },
+      type: 'text',
+      details: {
+        text: 'Add your text here',
+        fontSize: 48,
+        width: 400,
+        height: 100,
+        left: Math.round(platformConfig.width / 2 - 200),
+        top: Math.round(platformConfig.height / 2 - 50),
+        fontFamily: 'Arial, sans-serif',
+        color: 'rgba(255, 255, 255, 0.8)',
+        wordWrap: 'break-word',
+        textAlign: 'center',
+        borderWidth: 0,
+        borderColor: 'rgba(255, 255, 255, 0.8)',
+      },
+    };
+
+    // Create new project with initial data (one default text box)
     const { data: project, error } = await supabase
       .from(TABLES.PROJECTS)
       .insert({
@@ -118,7 +140,7 @@ export async function POST(request: NextRequest) {
         width: platformConfig.width,
         height: platformConfig.height,
         status: 'active',
-        track_items: [],
+        track_items: [defaultTextTrackItem],
         size: {
           width: platformConfig.width,
           height: platformConfig.height,

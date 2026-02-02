@@ -26,13 +26,12 @@ export function ContextMenu() {
   useEffect(() => {
     if (!canvas) return;
 
-    const handleRightClick = (opt: any) => {
-      if (opt.e && 'button' in opt.e && opt.e.button === 2) {
-        // Prevent default context menu
-        opt.e.preventDefault();
+    const showContextMenu = (e: MouseEvent) => {
+      // Only open on right-click (contextmenu event). Never open on left-click.
+      e.preventDefault();
+      e.stopPropagation();
 
-        // Right mouse button (button 2 is right-click)
-        const menuItems: ContextMenuItem[] = [];
+      const menuItems: ContextMenuItem[] = [];
 
         // Collect menu items from plugins
         // Copy/Paste
@@ -195,30 +194,19 @@ export function ContextMenu() {
           });
         }
 
-        setItems(menuItems);
+      setItems(menuItems);
 
-        // Get the actual mouse position from the event
-        const e = opt.e as MouseEvent;
-        let x = e.clientX;
-        let y = e.clientY;
-
-        // Estimate menu size
-        const menuWidth = 270;
-        const menuHeight = menuItems.length * 35;
-
-        // Keep menu within viewport
-        if (x + menuWidth > window.innerWidth) {
-          x = window.innerWidth - menuWidth - 5;
-        }
-        if (y + menuHeight > window.innerHeight) {
-          y = window.innerHeight - menuHeight - 5;
-        }
-        if (x < 5) x = 5;
-        if (y < 5) y = 5;
-
-        setPosition({ x, y });
-        setVisible(true);
-      }
+      // Position at cursor (contextmenu = right-click only)
+      let x = e.clientX;
+      let y = e.clientY;
+      const menuWidth = 270;
+      const menuHeight = menuItems.length * 35;
+      if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 5;
+      if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 5;
+      if (x < 5) x = 5;
+      if (y < 5) y = 5;
+      setPosition({ x, y });
+      setVisible(true);
     };
 
     const handleClick = (e: MouseEvent) => {
@@ -228,17 +216,27 @@ export function ContextMenu() {
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setVisible(false);
-      }
+      if (e.key === "Escape") setVisible(false);
     };
 
-    canvas.on("mouse:down", handleRightClick);
+    // Right-click only: listen on document and show menu when contextmenu is on canvas area.
+    const onContextMenu = (e: Event) => {
+      const target = e.target as HTMLElement;
+      const isOnCanvas =
+        target?.tagName === "CANVAS" ||
+        target === document.getElementById("canvas") ||
+        document.getElementById("canvas")?.contains(target) ||
+        target?.closest?.(".canvas-container") != null;
+      if (isOnCanvas) {
+        showContextMenu(e as MouseEvent);
+      }
+    };
+    document.addEventListener("contextmenu", onContextMenu, { capture: true });
     document.addEventListener("click", handleClick);
     document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      canvas.off("mouse:down", handleRightClick);
+      document.removeEventListener("contextmenu", onContextMenu, { capture: true });
       document.removeEventListener("click", handleClick);
       document.removeEventListener("keydown", handleKeyDown);
     };

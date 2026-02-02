@@ -65,7 +65,7 @@ export default function CustomFontUpload({ onFontUploaded }: CustomFontUploadPro
       formData.append('fontName', fontName);
       formData.append('fontFamily', fontFamily);
 
-      const response = await fetch('/api/fonts/upload', {
+      const response = await fetch('/api/editor/video/fonts/upload', {
         method: 'POST',
         body: formData,
       });

@@ -234,23 +234,8 @@ function extractTopHooks(ads: any[]) {
         }
 
         // Get ad active status from content
-        let isActive = true; // default to active
-        try {
-          if (content.is_active === false) {
-            isActive = false;
-          } else if (content.is_active === true) {
-            isActive = true;
-          } else {
-            // Check end date if is_active is not explicitly set
-            const hasEndDate = content.end_date || snapshot.end_date;
-            if (hasEndDate) {
-              const endDate = new Date(hasEndDate);
-              isActive = endDate > new Date();
-            }
-          }
-        } catch (e) {
-          isActive = true; // default to active if can't determine
-        }
+        // Auto-tracker updates is_active field every 15 days using direct ad ID API
+        const isActive = content.is_active !== false; // false = inactive, undefined/true = active
 
         hooks.push({
           hook: bestHook,

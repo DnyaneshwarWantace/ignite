@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  ArrowLeft,
   RotateCcw,
   RotateCw,
   Save,
@@ -604,6 +605,17 @@ export function TopBar({ rulerEnabled, onRulerToggle }: TopBarProps) {
     >
           {/* Left Section */}
           <div className="flex items-center gap-1 flex-shrink-0">
+            {/* Back to Ignite / Image Projects */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/image-editor")}
+              className="text-gray-700 hover:bg-gray-100 px-2"
+              title="Back to Ignite"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="h-6 w-px bg-gray-300 mx-0.5" />
             {/* New Project Button */}
             <Button
               variant="ghost"

@@ -8,44 +8,19 @@ import { Button } from "@/editor-lib/image/components/ui/button";
 import { useCanvasContext } from "@/editor-lib/image/providers/canvas-provider";
 import { toast } from "sonner";
 import { Textbox, IText, Text, Group } from "fabric";
+import { CustomTextbox } from "@/editor-lib/image/lib/editor";
 
 export function FontStylePanel() {
   const { canvas, editor } = useCanvasContext();
   const [selectedType, setSelectedType] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [fontStyleTypes, setFontStyleTypes] = useState<any[] | null>(null);
-  const [allFontStyles, setAllFontStyles] = useState<any[] | null>(null);
-
-  // Fetch font style types and styles from REST API
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [typesRes, stylesRes] = await Promise.all([
-          fetch('/api/font-styles/types'),
-          fetch('/api/font-styles?limit=10000')
-        ]);
-
-        if (typesRes.ok) {
-          const typesData = await typesRes.json();
-          setFontStyleTypes(typesData || []);
-        }
-
-        if (stylesRes.ok) {
-          const stylesData = await stylesRes.json();
-          setAllFontStyles(stylesData || []);
-        }
-      } catch (error) {
-        console.error('Error fetching font styles:', error);
-        setFontStyleTypes([]);
-        setAllFontStyles([]);
-      }
-    };
-    fetchData();
-  }, []);
+  // Image editor uses system fonts only; no database font styles
+  const [fontStyleTypes, setFontStyleTypes] = useState<any[]>([]);
+  const [allFontStyles, setAllFontStyles] = useState<any[]>([]);
 
   // Filter font styles based on search and type
   const fontStyles = useMemo(() => {
-    if (!allFontStyles) return [];
+    if (!allFontStyles?.length) return [];
 
     let filtered = allFontStyles;
 
@@ -64,9 +39,10 @@ export function FontStylePanel() {
     // Format for display
     return filtered.map((item) => ({
       id: item.id,
-      name: item.name,
+      name: item.name || item.font_family,
       json: item.json,
-      preview: item.image_url,
+      font_family: item.font_family,
+      preview: item.image_url || item.preview_url,
     }));
   }, [allFontStyles, selectedType, searchQuery]);
 
@@ -78,7 +54,7 @@ export function FontStylePanel() {
     }));
   }, [fontStyleTypes]);
 
-  const isLoading = fontStyleTypes === null || allFontStyles === null;
+  const isLoading = false;
 
   const loadFontStyle = async (fontStyle: any) => {
     if (!canvas || !editor) {
@@ -87,10 +63,10 @@ export function FontStylePanel() {
     }
 
     try {
+      // If we have pre-made Fabric JSON (future use), add that object
       if (fontStyle.json) {
         const jsonData = typeof fontStyle.json === "string" ? JSON.parse(fontStyle.json) : fontStyle.json;
 
-        // Map Fabric.js types to classes
         const fabricClasses: Record<string, any> = {
           'textbox': Textbox,
           'i-text': IText,
@@ -98,10 +74,9 @@ export function FontStylePanel() {
           'group': Group,
         };
 
-        const FabricClass = fabricClasses[jsonData.type.toLowerCase()];
+        const FabricClass = fabricClasses[jsonData.type?.toLowerCase()];
 
         if (FabricClass) {
-          // In Fabric.js v6, fromObject returns a Promise
           const fabricObj = await FabricClass.fromObject(jsonData);
           (editor as any).addBaseType?.(fabricObj);
           toast.success("Font style added");
@@ -109,12 +84,24 @@ export function FontStylePanel() {
           console.error("Unknown fabric type:", jsonData.type);
           toast.error("Failed to create font style object");
         }
-      } else {
-        toast.error("Font style data not available");
+        return;
       }
+
+      // Otherwise add a new text box with this font (editor_fonts rows have font_family/name, no json)
+      const fontFamily = fontStyle.font_family || fontStyle.name || "Arial";
+      const textbox = new CustomTextbox({
+        text: "Type your text",
+        width: 400,
+        fontSize: 80,
+        fill: "#000000",
+        fontFamily,
+        splitByGrapheme: false,
+      });
+      (editor as any).addBaseType?.(textbox, { center: true });
+      toast.success("Text added with font");
     } catch (error) {
       console.error("Error loading font style:", error);
-      toast.error("Failed to load font style");
+      toast.error("Failed to add font to canvas");
     }
   };
 

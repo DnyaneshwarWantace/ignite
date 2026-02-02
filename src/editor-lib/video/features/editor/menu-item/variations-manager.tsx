@@ -78,11 +78,14 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
         console.log(`🔍 Processing element: ${element.id} (${element.type})`);
         try {
           // Get project ID from URL
-          const projectId = window.location.pathname.split('/')[2];
+          const pathParts = window.location.pathname.split('/');
+          // URL structure: /video-editor/edit/[id]
+          // pathParts: ['', 'video-editor', 'edit', 'projectId']
+          const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
           
           if (element.type === 'text') {
             // Load text variations
-            const response = await fetch(`/api/projects/${projectId}/text-variations`);
+            const response = await fetch(`/api/editor/video/projects/${projectId}/text-variations`);
             if (response.ok) {
               const data = await response.json();
               const elementVariations = data.textVariations.find((v: any) => v.elementId === element.id);
@@ -96,7 +99,7 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
             }
           } else if (['video', 'image', 'audio'].includes(element.type)) {
             // Load media variations
-            const response = await fetch(`/api/projects/${projectId}/media-variations`);
+            const response = await fetch(`/api/editor/video/projects/${projectId}/media-variations`);
             if (response.ok) {
               const data = await response.json();
               
@@ -119,7 +122,7 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
             }
           } else if (element.type === 'font') {
             // Load font variations
-            const response = await fetch(`/api/projects/${projectId}/font-variations`);
+            const response = await fetch(`/api/editor/video/projects/${projectId}/font-variations`);
             if (response.ok) {
               const data = await response.json();
               const elementVariations = data.fontVariations?.find((v: any) => v.elementId === element.id);
@@ -164,7 +167,7 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
               
               if (element.type === 'text') {
                 // Load text variations
-                const response = await fetch(`/api/projects/${projectId}/text-variations`);
+                const response = await fetch(`/api/editor/video/projects/${projectId}/text-variations`);
                 if (response.ok) {
                   const data = await response.json();
                   const elementVariations = data.textVariations.find((v: any) => v.elementId === element.id);
@@ -178,7 +181,7 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
                 }
               } else if (['video', 'image', 'audio'].includes(element.type)) {
                 // Load media variations
-                const response = await fetch(`/api/projects/${projectId}/media-variations`);
+                const response = await fetch(`/api/editor/video/projects/${projectId}/media-variations`);
                 if (response.ok) {
                   const data = await response.json();
                   
@@ -201,7 +204,7 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
                 }
               } else if (element.type === 'font') {
                 // Load font variations
-                const response = await fetch(`/api/projects/${projectId}/font-variations`);
+                const response = await fetch(`/api/editor/video/projects/${projectId}/font-variations`);
                 if (response.ok) {
                   const data = await response.json();
                   const elementVariations = data.fontVariations?.find((v: any) => v.elementId === element.id);
@@ -215,7 +218,7 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
                 }
               } else if (element.type === 'speed') {
                 // Load speed variations
-                const response = await fetch(`/api/projects/${projectId}/speed-variations`);
+                const response = await fetch(`/api/editor/video/projects/${projectId}/speed-variations`);
                 if (response.ok) {
                   const data = await response.json();
                   console.log(`🔍 Loading speed variations for element ${element.id}:`, data);
@@ -423,10 +426,13 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
             if (selectedElement) {
               try {
                 // Get project ID from URL
-                const projectId = window.location.pathname.split('/')[2];
+                const pathParts = window.location.pathname.split('/');
+          // URL structure: /video-editor/edit/[id]
+          // pathParts: ['', 'video-editor', 'edit', 'projectId']
+          const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
                 
                 // Save to backend
-                const response = await fetch(`/api/projects/${projectId}/media-variations`, {
+                const response = await fetch(`/api/editor/video/projects/${projectId}/media-variations`, {
                   method: 'PUT',
                   headers: {
                     'Content-Type': 'application/json',
@@ -484,7 +490,10 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
             if (selectedElement) {
               try {
                 // Get project ID from URL
-                const projectId = window.location.pathname.split('/')[2];
+                const pathParts = window.location.pathname.split('/');
+          // URL structure: /video-editor/edit/[id]
+          // pathParts: ['', 'video-editor', 'edit', 'projectId']
+          const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
                 
                 // For font elements, we need to map back to the original text element ID
                 const originalTextElementId = selectedElement.id.startsWith('font-') 
@@ -492,7 +501,7 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
                   : selectedElement.id;
                 
                 // Save to backend
-                const response = await fetch(`/api/projects/${projectId}/font-variations`, {
+                const response = await fetch(`/api/editor/video/projects/${projectId}/font-variations`, {
                   method: 'PUT',
                   headers: {
                     'Content-Type': 'application/json',
@@ -544,8 +553,11 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
           }}
           onAddVariations={async (variations) => {
             if (selectedElement) {
-              const projectId = window.location.pathname.split('/')[2];
-              const response = await fetch(`/api/projects/${projectId}/speed-variations`, {
+              const pathParts = window.location.pathname.split('/');
+          // URL structure: /video-editor/edit/[id]
+          // pathParts: ['', 'video-editor', 'edit', 'projectId']
+          const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
+              const response = await fetch(`/api/editor/video/projects/${projectId}/speed-variations`, {
                 method: 'PUT',
                 headers: {
                   'Content-Type': 'application/json',

@@ -40,12 +40,25 @@ class Editor extends EventEmitter {
 
   init(canvas: FabricCanvas) {
     this.canvas = canvas;
+    this._initHotkeysFilter();
     this._initContextMenu();
     this._bindContextMenu();
     this._initActionHooks();
     this._initServersPlugin();
 
     this.Utils = Utils;
+  }
+
+  // Don't trigger plugin hotkeys when focus is in input/textarea (e.g. QR code Content field)
+  private _initHotkeysFilter() {
+    (hotkeys as any).filter = (event: KeyboardEvent) => {
+      const el = (event.target || event.srcElement) as HTMLElement | null;
+      if (!el) return true;
+      const tagName = el.tagName || '';
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(tagName)) return false;
+      if (el.getAttribute?.('contenteditable') === 'true') return false;
+      return true;
+    };
   }
 
   get fabricCanvas() {

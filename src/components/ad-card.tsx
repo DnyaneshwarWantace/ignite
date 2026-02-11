@@ -101,6 +101,7 @@ interface AG1AdCardProps {
   landingPageUrl?: string; // Actual ad landing page URL
   content?: string; // Raw JSON content with Facebook data
   hideActions?: boolean; // Hide share and preview icons (for modal use)
+  disablePreviewOpen?: boolean; // When true, hide "open preview" button (e.g. when card is already inside preview modal)
   isMediaLoading?: boolean; // Whether media is currently loading/retrying
   mediaLoadFailed?: boolean; // Whether media loading failed after retries
   isActive?: boolean; // Whether the ad is currently active/running
@@ -130,6 +131,7 @@ export default function AdCard({
   landingPageUrl,
   content,
   hideActions = false,
+  disablePreviewOpen = false,
   isMediaLoading = false,
   mediaLoadFailed = false,
   isActive = true,
@@ -635,12 +637,14 @@ export default function AdCard({
         <div className="flex items-center space-x-2 action-buttons flex-shrink-0">
           {!hideActions && (
             <>
-          <Button variant={"outline"} size={"icon"} onClick={handleCopyLink}>
-            <Link />
-          </Button>
-          <Button variant={"outline"} size={"icon"} onClick={handleOpenAdPreview}>
-            <Scaling />
-          </Button>
+              <Button variant={"outline"} size={"icon"} onClick={handleCopyLink}>
+                <Link />
+              </Button>
+              {!disablePreviewOpen && (
+                <Button variant={"outline"} size={"icon"} onClick={handleOpenAdPreview}>
+                  <Scaling />
+                </Button>
+              )}
             </>
           )}
         </div>
@@ -799,11 +803,18 @@ export default function AdCard({
       <CardFooter className="flex justify-center pb-2 card-footer">
         <Flex direction={"column"} gap="4">
           <Flex direction={"row"} gap={"4"} className="bg-gray-50 p-2 rounded-md cta-section">
-            <Box className="url-info flex-1 min-w-0">
-              <Typography variant="title" className="font-medium text-sm url-title truncate block">
+            <Box
+              className="url-info flex-1 min-w-0 overflow-hidden cursor-pointer hover:opacity-80"
+              onClick={onCtaClick}
+              role="button"
+              tabIndex={0}
+              title={url_desc || "Visit landing page"}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onCtaClick(); } }}
+            >
+              <Typography variant="title" className="font-medium text-sm url-title truncate block overflow-hidden whitespace-nowrap text-ellipsis">
                 {url}
               </Typography>
-              <Typography variant="title" className="text-sm truncate text-ellipsis block url-desc">
+              <Typography variant="title" className="text-sm url-desc block overflow-hidden whitespace-nowrap text-ellipsis">
                 {url_desc}
               </Typography>
             </Box>
@@ -811,10 +822,9 @@ export default function AdCard({
               {ctaText}
             </Button>
           </Flex>
-          {!hideActions && (
+          {!hideActions && adId && (
             <>
-              {/* Save button */}
-          <Flex direction={"row"} className="saved-ad-section">
+              <Flex direction={"row"} className="saved-ad-section">
                 {isSaved ? (
                   <Button className="w-full flex justify-center items-center" variant="outline" disabled>
                     <Check className="w-4 h-4 mr-2 text-green-600" />
@@ -823,10 +833,10 @@ export default function AdCard({
                 ) : (
                   <Button className="w-full flex justify-between items-center" variant="outline" onClick={() => setShowSaveModal(true)}>
                     <span>Save Ad</span>
-              <ChevronDown className="w-4 h-4 ml-2" />
-            </Button>
+                    <ChevronDown className="w-4 h-4 ml-2" />
+                  </Button>
                 )}
-          </Flex>
+              </Flex>
             </>
           )}
         </Flex>

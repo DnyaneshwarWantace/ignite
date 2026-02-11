@@ -112,7 +112,7 @@ class FontPlugin implements IPluginTempl {
 
     const fontFamiliesAll = fontFamilies.map((fontName) => {
       const font = new FontFaceObserver(fontName)
-      return font.load(null, 10000)
+      return font.load(null, 3000)
     })
     return Promise.all(fontFamiliesAll)
   }

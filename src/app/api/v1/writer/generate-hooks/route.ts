@@ -9,14 +9,9 @@ interface User {
 import { authMiddleware } from "@middleware";
 import { createResponse, createError } from "@apiUtils/responseutils";
 import messages from "@apiUtils/messages";
-import OpenAI from "openai";
+import { callLLM } from "@/lib/llm";
 
 export const dynamic = "force-dynamic";
-
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 // POST - Generate compelling hooks for each concept
 export const POST = authMiddleware(
@@ -133,13 +128,11 @@ IMPORTANT: Ensure EVERY hook has ALL required fields: hookNumber, hookType, hook
 Return ONLY valid JSON array with exactly ${concepts.length} concept objects.
 `;
 
-      // Generate hooks using OpenAI
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4",
-        messages: [
-          {
-            role: "system",
-            content: `You are an expert copywriter trained in Sabri Suby's direct-response marketing methodology. Your hook creation embodies the aggressive, results-driven approach that has generated over $7.8 billion in client revenue.
+      // Generate hooks using AI
+      const responseText = await callLLM(user.id, [
+        {
+          role: "system",
+          content: `You are an expert copywriter trained in Sabri Suby's direct-response marketing methodology. Your hook creation embodies the aggressive, results-driven approach that has generated over $7.8 billion in client revenue.
 
 CORE PHILOSOPHY:
 - Create hooks that cut through noise, demand attention, and compel immediate action
@@ -156,23 +149,9 @@ HOOK CREATION APPROACH:
 - Focus on transformation and outcomes, not just features
 
 Create compelling advertising hooks that drive immediate engagement and conversions.`
-          },
-          {
-            role: "user",
-            content: hookGenerationPrompt
-          }
-        ],
-        temperature: 0.5, // More focused for consistency
-        max_tokens: 4000
-      });
-
-      const responseText = completion.choices[0]?.message?.content;
-      
-      if (!responseText) {
-        return createError({
-          message: "Failed to generate hooks"
-        });
-      }
+        },
+        { role: "user", content: hookGenerationPrompt }
+      ], { temperature: 0.5, max_tokens: 4000 });
 
       // Parse the JSON response
       let hooksData;

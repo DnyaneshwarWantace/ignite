@@ -62,23 +62,39 @@ class BarCodePlugin implements IPluginTempl {
     }
   }
 
+  _getWorkspace() {
+    return this.canvas.getObjects().find((item: any) => item.id === 'workspace')
+  }
+
   addBarCode() {
     const option = this._defaultBarCodeOption()
     const url = this._getDataStr(JSON.parse(JSON.stringify(option)))
+    const canvasWidth = this.canvas.getWidth() ?? 800
+    const canvasHeight = this.canvas.getHeight() ?? 600
     FabricImage.fromURL(url, { crossOrigin: 'anonymous' }).then((imgEl) => {
       imgEl.set({
         extensionType: 'barcode',
         extension: option,
       })
-      const workspace = this.editor.getWorkspace()
-      if (workspace) {
-        imgEl.scaleToWidth(workspace.getScaledWidth() / 2)
-      }
+      const workspace = this._getWorkspace()
+      const targetWidth = workspace && typeof workspace.getScaledWidth === 'function'
+        ? workspace.getScaledWidth() / 2
+        : canvasWidth / 2
+      imgEl.scaleToWidth(targetWidth)
+      // Place at canvas center so it doesn't jump
+      imgEl.set({
+        left: canvasWidth / 2,
+        top: canvasHeight / 2,
+        originX: 'center',
+        originY: 'center',
+      })
+      imgEl.setCoords()
       this.canvas.add(imgEl)
       this.canvas.setActiveObject(imgEl)
-      this.editor.position('center')
       this.canvas.renderAll()
-      this.editor.saveState()
+      if (typeof this.editor.saveState === 'function') {
+        this.editor.saveState()
+      }
     })
   }
 

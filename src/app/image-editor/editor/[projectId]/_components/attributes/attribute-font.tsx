@@ -9,6 +9,7 @@ import { Input } from "@/editor-lib/image/components/ui/input";
 import { useCanvasContext } from "@/editor-lib/image/providers/canvas-provider";
 import { Bold, Italic, Underline, Strikethrough } from "lucide-react";
 import { cn } from "@/editor-lib/image/lib/utils";
+import { formatDecimal } from "@/lib/utils";
 
 const FONT_FAMILIES = [
   "Arial",
@@ -214,7 +215,7 @@ export function AttributeFont() {
       <div className="space-y-2">
         <div className="flex justify-between">
           <Label className="text-xs font-medium text-gray-700">Line Height</Label>
-          <span className="text-xs font-semibold text-gray-900">{lineHeight.toFixed(1)}</span>
+          <span className="text-xs font-semibold text-gray-900">{formatDecimal(lineHeight, 2)}</span>
         </div>
         <Slider
           value={[lineHeight]}

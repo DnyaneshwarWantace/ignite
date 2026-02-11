@@ -122,9 +122,8 @@ export default function Brand({ params }: { params: { brand: string } }) {
 
   // Helper function to get image URL with comprehensive fallback - UPDATED
   const getImageUrl = (ad: any) => {
-    // First priority: Use local Cloudinary URL if available
+    // First priority: Use local Supabase URL (Facebook URL replaced by backend)
     if (ad.localImageUrl) {
-      console.log(`Using local image URL for ad ${ad.id}: ${ad.localImageUrl}`);
       return ad.localImageUrl;
     }
     
@@ -187,9 +186,8 @@ export default function Brand({ params }: { params: { brand: string } }) {
 
   // Helper function to get video URLs - UPDATED
   const getVideoUrls = (ad: any) => {
-    // First priority: Use local Cloudinary video URL if available
+    // First priority: Use local Supabase video URL (Facebook URL replaced by backend)
     if (ad.localVideoUrl) {
-      console.log(`Using local video URL for ad ${ad.id}: ${ad.localVideoUrl}`);
       return {
         videoHdUrl: ad.localVideoUrl,
         videoSdUrl: ad.localVideoUrl, // Use same URL for both HD and SD

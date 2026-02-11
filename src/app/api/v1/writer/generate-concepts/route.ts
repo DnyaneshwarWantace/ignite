@@ -9,14 +9,9 @@ interface User {
 import { authMiddleware } from "@middleware";
 import { createResponse, createError } from "@apiUtils/responseutils";
 import messages from "@apiUtils/messages";
-import OpenAI from "openai";
+import { callLLM } from "@/lib/llm";
 
 export const dynamic = "force-dynamic";
-
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 // POST - Generate 5 unique ad concepts based on brief data
 export const POST = authMiddleware(
@@ -120,13 +115,11 @@ Each concept must:
 IMPORTANT: Return ONLY a valid JSON array with exactly 5 concepts. Do not include any additional text or explanations.
 `;
 
-      // Generate concepts using OpenAI
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4",
-        messages: [
-          {
-            role: "system",
-            content: `You are an expert copywriter trained in Sabri Suby's direct-response marketing methodology. Your concept creation embodies the aggressive, results-driven approach that has generated over $7.8 billion in client revenue.
+      // Generate concepts using AI
+      const responseText = await callLLM(user.id, [
+        {
+          role: "system",
+          content: `You are an expert copywriter trained in Sabri Suby's direct-response marketing methodology. Your concept creation embodies the aggressive, results-driven approach that has generated over $7.8 billion in client revenue.
 
 CORE PHILOSOPHY:
 - Create concepts that cut through noise, demand attention, and compel immediate action
@@ -143,23 +136,9 @@ CONCEPT CREATION APPROACH:
 - Focus on transformation and outcomes, not just features
 
 Create unique, compelling, and strategically sound ad concepts that drive immediate action.`
-          },
-          {
-            role: "user",
-            content: conceptGenerationPrompt
-          }
-        ],
-        temperature: 0.6, // Balanced creativity with focus
-        max_tokens: 5000
-      });
-
-      const responseText = completion.choices[0]?.message?.content;
-      
-      if (!responseText) {
-        return createError({
-          message: "Failed to generate concepts"
-        });
-      }
+        },
+        { role: "user", content: conceptGenerationPrompt }
+      ], { temperature: 0.6, max_tokens: 5000 });
 
       // Parse the JSON response
       let concepts;

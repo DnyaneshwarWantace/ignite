@@ -251,7 +251,7 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
           formData.append('isVariation', 'true'); // Mark as variation upload
           
           // Upload to the upload API
-          const uploadResponse = await fetch('/api/upload', {
+          const uploadResponse = await fetch('/api/editor/video/upload', {
             method: 'POST',
             body: formData,
           });

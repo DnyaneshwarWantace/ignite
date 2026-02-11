@@ -4,6 +4,7 @@ import { authMiddleware } from "@middleware";
 import { supabase } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 import { scrapeCompanyAds } from "@apiUtils/adScraper";
+import { getUserApiKey } from "@/lib/user-api-keys";
 
 // Type definition for User (matching Supabase schema)
 interface User {
@@ -41,8 +42,11 @@ export const POST = authMiddleware(
     try {
       console.log(`Refreshing analytics for brand ${brand.name} (pageId: ${brand.page_id})`);
 
+      // Fetch user's ScrapeCreators key (falls back to env inside scraper)
+      const userScrapeKey = await getUserApiKey(user.id, 'scrape_creators');
+
       // Scrape fresh ads from the page - get up to 3000 ads for comprehensive analytics
-      const scrapedAds = await scrapeCompanyAds(brand.page_id, 3000);
+      const scrapedAds = await scrapeCompanyAds(brand.page_id, 3000, 0, userScrapeKey || undefined);
       
       if (scrapedAds.length === 0) {
         return createError({
@@ -76,6 +80,7 @@ export const POST = authMiddleware(
                 headline: scrapedAd.headline,
                 description: scrapedAd.description,
                 brand_id: brand.id,
+                media_status: 'pending',
               });
 
             if (!insertError) {
@@ -113,6 +118,10 @@ export const POST = authMiddleware(
         .from('brands')
         .update({ total_ads: totalAdsInDb || 0 })
         .eq('id', brand.id);
+
+      // Trigger media worker so uploads to Supabase Storage start right away (don't wait)
+      const baseUrl = process.env.NEXTAUTH_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+      fetch(`${baseUrl}/api/v1/media/process?batch=15`, { method: 'GET' }).catch(() => {});
 
       // Calculate fresh statistics
       const { data: allAds, error: adsError } = await supabase

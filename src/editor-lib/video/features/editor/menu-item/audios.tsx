@@ -81,16 +81,16 @@ const AudioItem = ({
 					display: "grid",
 					gridTemplateColumns: "48px 1fr",
 				}}
-				className="flex cursor-pointer gap-4  py-1 text-sm hover:bg-zinc-800/70"
+				className="flex cursor-pointer gap-4 rounded-md border border-border/60 py-1 text-sm transition-colors hover:bg-muted/80 hover:border-primary/30"
 			>
-				<div className="flex h-12 items-center justify-center bg-zinc-800">
-					<Music width={16} />
+				<div className="flex h-12 items-center justify-center rounded-l-md bg-muted">
+					<Music width={16} className="text-muted-foreground" />
 				</div>
-				<div className="flex flex-col justify-center">
-					<div>{audio.name}</div>
-					<div className="text-zinc-400">{audio.metadata?.author}</div>
+				<div className="flex flex-col justify-center pr-2">
+					<div className="text-foreground">{audio.name}</div>
+					<div className="text-muted-foreground text-xs">{audio.metadata?.author}</div>
 					{audio.metadata?.mood && (
-						<div className="text-xs text-zinc-500">{audio.metadata.mood}</div>
+						<div className="text-xs text-muted-foreground/80">{audio.metadata.mood}</div>
 					)}
 				</div>
 			</div>

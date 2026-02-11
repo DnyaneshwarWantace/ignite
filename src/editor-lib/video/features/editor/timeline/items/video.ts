@@ -147,29 +147,38 @@ class Video extends Trimmable {
 	}
 
 	public async prepareAssets() {
-		const file = await getFileFromUrl(this.src);
-		const stream = file.stream();
+		try {
+			const file = await getFileFromUrl(this.src);
+			const stream = file.stream();
 
-		// Dynamically import MP4Clip only on the client side
-		if (typeof window !== "undefined") {
-			try {
-				const { MP4Clip } = await import("@designcombo/frames");
-				this.clip = new MP4Clip(stream);
-				
-				// Test if the clip is working by trying to get metadata
+			// Dynamically import MP4Clip only on the client side
+			if (typeof window !== "undefined") {
 				try {
-					await this.clip.ready;
-					console.log("MP4Clip loaded successfully for video:", this.src);
-				} catch (clipError) {
-					console.warn("MP4Clip ready check failed:", clipError);
+					const { MP4Clip } = await import("@designcombo/frames");
+					this.clip = new MP4Clip(stream);
+
+					try {
+						await this.clip.ready;
+						console.log("MP4Clip loaded successfully for video:", this.src);
+					} catch (clipError: unknown) {
+						if (clipError instanceof Error && clipError.name !== "AbortError" && clipError.message !== "Close called") {
+							console.warn("MP4Clip ready check failed:", clipError);
+						}
+						this.clip = null;
+					}
+				} catch (error: unknown) {
+					if (error instanceof Error && error.name !== "AbortError" && error.message !== "Close called") {
+						console.warn("Failed to load MP4Clip:", error);
+					}
 					this.clip = null;
 				}
-			} catch (error) {
-				console.warn("Failed to load MP4Clip:", error);
+			} else {
 				this.clip = null;
 			}
-		} else {
-			// Server-side rendering - skip MP4Clip initialization
+		} catch (error: unknown) {
+			if (error instanceof Error && error.name !== "AbortError" && error.message !== "Close called") {
+				console.warn("prepareAssets failed:", error);
+			}
 			this.clip = null;
 		}
 		

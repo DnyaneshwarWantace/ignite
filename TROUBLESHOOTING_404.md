@@ -33,6 +33,17 @@ AUTH_GOOGLE_SECRET=your-google-client-secret-here
 
 ## 🚨 **Common 404 Error Causes**
 
+### 0. 404 on layout.css, main-app.js, page.js, error.js, not-found.js (asset chunks)
+- **Symptoms**: Console shows 404 for `layout.css`, `main-app.js`, `app-pages-internals.js`, `page.js`, `error.js`, `not-found.js`.
+- **Cause**: Browser is loading these as relative URLs (e.g. at `/some-path/layout.css`) instead of under `/_next/static/...`. Usually due to stale cache or opening the app from a non-root URL.
+- **Fix**:
+  1. Stop the dev server (Ctrl+C).
+  2. Clear Next.js cache: `rm -rf .next`
+  3. Start again: `npm run dev`
+  4. Open the app at the **root URL only**: `http://localhost:3000` (or `http://127.0.0.1:3000`). Do not open a deep link first (e.g. avoid opening `http://localhost:3000/ai-writer/dnas` directly in a new tab before loading `/` once).
+  5. Hard refresh the page (Cmd+Shift+R on Mac, Ctrl+Shift+R on Windows) or clear browser cache for localhost.
+- If you deploy behind a proxy with a subpath (e.g. `https://example.com/app/`), set `basePath: '/app'` in `next.config.js`.
+
 ### 1. Missing Environment Variables
 - **Symptoms**: 404 errors on API routes, authentication failures
 - **Solution**: Add all required environment variables in Vercel dashboard

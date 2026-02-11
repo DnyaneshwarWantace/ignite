@@ -15,10 +15,11 @@ interface ScrapedAd {
   created_time: string;
 }
 
-export async function scrapeCompanyAds(pageId: string, limit: number = 200, offset: number = 0): Promise<ScrapedAd[]> {
+export async function scrapeCompanyAds(pageId: string, limit: number = 200, offset: number = 0, apiKey?: string): Promise<ScrapedAd[]> {
   try {
-    if (!SCRAPE_CREATORS_API_KEY) {
-      throw new Error('ScrapeCreators API key not found. Please set SCRAPE_CREATORS_API_KEY in your environment variables.');
+    const key = apiKey || SCRAPE_CREATORS_API_KEY;
+    if (!key) {
+      throw new Error('ScrapeCreators API key not found. Add it in Settings or set SCRAPE_CREATORS_API_KEY env.');
     }
 
     console.log(`Calling ScrapeCreators API for pageId: ${pageId} with limit: ${limit}, offset: ${offset}`);
@@ -42,7 +43,7 @@ export async function scrapeCompanyAds(pageId: string, limit: number = 200, offs
       
       const response: any = await axios.get(url, {
         headers: {
-          'x-api-key': SCRAPE_CREATORS_API_KEY
+          'x-api-key': key!
         }
       });
 
@@ -128,8 +129,13 @@ export async function scrapeCompanyAds(pageId: string, limit: number = 200, offs
   }
 }
 
-export async function scrapeIndividualAd(libraryId: string): Promise<ScrapedAd | null> {
+export async function scrapeIndividualAd(libraryId: string, apiKey?: string): Promise<ScrapedAd | null> {
   try {
+    const key = apiKey || SCRAPE_CREATORS_API_KEY;
+    if (!key) {
+      throw new Error('ScrapeCreators API key not found. Add it in Settings or set SCRAPE_CREATORS_API_KEY env.');
+    }
+
     const { data } = await axios.get(
       `${SCRAPE_CREATORS_BASE_URL}/ad`,
       {
@@ -137,7 +143,7 @@ export async function scrapeIndividualAd(libraryId: string): Promise<ScrapedAd |
           id: libraryId
         },
         headers: {
-          'x-api-key': SCRAPE_CREATORS_API_KEY
+          'x-api-key': key
         }
       }
     );
@@ -163,8 +169,8 @@ export async function scrapeIndividualAd(libraryId: string): Promise<ScrapedAd |
  * Alias for scrapeIndividualAd - used by auto-tracker
  * Gets a single ad by its library ID to check status
  */
-export async function getAdById(libraryId: string): Promise<ScrapedAd | null> {
-  return scrapeIndividualAd(libraryId);
+export async function getAdById(libraryId: string, apiKey?: string): Promise<ScrapedAd | null> {
+  return scrapeIndividualAd(libraryId, apiKey);
 }
 
 function determineAdType(ad: any): 'video' | 'image' | 'carousel' {

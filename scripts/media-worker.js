@@ -1,15 +1,53 @@
 require('dotenv').config({ path: '.env' });
 const { PrismaClient } = require('@prisma/client');
-const { v2: cloudinary } = require('cloudinary');
+const { createClient } = require('@supabase/supabase-js');
 
 const prisma = new PrismaClient();
 
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+// Supabase Storage (replaces Cloudinary)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+
+async function uploadImageToSupabase(imageUrl, options = {}) {
+  if (!supabase) throw new Error('Supabase not configured (NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)');
+  const response = await fetch(imageUrl, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+  });
+  if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
+  const blob = await response.blob();
+  const buffer = Buffer.from(await blob.arrayBuffer());
+  const ext = (imageUrl.split('.').pop() || '').split('?')[0] || 'jpg';
+  const filename = options.filename || `ad_${options.adId}_${Date.now()}.${ext}`;
+  const filepath = `ads/images/${filename}`;
+  const { error } = await supabase.storage.from('media').upload(filepath, buffer, {
+    contentType: blob.type || 'image/jpeg',
+    upsert: false
+  });
+  if (error) throw error;
+  const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(filepath);
+  return publicUrl;
+}
+
+async function uploadVideoToSupabase(videoUrl, options = {}) {
+  if (!supabase) throw new Error('Supabase not configured');
+  const response = await fetch(videoUrl, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+  });
+  if (!response.ok) throw new Error(`Failed to fetch video: ${response.statusText}`);
+  const blob = await response.blob();
+  const buffer = Buffer.from(await blob.arrayBuffer());
+  const ext = (videoUrl.split('.').pop() || '').split('?')[0] || 'mp4';
+  const filename = options.filename || `ad_${options.adId}_${Date.now()}.${ext}`;
+  const filepath = `ads/videos/${filename}`;
+  const { error } = await supabase.storage.from('media').upload(filepath, buffer, {
+    contentType: blob.type || 'video/mp4',
+    upsert: false
+  });
+  if (error) throw error;
+  const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(filepath);
+  return publicUrl;
+}
 
 // Global statistics tracking
 const stats = {
@@ -142,20 +180,11 @@ async function processAdMedia(ad) {
           const isAccessible = await isUrlAccessible(imageUrl);
           if (!isAccessible) continue;
 
-          console.log(`📷 Uploading image to Cloudinary...`);
-          const result = await cloudinary.uploader.upload(imageUrl, {
-            folder: 'ads/images',
-            public_id: `ad_${ad.id}_${Date.now()}`,
-            resource_type: 'image',
-            timeout: 60000,
-            transformation: [
-              { quality: 'auto:good' },
-              { fetch_format: 'auto' }
-            ]
+          console.log(`📷 Uploading image to Supabase Storage...`);
+          localImageUrl = await uploadImageToSupabase(imageUrl, {
+            filename: `ad_${ad.id}_${Date.now()}.jpg`
           });
-          
-          localImageUrl = result.secure_url;
-          console.log(`✅ Image uploaded successfully`);
+          console.log(`✅ Image uploaded to Supabase`);
           break;
         } catch (error) {
           console.log(`❌ Image upload failed: ${error.message}`);
@@ -171,20 +200,11 @@ async function processAdMedia(ad) {
           const isAccessible = await isUrlAccessible(videoUrl);
           if (!isAccessible) continue;
 
-          console.log(`🎥 Uploading video to Cloudinary...`);
-          const result = await cloudinary.uploader.upload(videoUrl, {
-            folder: 'ads/videos',
-            public_id: `ad_${ad.id}_${Date.now()}`,
-            resource_type: 'video',
-            timeout: 180000,
-            transformation: [
-              { quality: 'auto:good' },
-              { format: 'mp4' }
-            ]
+          console.log(`🎥 Uploading video to Supabase Storage...`);
+          localVideoUrl = await uploadVideoToSupabase(videoUrl, {
+            filename: `ad_${ad.id}_${Date.now()}.mp4`
           });
-          
-          localVideoUrl = result.secure_url;
-          console.log(`✅ Video uploaded successfully`);
+          console.log(`✅ Video uploaded to Supabase`);
           break;
         } catch (error) {
           console.log(`❌ Video upload failed: ${error.message}`);
@@ -293,7 +313,7 @@ async function processPendingMedia(batchSize = 5) {
         results.failed++;
       }
 
-      // Small delay between ads to avoid overwhelming Cloudinary
+      // Small delay between ads to avoid overwhelming Supabase Storage
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
@@ -313,7 +333,11 @@ async function processPendingMedia(batchSize = 5) {
 
 // Main worker function
 async function startMediaWorker() {
-  console.log('🚀 Starting Media Worker...');
+  console.log('🚀 Starting Media Worker (Supabase Storage)...');
+  if (!supabase) {
+    console.error('❌ Supabase not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env');
+    process.exit(1);
+  }
   console.log('📡 Checking for pending ads every 2 minutes');
   console.log('📊 Status reports every 10 minutes');
   

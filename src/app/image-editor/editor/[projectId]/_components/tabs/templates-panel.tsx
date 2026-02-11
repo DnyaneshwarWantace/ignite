@@ -17,6 +17,7 @@ export function TemplatesPanel() {
   const [templateTypes, setTemplateTypes] = useState<any[]>([]);
   const [allTemplates, setAllTemplates] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingTemplateId, setLoadingTemplateId] = useState<string | null>(null);
 
   // Fetch template types and templates from REST API
   useEffect(() => {
@@ -86,10 +87,27 @@ export function TemplatesPanel() {
       toast.error("Canvas not ready");
       return;
     }
+    if (loadingTemplateId) return;
+
+    setLoadingTemplateId(template.id);
+    toast.loading("Loading template...", { id: "template-load" });
 
     try {
-      if (template.json) {
-        const jsonData = typeof template.json === "string" ? JSON.parse(template.json) : template.json;
+      // Fetch full template with json if not already loaded (list API omits json for speed)
+      let templateToLoad = template;
+      if (!template.json && template.id) {
+        try {
+          const res = await fetch(`/api/templates/${template.id}`);
+          if (res.ok) {
+            templateToLoad = await res.json();
+          }
+        } catch (e) {
+          console.warn("Could not fetch template json:", e);
+        }
+      }
+
+      if (templateToLoad.json) {
+        const jsonData = typeof templateToLoad.json === "string" ? JSON.parse(templateToLoad.json) : templateToLoad.json;
 
         // Get template dimensions BEFORE loading
         let templateWidth = jsonData.width || canvas.getWidth();
@@ -110,54 +128,25 @@ export function TemplatesPanel() {
         // Clear existing canvas objects first (except workspace if it exists)
         const existingObjects = canvas.getObjects();
         const workspace = existingObjects.find((obj: any) => (obj as any).id === 'workspace');
-        
-        // Remove all objects except workspace
+
         existingObjects.forEach((obj: any) => {
           if ((obj as any).id !== 'workspace') {
             canvas.remove(obj);
           }
         });
 
-        // Emit canvas size change event FIRST (before resize)
         window.dispatchEvent(new CustomEvent('canvasSizeChange', {
           detail: { width: templateWidth, height: templateHeight }
         }));
 
-        // Resize canvas to match template dimensions
         canvas.setDimensions({
           width: templateWidth,
           height: templateHeight,
         });
 
-        // Wait for canvas to be ready after resize
-        await new Promise<void>((resolve) => {
-          requestAnimationFrame(() => {
-            // Ensure canvas context is ready
-            if (canvas.getContext()) {
-              resolve();
-            } else {
-              setTimeout(() => resolve(), 50);
-            }
-          });
-        });
-
-        // Wait a bit more for size change to propagate
-        await new Promise(resolve => setTimeout(resolve, 50));
-
-        // Load fonts BEFORE loading template JSON (if hookImportBefore exists)
-        const templateJsonString = typeof template.json === "string" ? template.json : JSON.stringify(template.json);
-        if ((editor as any).hooksEntity?.hookImportBefore) {
-          await new Promise<void>((resolve) => {
-            (editor as any).hooksEntity.hookImportBefore.callAsync(templateJsonString, () => {
-              resolve();
-            });
-          });
-        }
-
-        // In Fabric.js v6, loadFromJSON returns a Promise
+        // Load template onto canvas first so it appears immediately; then fonts in background
         await canvas.loadFromJSON(jsonData);
 
-        // Ensure workspace is configured after load
         const loadedObjects = canvas.getObjects();
         const loadedWorkspace = loadedObjects.find((obj: any) => (obj as any).id === 'workspace');
         if (loadedWorkspace) {
@@ -169,67 +158,60 @@ export function TemplatesPanel() {
           });
         }
 
-        // Clear loading flag after a short delay
-        setTimeout(() => {
-          delete (canvas as any)._isLoadingFromJSON;
-        }, 200);
-
-        // Force render
+        delete (canvas as any)._isLoadingFromJSON;
         canvas.requestRenderAll();
 
-        // Save updated canvas state to Convex backend immediately
-        try {
-          const canvasJSON = canvas.toJSON();
+        // Show success immediately so user sees template is ready (no waiting for thumbnail/save)
+        toast.success("Template loaded", { id: "template-load" });
+        setLoadingTemplateId(null);
 
-          // Generate thumbnail for preview
-          const thumbnail = canvas.toDataURL({
-            format: 'png',
-            quality: 0.8,
-            multiplier: 0.3,
+        // Load fonts in background so custom fonts apply when ready (non-blocking)
+        const templateJsonString = typeof templateToLoad.json === "string" ? templateToLoad.json : JSON.stringify(templateToLoad.json);
+        if ((editor as any).hooksEntity?.hookImportBefore) {
+          (editor as any).hooksEntity.hookImportBefore.callAsync(templateJsonString, () => {
+            canvas?.requestRenderAll();
           });
+        }
 
-          // Save to localStorage as backup
-          localStorage.setItem(`project-${projectId}`, JSON.stringify(canvasJSON));
-          const meta = {
-            width: templateWidth,
-            height: templateHeight,
-            updatedAt: Date.now(),
-          };
-          localStorage.setItem(`project-meta-${projectId}`, JSON.stringify(meta));
-
-          // Save to backend via REST API
-          if (projectId) {
-            try {
-              const response = await fetch(`/api/projects/${projectId}`, {
+        // Save and thumbnail in background so they don't block the UI
+        const tw = templateWidth;
+        const th = templateHeight;
+        const pid = projectId;
+        setTimeout(async () => {
+          try {
+            const canvasJSON = canvas.toJSON();
+            localStorage.setItem(`project-${pid}`, JSON.stringify(canvasJSON));
+            localStorage.setItem(`project-meta-${pid}`, JSON.stringify({
+              width: tw,
+              height: th,
+              updatedAt: Date.now(),
+            }));
+            const thumbnail = canvas.toDataURL({ format: 'png', quality: 0.8, multiplier: 0.3 });
+            if (pid) {
+              const response = await fetch(`/api/projects/${pid}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   canvas_state: canvasJSON,
-                  width: templateWidth,
-                  height: templateHeight,
+                  width: tw,
+                  height: th,
                   image_url: thumbnail,
                 }),
               });
-              if (response.ok) {
-                console.log('✅ Template saved to backend');
-              } else {
-                console.warn('Could not save to backend, saved to localStorage');
-              }
-            } catch (saveError) {
-              console.warn('Could not save to backend, saved to localStorage:', saveError);
+              if (response.ok) console.log('✅ Template saved to backend');
             }
+          } catch (e) {
+            console.warn('Background save failed:', e);
           }
-        } catch (saveError) {
-          console.warn('Could not save template:', saveError);
-        }
-
-        toast.success("Template loaded");
+        }, 100);
       } else {
-        toast.error("Template data not available");
+        toast.error("Template data not available", { id: "template-load" });
       }
     } catch (error) {
       console.error("Error loading template:", error);
-      toast.error("Failed to load template");
+      toast.error("Failed to load template", { id: "template-load" });
+    } finally {
+      setLoadingTemplateId(null);
     }
   };
 
@@ -274,28 +256,36 @@ export function TemplatesPanel() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {templates.map((template) => (
-              <div
-                key={template.id}
-                className="group cursor-pointer"
-                onClick={() => loadTemplate(template)}
-              >
-                <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden border border-gray-200 hover:border-purple-500 transition-colors">
-                  {template.preview ? (
-                    <img
-                      src={template.preview}
-                      alt={template.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <p className="text-xs text-gray-400">{template.name}</p>
-                    </div>
-                  )}
+            {templates.map((template) => {
+              const isLoading = loadingTemplateId === template.id;
+              return (
+                <div
+                  key={template.id}
+                  className={`group relative ${isLoading ? "pointer-events-none opacity-90" : "cursor-pointer"}`}
+                  onClick={() => !loadingTemplateId && loadTemplate(template)}
+                >
+                  <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden border border-gray-200 hover:border-purple-500 transition-colors">
+                    {isLoading && (
+                      <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 rounded-lg">
+                        <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+                      </div>
+                    )}
+                    {template.preview ? (
+                      <img
+                        src={template.preview}
+                        alt={template.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <p className="text-xs text-gray-400">{template.name}</p>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1 truncate">{template.name}</p>
                 </div>
-                <p className="text-xs text-gray-600 mt-1 truncate">{template.name}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

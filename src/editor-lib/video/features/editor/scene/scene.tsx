@@ -8,6 +8,7 @@ import useZoom from "../hooks/use-zoom";
 import { SceneInteractions } from "./interactions";
 import { SceneRef } from "./scene.types";
 import { PlatformOverlay, usePlatformStoreClient } from "../platform-preview";
+import { VideoContextMenu } from "./context-menu";
 
 const Scene = forwardRef<
 	SceneRef,
@@ -80,14 +81,15 @@ const Scene = forwardRef<
 						size={size}
 					/>
 					{showOverlay && (
-						<PlatformOverlay 
-							platform={currentPlatform} 
-							size={size} 
+						<PlatformOverlay
+							platform={currentPlatform}
+							size={size}
 						/>
 					)}
 				</Board>
 			</div>
 		)}
+		<VideoContextMenu />
 		</div>
 	);
 });

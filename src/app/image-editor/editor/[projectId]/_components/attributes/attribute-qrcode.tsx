@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Input } from "@/editor-lib/image/components/ui/input";
 import { Label } from "@/editor-lib/image/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/editor-lib/image/components/ui/select";
@@ -20,14 +20,17 @@ export function AttributeQRCode() {
   const [cornersDotType, setCornersDotType] = useState("square");
   const [background, setBackground] = useState("#ffffff");
   const [errorCorrectionLevel, setErrorCorrectionLevel] = useState("M");
+  /** Skip calling setQrCode when we just synced state from selection (otherwise every click regenerates the QR). */
+  const skipNextApplyRef = useRef(false);
 
   useEffect(() => {
     if (!canvas || !editor) return;
 
-    const updateQRCode = () => {
+    const syncFromSelection = () => {
       const activeObject = canvas.getActiveObject();
       if (activeObject && (activeObject as any).extensionType === "qrcode") {
         const extension = (activeObject as any).extension || {};
+        skipNextApplyRef.current = true;
         setData(extension.data || "");
         setWidth(extension.width || 300);
         setMargin(extension.margin || 10);
@@ -42,19 +45,21 @@ export function AttributeQRCode() {
       }
     };
 
-    updateQRCode();
+    syncFromSelection();
 
-    canvas.on("selection:created", updateQRCode);
-    canvas.on("selection:updated", updateQRCode);
+    canvas.on("selection:created", syncFromSelection);
+    canvas.on("selection:updated", syncFromSelection);
 
     return () => {
-      canvas.off("selection:created", updateQRCode);
-      canvas.off("selection:updated", updateQRCode);
+      canvas.off("selection:created", syncFromSelection);
+      canvas.off("selection:updated", syncFromSelection);
     };
   }, [canvas, editor]);
 
-  const updateQRCode = () => {
-    if (!editor) return;
+  const applyToCanvas = () => {
+    if (!editor || !canvas) return;
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject || (activeObject as any).extensionType !== "qrcode") return;
     const qrCodeData = {
       data,
       width,
@@ -69,11 +74,16 @@ export function AttributeQRCode() {
       errorCorrectionLevel,
     };
     editor.setQrCode?.(qrCodeData);
-    canvas?.requestRenderAll();
+    canvas.requestRenderAll();
   };
 
   useEffect(() => {
-    if (canvas && editor) updateQRCode();
+    if (!canvas || !editor) return;
+    if (skipNextApplyRef.current) {
+      skipNextApplyRef.current = false;
+      return;
+    }
+    applyToCanvas();
   }, [
     data,
     width,
@@ -99,17 +109,75 @@ export function AttributeQRCode() {
   const cornersTypes = ["dot", "square", "extra-rounded"];
   const errorLevels = ["L", "M", "Q", "H"];
 
+  type ColorFieldKey = "dots" | "cornersSquare" | "cornersDot" | "background";
+  const [openColorPicker, setOpenColorPicker] = useState<ColorFieldKey | null>(null);
+
+  const ColorField = ({
+    label,
+    value,
+    onChange,
+    fieldKey,
+  }: {
+    label: string;
+    value: string;
+    onChange: (v: string) => void;
+    fieldKey: ColorFieldKey;
+  }) => (
+    <div className="space-y-2">
+      <Label className="text-xs font-medium text-gray-700">{label}</Label>
+      <div className="flex gap-2 items-center relative">
+        <button
+          type="button"
+          onClick={() => setOpenColorPicker((k) => (k === fieldKey ? null : fieldKey))}
+          className="w-10 h-10 rounded border border-gray-300 cursor-pointer shrink-0 hover:ring-2 hover:ring-gray-400 transition-shadow"
+          style={{ backgroundColor: value }}
+          title="Open color picker"
+        />
+        <Input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="flex-1 bg-white min-w-0"
+        />
+        {openColorPicker === fieldKey && (
+          <div className="absolute left-0 top-full z-50 mt-2 bg-white p-3 rounded-lg shadow-lg border border-gray-200">
+            <HexColorPicker color={value} onChange={onChange} />
+            <div className="mt-2 flex gap-2 items-center">
+              <Input
+                type="text"
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                className="flex-1 h-8 text-sm bg-white"
+              />
+              <button
+                type="button"
+                onClick={() => setOpenColorPicker(null)}
+                className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-3">
       <h4 className="text-xs font-semibold text-gray-900">QR Code Properties</h4>
 
       <div className="space-y-2">
-        <Label className="text-xs font-medium text-gray-700">Content</Label>
+        <Label className="text-xs font-medium text-gray-700">Content (URL or text)</Label>
         <Input
           value={data}
           onChange={(e) => setData(e.target.value)}
+          onKeyDown={(e) => e.stopPropagation()}
+          onPaste={(e) => e.stopPropagation()}
+          onCut={(e) => e.stopPropagation()}
+          onCopy={(e) => e.stopPropagation()}
           className="bg-white"
-          placeholder="Enter QR code content"
+          placeholder="Paste or type link (e.g. https://...)"
         />
       </div>
 
@@ -137,21 +205,12 @@ export function AttributeQRCode() {
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <div className="space-y-2">
-          <Label className="text-xs font-medium text-gray-700">Dots Color</Label>
-          <div className="flex gap-2">
-            <div
-              className="w-10 h-10 rounded border border-gray-300 cursor-pointer"
-              style={{ backgroundColor: dotsColor }}
-            />
-            <Input
-              type="text"
-              value={dotsColor}
-              onChange={(e) => setDotsColor(e.target.value)}
-              className="flex-1 bg-white"
-            />
-          </div>
-        </div>
+        <ColorField
+          label="Dots Color"
+          value={dotsColor}
+          onChange={setDotsColor}
+          fieldKey="dots"
+        />
         <div className="space-y-2">
           <Label className="text-xs font-medium text-gray-700">Dots Type</Label>
           <Select value={dotsType} onValueChange={setDotsType}>
@@ -170,21 +229,12 @@ export function AttributeQRCode() {
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <div className="space-y-2">
-          <Label className="text-xs font-medium text-gray-700">Outer Corner Color</Label>
-          <div className="flex gap-2">
-            <div
-              className="w-10 h-10 rounded border border-gray-300 cursor-pointer"
-              style={{ backgroundColor: cornersSquareColor }}
-            />
-            <Input
-              type="text"
-              value={cornersSquareColor}
-              onChange={(e) => setCornersSquareColor(e.target.value)}
-              className="flex-1 bg-white"
-            />
-          </div>
-        </div>
+        <ColorField
+          label="Outer Corner Color"
+          value={cornersSquareColor}
+          onChange={setCornersSquareColor}
+          fieldKey="cornersSquare"
+        />
         <div className="space-y-2">
           <Label className="text-xs font-medium text-gray-700">Outer Corner Type</Label>
           <Select value={cornersSquareType} onValueChange={setCornersSquareType}>
@@ -203,21 +253,12 @@ export function AttributeQRCode() {
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <div className="space-y-2">
-          <Label className="text-xs font-medium text-gray-700">Inner Corner Color</Label>
-          <div className="flex gap-2">
-            <div
-              className="w-10 h-10 rounded border border-gray-300 cursor-pointer"
-              style={{ backgroundColor: cornersDotColor }}
-            />
-            <Input
-              type="text"
-              value={cornersDotColor}
-              onChange={(e) => setCornersDotColor(e.target.value)}
-              className="flex-1 bg-white"
-            />
-          </div>
-        </div>
+        <ColorField
+          label="Inner Corner Color"
+          value={cornersDotColor}
+          onChange={setCornersDotColor}
+          fieldKey="cornersDot"
+        />
         <div className="space-y-2">
           <Label className="text-xs font-medium text-gray-700">Inner Corner Type</Label>
           <Select value={cornersDotType} onValueChange={setCornersDotType}>
@@ -236,21 +277,12 @@ export function AttributeQRCode() {
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <div className="space-y-2">
-          <Label className="text-xs font-medium text-gray-700">Background</Label>
-          <div className="flex gap-2">
-            <div
-              className="w-10 h-10 rounded border border-gray-300 cursor-pointer"
-              style={{ backgroundColor: background }}
-            />
-            <Input
-              type="text"
-              value={background}
-              onChange={(e) => setBackground(e.target.value)}
-              className="flex-1 bg-white"
-            />
-          </div>
-        </div>
+        <ColorField
+          label="Background"
+          value={background}
+          onChange={setBackground}
+          fieldKey="background"
+        />
         <div className="space-y-2">
           <Label className="text-xs font-medium text-gray-700">Error Correction</Label>
           <Select value={errorCorrectionLevel} onValueChange={setErrorCorrectionLevel}>

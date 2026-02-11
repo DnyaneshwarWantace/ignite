@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { uploadImageFromUrl, uploadVideoFromUrl } from "@/lib/supabase-storage";
 
+const MAX_RETRIES = 3; // Retry each ad up to 3 times, then skip permanently
+
+// This API downloads media from Facebook URLs and uploads to Supabase Storage.
+// It replaces Facebook image/video URLs in the DB with Supabase Storage URLs
+// (local_image_url, local_video_url) so the frontend and exports use stable URLs.
+
 // Helper function to check if URL is accessible
 async function isUrlAccessible(url: string): Promise<boolean> {
   try {
@@ -87,16 +93,19 @@ function extractMediaUrls(ad: any): { imageUrls: string[], videoUrls: string[] }
 
 export async function GET(request: NextRequest) {
   try {
+    // Start the background media worker loop if not already running (so it runs even if instrumentation didn't)
+    import('@/lib/server-startup').then((m) => m.initializeServerSideMediaWorker()).catch(() => {});
+
     const url = new URL(request.url);
     const batchSize = parseInt(url.searchParams.get('batch') || '10');
     
     console.log('🔄 Starting media processing...');
     
-    // Get pending ads
+    // Get pending ads (only those not yet at max retries — retry up to 3 times then skip)
     const { data: pendingAds, error: fetchError } = await supabase
       .from('ads')
       .select('*, brand:brands(name)')
-      .or(`media_status.eq.pending,and(media_status.eq.failed,media_retry_count.lt.5)`)
+      .or(`media_status.eq.pending,and(media_status.eq.failed,media_retry_count.lt.${MAX_RETRIES})`)
       .order('media_retry_count', { ascending: true })
       .order('created_at', { ascending: false })
       .limit(batchSize);
@@ -109,11 +118,15 @@ export async function GET(request: NextRequest) {
       }, { status: 500 });
     }
 
-    if (!pendingAds) {
+    if (!pendingAds || pendingAds.length === 0) {
+      const [{ count: totalDone }, { count: remaining }] = await Promise.all([
+        supabase.from('ads').select('*', { count: 'exact', head: true }).eq('media_status', 'success'),
+        supabase.from('ads').select('*', { count: 'exact', head: true }).or(`media_status.eq.pending,and(media_status.eq.failed,media_retry_count.lt.${MAX_RETRIES})`)
+      ]);
       return NextResponse.json({
         success: true,
         message: 'No pending ads found',
-        results: { processed: 0, success: 0, failed: 0, errors: [] }
+        results: { processed: 0, success: 0, failed: 0, errors: [], totalDone: totalDone ?? 0, remaining: remaining ?? 0 }
       });
     }
 
@@ -138,7 +151,7 @@ export async function GET(request: NextRequest) {
         let localImageUrl = null;
         let localVideoUrl = null;
 
-        // Process ALL images for carousel ads
+        // Only upload if ad doesn't already have media (no duplicate uploads)
         const localImageUrls: string[] = [];
         if (imageUrls.length > 0 && !ad.local_image_url) {
           for (let i = 0; i < imageUrls.length; i++) {
@@ -186,7 +199,7 @@ export async function GET(request: NextRequest) {
           console.log(`📊 Successfully processed ${localImageUrls.length}/${imageUrls.length} images for ad ${libraryId}`);
         }
 
-        // Process videos
+        // Process videos only if not already uploaded (no duplicate)
         if (videoUrls.length > 0 && !ad.local_video_url) {
           for (const videoUrl of videoUrls) {
             try {
@@ -219,7 +232,7 @@ export async function GET(request: NextRequest) {
                     .update({
                       media_status: 'failed',
                       media_error: 'Video file exceeds Supabase 50MB size limit',
-                      media_retry_count: 5 // Don't retry large files
+                      media_retry_count: MAX_RETRIES
                     })
                     .eq('id', ad.id);
                   break; // Don't try other video URLs if size is the issue
@@ -259,12 +272,13 @@ export async function GET(request: NextRequest) {
           results.success++;
         } else {
           const newRetryCount = (ad.media_retry_count || 0) + 1;
+          const skipPermanently = newRetryCount >= MAX_RETRIES;
           await supabase
             .from('ads')
             .update({
-              media_status: newRetryCount >= 5 ? 'failed' : 'pending',
+              media_status: skipPermanently ? 'failed' : 'pending',
               media_retry_count: newRetryCount,
-              media_error: 'No accessible media found'
+              media_error: skipPermanently ? `Skipped after ${MAX_RETRIES} attempts: No accessible media` : 'No accessible media found'
             })
             .eq('id', ad.id);
           results.failed++;
@@ -275,11 +289,12 @@ export async function GET(request: NextRequest) {
       } catch (error) {
         console.error(`Error processing ad ${ad.library_id}:`, error);
         const newRetryCount = (ad.media_retry_count || 0) + 1;
+        const skipPermanently = newRetryCount >= MAX_RETRIES;
 
         await supabase
           .from('ads')
           .update({
-            media_status: newRetryCount >= 5 ? 'failed' : 'pending',
+            media_status: skipPermanently ? 'failed' : 'pending',
             media_retry_count: newRetryCount,
             media_error: (error as Error).message
           })
@@ -293,10 +308,20 @@ export async function GET(request: NextRequest) {
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
+    // Batch status: total done and remaining (for logging after every batch)
+    const [{ count: totalDone }, { count: remaining }] = await Promise.all([
+      supabase.from('ads').select('*', { count: 'exact', head: true }).eq('media_status', 'success'),
+      supabase.from('ads').select('*', { count: 'exact', head: true }).or(`media_status.eq.pending,and(media_status.eq.failed,media_retry_count.lt.${MAX_RETRIES})`)
+    ]);
+
     return NextResponse.json({
       success: true,
       message: `Processed ${results.processed} ads`,
-      results
+      results: {
+        ...results,
+        totalDone: totalDone ?? 0,
+        remaining: remaining ?? 0
+      }
     });
 
   } catch (error) {

@@ -5,17 +5,16 @@ export async function register() {
     // Start services in a completely non-blocking way
     // Don't await - let them start in the background
     Promise.resolve().then(async () => {
-      // Wait for server to be fully ready
-      await new Promise(resolve => setTimeout(resolve, 15000)); // 15 second delay
+      // Wait for server to be ready (shorter so worker starts sooner)
+      await new Promise(resolve => setTimeout(resolve, 5000));
 
       try {
         const { initializeServerSideMediaWorker, initializeAutoTracking } = await import('./src/lib/server-startup');
 
-        // Start services without blocking
         initializeServerSideMediaWorker().catch(err => console.error('Media worker init error:', err));
         initializeAutoTracking().catch(err => console.error('Auto-tracker init error:', err));
 
-        console.log('✅ Background services initialization started');
+        console.log('✅ Background services (media worker + auto-tracking) started');
       } catch (error) {
         console.error('❌ Failed to import server startup:', error);
       }

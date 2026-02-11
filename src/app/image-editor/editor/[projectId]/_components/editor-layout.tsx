@@ -10,9 +10,11 @@ import { useCanvasContext } from "@/editor-lib/image/providers/canvas-provider";
 
 interface EditorLayoutProps {
   project?: any;
+  /** Canvas state (JSON string) loaded on the page so the editor shows content immediately without a second fetch. */
+  initialCanvasState?: string | null;
 }
 
-export function EditorLayout({ project }: EditorLayoutProps) {
+export function EditorLayout({ project, initialCanvasState }: EditorLayoutProps) {
   const [rulerEnabled, setRulerEnabled] = useState(true);
   const { processingMessage } = useCanvasContext();
 
@@ -65,6 +67,7 @@ export function EditorLayout({ project }: EditorLayoutProps) {
         <CanvasArea
           rulerEnabled={rulerEnabled}
           project={project}
+          initialCanvasState={initialCanvasState}
         />
 
         {/* Right Sidebar - 380px when expanded */}

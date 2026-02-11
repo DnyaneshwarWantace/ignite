@@ -7,11 +7,19 @@ import { Typography } from "@/components/ui/typography";
 import { useFetchSavedAdFoldersQuery, useFetchSavedAdsQuery, useCreateSavedAdFolderMutation } from "@/store/slices/xray";
 import { Bookmark, Plus, FolderOpen } from "lucide-react";
 import { useState } from "react";
-import EmptyState from "@/components/EmptyState";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import LazyAdCard from "@/components/LazyAdCard";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import Masonry from "react-masonry-css";
+
+// Breakpoint columns for masonry layout (same as Discover page)
+const breakpointColumnsObj = {
+  default: 4, // Big screens (1400px+): 4 ads
+  1600: 3,    // Laptop screens (1024px-1400px): 3 ads
+  1100: 2,    // Medium screens: 2 ads
+  700: 1,     // Small screens: 1 ad
+};
 
 export default function SavedAdsPage() {
   const { data: folders, error: foldersError, isLoading: isFoldersLoading } = useFetchSavedAdFoldersQuery();
@@ -136,7 +144,11 @@ export default function SavedAdsPage() {
                   </AccordionTrigger>
                   <AccordionContent>
                     <div className="p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 [1600px]:grid-cols-4 gap-4">
+                      <Masonry
+                        breakpointCols={breakpointColumnsObj}
+                        className="flex w-auto -ml-4"
+                        columnClassName="pl-4 bg-clip-padding"
+                      >
                         {defaultFolderAds.ads.map((savedAd: any) => {
                           const adData = JSON.parse(savedAd.adData || '{}');
                           return (
@@ -146,19 +158,18 @@ export default function SavedAdsPage() {
                               onCtaClick={() => handleCtaClick(adData.landingPageUrl)}
                               onSaveAd={handleSaveAd}
                               expand={true}
-                              hideActions={false}
-                              isSaved={true} // Show as saved since it's in saved ads
+                              isSaved={true}
                             />
                           );
                         })}
-                      </div>
+                      </Masonry>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
               )}
 
               {/* User Created Folders */}
-              {folders && folders.map((folder: any, index: number) => (
+              {folders && folders.map((folder: any) => (
                 <AccordionItem key={folder.id} value={folder.id} className="border-0">
                   <AccordionTrigger className="hover:no-underline p-2">
                     <div className="flex space-x-2 items-center">
@@ -170,7 +181,11 @@ export default function SavedAdsPage() {
                   <AccordionContent>
                     <div className="p-4">
                       {folder.savedAds && folder.savedAds.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 [1600px]:grid-cols-4 gap-4">
+                        <Masonry
+                          breakpointCols={breakpointColumnsObj}
+                          className="flex w-auto -ml-4"
+                          columnClassName="pl-4 bg-clip-padding"
+                        >
                           {folder.savedAds.map((savedAd: any) => {
                             const adData = JSON.parse(savedAd.adData || '{}');
                             return (
@@ -180,12 +195,11 @@ export default function SavedAdsPage() {
                                 onCtaClick={() => handleCtaClick(adData.landingPageUrl)}
                                 onSaveAd={handleSaveAd}
                                 expand={true}
-                                hideActions={false}
-                                isSaved={true} // Show as saved since it's in saved ads
+                                isSaved={true}
                               />
                             );
                           })}
-                        </div>
+                        </Masonry>
                       ) : (
                         <div className="text-center py-4 text-muted-foreground">
                           No saved ads in this folder yet
@@ -234,7 +248,7 @@ export default function SavedAdsPage() {
               placeholder="Enter folder name"
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleCreateFolder()}
+              onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
             />
             <div className="flex gap-2 justify-end">
               <Button 

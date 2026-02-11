@@ -42,6 +42,8 @@ export function BackgroundColorVariationsPanel() {
   const [currentBgColor, setCurrentBgColor] = useState<string | null>(null);
   const [existingVariations, setExistingVariations] = useState<any[]>([]);
   const [variationCount, setVariationCount] = useState(0);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Fetch existing variations from REST API
   useEffect(() => {
@@ -57,6 +59,7 @@ export function BackgroundColorVariationsPanel() {
         if (variationsRes.ok) {
           const data = await variationsRes.json();
           setExistingVariations(data || []);
+          setSaveError(null);
         }
 
         if (countRes.ok) {
@@ -142,9 +145,10 @@ export function BackgroundColorVariationsPanel() {
   };
 
   const handleSaveVariations = async () => {
-    if (!projectId) {
-      return;
-    }
+    if (!projectId) return;
+
+    setSaveError(null);
+    setIsSaving(true);
 
     try {
       const response = await fetch('/api/background-color-variations', {
@@ -158,20 +162,20 @@ export function BackgroundColorVariationsPanel() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save variations');
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to save variations');
       }
 
-      // Refresh variation count
       const countRes = await fetch(`/api/variations/counts?projectId=${projectId}&type=backgroundColor`);
       if (countRes.ok) {
         const countData = await countRes.json();
-        setVariationCount(countData.count || 0);
+        setVariationCount(countData.count ?? 0);
       }
-
-      console.log(`✅ Saved ${colorVariations.length} background color variations`);
     } catch (error) {
-      console.error("❌ Error saving background color variations:", error);
-      alert("Failed to save variations. Please try again.");
+      console.error('Error saving background color variations:', error);
+      setSaveError(error instanceof Error ? error.message : 'Failed to save. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -337,14 +341,18 @@ export function BackgroundColorVariationsPanel() {
             </p>
           </div>
 
-          {/* Save Button */}
+          {saveError && (
+            <p className="text-xs text-red-600 mb-2" role="alert">
+              {saveError}
+            </p>
+          )}
           <Button
             onClick={handleSaveVariations}
-            disabled={!projectId || colorVariations.length === 0}
+            disabled={!projectId || colorVariations.length === 0 || isSaving}
             className="w-full"
             size="sm"
           >
-            Save {colorVariations.length} Color Variations
+            {isSaving ? 'Saving…' : `Save ${colorVariations.length} Color Variations`}
           </Button>
         </div>
       )}

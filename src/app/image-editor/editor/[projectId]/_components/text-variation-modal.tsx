@@ -104,7 +104,7 @@ export function TextVariationModal({
     try {
       const prompt = buildPrompt(originalText, parseInt(aiCount), aiLanguage);
 
-      const response = await fetch("/api/generate-variations", {
+      const response = await fetch("/api/editor/image/generate-variations", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

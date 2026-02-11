@@ -55,28 +55,27 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
     }
   }, []);
 
-  // Simple image extraction
+  // Thumbnail extraction: same order as Creative Tests (video preview first, then image, then fallbacks)
   const getAdImage = useCallback((ad: any): string | null => {
     try {
       const content = typeof ad.content === 'string' ? JSON.parse(ad.content) : ad.content;
       const snapshot = content.snapshot || {};
       const videos = snapshot.videos || [];
       const images = snapshot.images || [];
-      
-      // Try to get first image
-      if (images.length > 0) {
-        const firstImage = images[0];
-        return firstImage.original_image_url || firstImage.resized_image_url || firstImage.url;
-      }
-      
-      // Try video preview
-      if (videos.length > 0) {
-        const firstVideo = videos[0];
-        return firstVideo.video_preview_image_url;
-      }
-      
-      // Fallback
-      return ad.localImageUrl || ad.imageUrl || snapshot.image_url;
+      const firstVideo = videos[0] || {};
+      const firstImage = images[0] || {};
+
+      // Same priority as Creative Tests: video thumbnail first, then image, then DB/API fallbacks
+      const imageUrl =
+        firstVideo.video_preview_image_url ||
+        firstImage.original_image_url ||
+        firstImage.resized_image_url ||
+        firstImage.url ||
+        ad.localImageUrl ||
+        ad.imageUrl ||
+        snapshot.image_url ||
+        null;
+      return imageUrl;
     } catch {
       return null;
     }
@@ -100,8 +99,21 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
     // If hook has direct ad metadata (from new structure)
     if (hook.adId && hook.createdAt && hook.platform) {
       const daysSince = calculateDaysSince(hook.createdAt);
+      // Resolve thumbnail from full ad when available (so video ads get video thumbnail like Creative Tests)
+      let imageUrl = hook.imageUrl || null;
+      let adData = hook.adData || null;
+      if (hook.adData) {
+        if (!imageUrl) imageUrl = getAdImage(hook.adData);
+      }
+      if (limitedAds.length > 0) {
+        const ad = limitedAds.find((a: any) => a.id === hook.adId || a.library_id === hook.adId);
+        if (ad) {
+          if (!imageUrl) imageUrl = getAdImage(ad);
+          if (!adData) adData = ad;
+        }
+      }
       return {
-        imageUrl: hook.imageUrl || null,
+        imageUrl,
         adType: hook.adType || "unknown",
         ctaText: "Ad Details",
         ctaUrl: "",
@@ -109,7 +121,7 @@ export default function XrayHooks({ hooks = [], ads = [] }: XrayHooksProps) {
         isActive: hook.isActive !== undefined ? hook.isActive : true, // Use actual active status
         platform: hook.platform || "FACEBOOK",
         adId: hook.adId,
-        adData: hook.adData || null
+        adData
       };
     }
 

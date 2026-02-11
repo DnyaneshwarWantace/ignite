@@ -12,15 +12,22 @@ export interface UploadCallbacks {
 export async function processFileUpload(
   uploadId: string,
   file: File,
-  callbacks: UploadCallbacks
+  callbacks: UploadCallbacks,
+  projectId?: string
 ): Promise<any> {
   try {
-    // Upload file directly to Supabase
+    const pid = projectId ?? (() => {
+      const pathParts = typeof window !== 'undefined' ? window.location.pathname.split('/') : [];
+      return pathParts[3] || pathParts[pathParts.length - 1] || '';
+    })();
+    if (!pid) {
+      throw new Error('Project ID required for upload. Open a video project first.');
+    }
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('projectId', 'PJ1nkaufw0hZPyhN7bWCP'); // This should be dynamic
+    formData.append('projectId', pid);
     
-    const response = await axios.post('/api/upload', formData, {
+    const response = await axios.post('/api/editor/video/upload', formData, {
       headers: { 
         'Content-Type': 'multipart/form-data',
       },

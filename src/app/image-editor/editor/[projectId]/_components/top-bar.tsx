@@ -23,6 +23,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/editor-lib/image/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/editor-lib/image/components/ui/dialog";
 import { useCanvasContext } from "@/editor-lib/image/providers/canvas-provider";
 import { toast } from "sonner";
 import type { ExportFormat } from "@/editor-lib/image/types/editor";
@@ -82,6 +90,7 @@ export function TopBar({ rulerEnabled, onRulerToggle }: TopBarProps) {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [isVariationsModalOpen, setIsVariationsModalOpen] = useState(false);
+  const [showResetCanvasConfirm, setShowResetCanvasConfirm] = useState(false);
 
   // Helper to check if ID is valid Convex ID
   const isValidConvexId = (id: string): boolean => {
@@ -616,15 +625,51 @@ export function TopBar({ rulerEnabled, onRulerToggle }: TopBarProps) {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div className="h-6 w-px bg-gray-300 mx-0.5" />
-            {/* New Project Button */}
+            {/* New = Reset canvas: clear all elements, show warning first */}
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => router.push("/")}
+              onClick={() => setShowResetCanvasConfirm(true)}
               className="text-gray-700 hover:bg-gray-100 px-2"
+              title="Reset canvas (remove all elements)"
             >
               New
             </Button>
+            <Dialog open={showResetCanvasConfirm} onOpenChange={setShowResetCanvasConfirm}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Reset canvas?</DialogTitle>
+                  <DialogDescription>
+                    All elements will be removed from the canvas. This cannot be undone. Continue?
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowResetCanvasConfirm(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (!canvas) return;
+                      const objects = canvas.getObjects();
+                      const toRemove = objects.filter((obj: any) => (obj as any).id !== "workspace");
+                      if (toRemove.length > 0) {
+                        canvas.remove(...toRemove);
+                        canvas.discardActiveObject();
+                        canvas.requestRenderAll();
+                        (editor as any)?.saveState?.();
+                        toast.success("Canvas reset");
+                      }
+                      setShowResetCanvasConfirm(false);
+                    }}
+                  >
+                    Reset canvas
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             <div className="h-6 w-px bg-gray-300 mx-0.5" />
 
@@ -816,12 +861,12 @@ export function TopBar({ rulerEnabled, onRulerToggle }: TopBarProps) {
         </DropdownMenu>
       </div>
 
-      {/* Variations Manager Modal */}
+      {/* Variations Manager Modal - pass projectId so "View created variations" loads data */}
       <VariationsManagerModal
         isOpen={isVariationsModalOpen}
         onClose={() => setIsVariationsModalOpen(false)}
-        projectId={null}
-        projectIdParam={null}
+        projectId={projectId}
+        projectIdParam={projectIdParam}
       />
     </header>
   );

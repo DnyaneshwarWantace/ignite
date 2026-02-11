@@ -62,13 +62,26 @@ export const calculateContainerStyles = (
 	crop: ITrackItem["details"]["crop"] = {},
 	overrides: React.CSSProperties = {},
 ): React.CSSProperties => {
+	// Build transform string with flip support
+	const transforms = [];
+	if (details.flipX) transforms.push('scaleX(-1)');
+	if (details.flipY) transforms.push('scaleY(-1)');
+
+	// Add existing transform if present
+	const existingTransform = details.transform || "none";
+	if (existingTransform !== "none") {
+		transforms.push(existingTransform);
+	}
+
+	const finalTransform = transforms.length > 0 ? transforms.join(' ') : 'none';
+
 	return {
-		pointerEvents: "auto",
+		pointerEvents: details.locked ? "none" : "auto",
 		top: details.top || 0,
 		left: details.left || 0,
 		width: crop.width || details.width || "100%",
 		height: crop.height || details.height || "auto",
-		transform: details.transform || "none",
+		transform: finalTransform,
 		opacity: details.opacity !== undefined ? details.opacity / 100 : 1,
 		transformOrigin: details.transformOrigin || "center center",
 		filter: `brightness(${details.brightness}%) blur(${details.blur}px)`,

@@ -21,9 +21,9 @@ export default function Home() {
     }
   }, [session, status, router]);
 
-  // Show loading spinner while redirecting
+  // Show loading spinner while redirecting (min-h-screen to avoid fixed overlay scroll warning)
   return (
-    <div className="fixed inset-0 w-full h-full flex items-center justify-center bg-background">
+    <div className="min-h-screen w-full flex items-center justify-center bg-background">
       <div className="flex flex-col items-center justify-center gap-4 p-8">
         <Spinner size="3" className="text-primary" />
         <p className="text-muted-foreground text-lg font-medium">Loading...</p>

@@ -9,12 +9,8 @@ interface User {
 import { authMiddleware } from "@middleware";
 import { createResponse, createError } from "@apiUtils/responseutils";
 import messages from "@apiUtils/messages";
-import OpenAI from "openai";
 import { supabase } from "@/lib/supabase";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { callLLM } from "@/lib/llm";
 
 export const dynamic = "force-dynamic";
 
@@ -131,30 +127,14 @@ Make sure the ad is:
 - Ready to use in advertising platforms
 `;
 
-      // Generate the ad using OpenAI
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4",
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert direct-response copywriter specializing in high-converting advertisements. Always respond with valid JSON."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 2000,
-      });
-
-      const responseText = completion.choices[0]?.message?.content;
-      
-      if (!responseText) {
-        return createError({
-          message: "Failed to generate ad content"
-        });
-      }
+      // Generate the ad using AI
+      const responseText = await callLLM(user.id, [
+        {
+          role: "system",
+          content: "You are an expert direct-response copywriter specializing in high-converting advertisements. Always respond with valid JSON."
+        },
+        { role: "user", content: prompt }
+      ], { temperature: 0.7, max_tokens: 2000 });
 
       // Parse the JSON response
       let generatedAd;

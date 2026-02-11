@@ -31,7 +31,7 @@ export const GET = authMiddleware(
           status: 400,
         });
       }
-      const limit = Math.min(parseInt(rawLimit || '50'), 200); // Allow up to 200 ads per request
+      const limit = Math.min(Math.max(parseInt(rawLimit || '50'), 1), 2000); // Allow up to 2000 ads per request (so Discover can show all ads)
 
       // Get filterKey parameter (JSON string with all filters)
       const filterKeyParam = searchParams.get('filterKey');

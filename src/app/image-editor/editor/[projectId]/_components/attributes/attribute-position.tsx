@@ -5,6 +5,7 @@ import { Slider } from "@/editor-lib/image/components/ui/slider";
 import { Input } from "@/editor-lib/image/components/ui/input";
 import { Label } from "@/editor-lib/image/components/ui/label";
 import { useCanvasContext } from "@/editor-lib/image/providers/canvas-provider";
+import { formatDecimal } from "@/lib/utils";
 
 export function AttributePosition() {
   const { canvas } = useCanvasContext();
@@ -19,9 +20,12 @@ export function AttributePosition() {
     const updateValues = () => {
       const activeObject = canvas.getActiveObject();
       if (activeObject) {
-        setLeft(Math.round(activeObject.left || 0));
-        setTop(Math.round(activeObject.top || 0));
-        setAngle(Math.round(activeObject.angle || 0));
+        const l = activeObject.left ?? 0;
+        const t = activeObject.top ?? 0;
+        const a = activeObject.angle ?? 0;
+        setLeft(Number(formatDecimal(l)));
+        setTop(Number(formatDecimal(t)));
+        setAngle(Number(formatDecimal(a)));
         setOpacity(Math.round((activeObject.opacity || 1) * 100));
       }
     };
@@ -66,7 +70,7 @@ export function AttributePosition() {
           <Label className="text-xs font-medium text-gray-700">Left (X)</Label>
           <Input
             type="number"
-            value={left}
+            value={formatDecimal(left)}
             onChange={(e) => {
               const val = parseFloat(e.target.value) || 0;
               setLeft(val);
@@ -79,7 +83,7 @@ export function AttributePosition() {
           <Label className="text-xs font-medium text-gray-700">Top (Y)</Label>
           <Input
             type="number"
-            value={top}
+            value={formatDecimal(top)}
             onChange={(e) => {
               const val = parseFloat(e.target.value) || 0;
               setTop(val);
@@ -93,7 +97,7 @@ export function AttributePosition() {
       <div className="space-y-2">
         <div className="flex justify-between">
           <Label className="text-xs font-medium text-gray-700">Angle</Label>
-          <span className="text-xs font-semibold text-gray-900">{angle}°</span>
+          <span className="text-xs font-semibold text-gray-900">{formatDecimal(angle)}°</span>
         </div>
         <Slider
           value={[angle]}

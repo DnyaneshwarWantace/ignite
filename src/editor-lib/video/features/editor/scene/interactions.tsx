@@ -186,7 +186,7 @@ export function SceneInteractions({
 	return (
 		<Moveable
 			ref={moveableRef}
-			rotationPosition={"bottom"}
+			rotationPosition={"top"}
 			renderDirections={selectionInfo.controls}
 			resizable={selectionInfo.ables.resizable}
 			scalable={selectionInfo.ables.scalable}
@@ -197,6 +197,14 @@ export function SceneInteractions({
 			target={targets}
 			zoom={1 / zoom}
 			className="designcombo-scene-moveable"
+			keepRatio={false}
+			onResizeStart={({ setOrigin, dragStart }) => {
+				// Set origin based on which handle is being dragged to keep opposite corner fixed
+				setOrigin(["%", "%"]);
+				if (dragStart) {
+					dragStart.set([0, 0]);
+				}
+			}}
 			onDrag={({ target, top, left }) => {
 				target.style.top = `${top}px`;
 				target.style.left = `${left}px`;
@@ -216,28 +224,52 @@ export function SceneInteractions({
 					},
 				});
 			}}
+			onRotate={({ target, transform }) => {
+				target.style.transform = transform;
+			}}
+			onRotateEnd={({ target }) => {
+				const targetId = getIdFromClassName(target.className) as string;
 
+				// Save the full transform including rotation
+				const transform = target.style.transform;
+
+				dispatch(EDIT_OBJECT, {
+					payload: {
+						[targetId]: {
+							details: {
+								transform: transform,
+							},
+						},
+					},
+				});
+			}}
 			onResizeEnd={({ target }) => {
 				const targetId = getIdFromClassName(target.className) as string;
 				const textDiv = target.firstElementChild?.firstElementChild
 					?.firstElementChild as HTMLDivElement;
-				
+
+				// Clear the stored original dimensions after resize is complete
+				delete target.dataset.originalHeight;
+				delete target.dataset.originalFontSize;
+
 				// Check if textDiv exists before accessing its style
 				if (!textDiv) {
-					// If no textDiv found, just update width and height
+					// If no textDiv found, just update width, height, and position
 					dispatch(EDIT_OBJECT, {
 						payload: {
 							[targetId]: {
 								details: {
 									width: Number.parseFloat(target.style.width),
 									height: Number.parseFloat(target.style.height),
+									left: target.style.left,
+									top: target.style.top,
 								},
 							},
 						},
 					});
 					return;
 				}
-				
+
 				dispatch(EDIT_OBJECT, {
 					payload: {
 						[targetId]: {
@@ -245,6 +277,8 @@ export function SceneInteractions({
 								width: Number.parseFloat(target.style.width),
 								height: Number.parseFloat(target.style.height),
 								fontSize: Number.parseFloat(textDiv.style.fontSize),
+								left: target.style.left,
+								top: target.style.top,
 							},
 						},
 					},
@@ -274,56 +308,40 @@ export function SceneInteractions({
 				target,
 				width: nextWidth,
 				height: nextHeight,
-				direction,
+				drag,
 			}) => {
-				if (direction[1] === 1) {
-					const currentWidth = target.clientWidth;
-					const currentHeight = target.clientHeight;
+				// Update position to keep opposite corner fixed when resizing from top/left
+				if (drag) {
+					target.style.left = `${drag.beforeTranslate[0]}px`;
+					target.style.top = `${drag.beforeTranslate[1]}px`;
+				}
 
-					// Get new width and height
-					const scaleY = nextHeight / currentHeight;
-					const scale = scaleY;
+				// Update dimensions
+				target.style.width = `${nextWidth}px`;
+				target.style.height = `${nextHeight}px`;
 
-					// Update target dimensions
-					target.style.width = `${currentWidth * scale}px`;
-					target.style.height = `${currentHeight * scale}px`;
+				// Safely access nested elements
+				const animationDiv = target.firstElementChild
+					?.firstElementChild as HTMLDivElement | null;
+				if (animationDiv) {
+					animationDiv.style.width = `${nextWidth}px`;
+					animationDiv.style.height = `${nextHeight}px`;
 
-					// Safely access nested elements
-					const animationDiv = target.firstElementChild
-						?.firstElementChild as HTMLDivElement | null;
-					if (animationDiv) {
-						animationDiv.style.width = `${currentWidth * scale}px`;
-						animationDiv.style.height = `${currentHeight * scale}px`;
-
-						const textDiv =
-							animationDiv.firstElementChild as HTMLDivElement | null;
-						if (textDiv) {
-							const fontSize = Number.parseFloat(
-								getComputedStyle(textDiv).fontSize,
-							);
-							textDiv.style.fontSize = `${fontSize * scale}px`;
-							textDiv.style.width = `${currentWidth * scale}px`;
-							textDiv.style.height = `${currentHeight * scale}px`;
+					const textDiv =
+						animationDiv.firstElementChild as HTMLDivElement | null;
+					if (textDiv) {
+						// Scale font size proportionally when resizing
+						const originalHeight = Number.parseFloat(target.dataset.originalHeight || `${nextHeight}`);
+						if (!target.dataset.originalHeight) {
+							target.dataset.originalHeight = `${nextHeight}`;
+							target.dataset.originalFontSize = getComputedStyle(textDiv).fontSize;
 						}
+						const originalFontSize = Number.parseFloat(target.dataset.originalFontSize || getComputedStyle(textDiv).fontSize);
+						const scale = nextHeight / originalHeight;
+						textDiv.style.fontSize = `${originalFontSize * scale}px`;
+						textDiv.style.width = `${nextWidth}px`;
+						textDiv.style.height = `${nextHeight}px`;
 					}
-				} else {
-					target.style.width = `${nextWidth}px`;
-					target.style.height = `${nextHeight}px`;
-
-					// Safely access nested elements
-					const animationDiv = target.firstElementChild
-						?.firstElementChild as HTMLDivElement | null;
-					if (animationDiv) {
-						animationDiv.style.width = `${nextWidth}px`;
-						animationDiv.style.height = `${nextHeight}px`;
-
-						const textDiv =
-							animationDiv.firstElementChild as HTMLDivElement | null;
-						if (textDiv) {
-							textDiv.style.width = `${nextWidth}px`;
-							textDiv.style.height = `${nextHeight}px`;
-						}
-									}
 				}
 			}}
 			onDragGroupEnd={() => {

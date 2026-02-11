@@ -76,8 +76,9 @@ export default function DiscoverPage() {
   const [isFilterApplied, setIsFilterApplied] = useState(false);
   const [lastServerFilter, setLastServerFilter] = useState<string>("");
 
-  // Initial load - request up to 200 so all scraped ads can show
-  const initialLimit = useMemo(() => Math.max(getInitialLoadCount(), 200), []);
+  const initialLimit = useMemo(() => getInitialLoadCount(), []);
+  const RENDER_CHUNK = 80;
+  const [renderedCount, setRenderedCount] = useState(RENDER_CHUNK);
 
   // Create a stable filter key that changes when filters change
   const filterKey = useMemo(() => {
@@ -309,6 +310,10 @@ export default function DiscoverPage() {
     }
   }, [shouldUseServerFiltering]);
 
+  useEffect(() => {
+    setRenderedCount(RENDER_CHUNK);
+  }, [filterKey]);
+
   const handleCtaClick = (url: string | null) => {
     if (url && url !== '#' && url !== null) {
       window.open(url, '_blank');
@@ -498,10 +503,11 @@ export default function DiscoverPage() {
               className="flex w-auto -ml-4"
               columnClassName="pl-4 bg-clip-padding"
             >
-              {filteredAds.map((ad: any) => (
+              {filteredAds.slice(0, renderedCount).map((ad: any) => (
                 <LazyAdCard
                   key={ad.id}
                   ad={ad}
+                  expand={true}
                   onCtaClick={() => {
                     const landingPageUrl = (() => {
                       if (ad.content) {
@@ -547,6 +553,18 @@ export default function DiscoverPage() {
                 />
               ))}
             </Masonry>
+
+            {renderedCount < filteredAds.length && (
+              <div className="w-full py-4 flex justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRenderedCount((prev) => Math.min(prev + RENDER_CHUNK, filteredAds.length))}
+                >
+                  Show more ({filteredAds.length - renderedCount} more)
+                </Button>
+              </div>
+            )}
 
             {/* Loading indicator */}
             {hasMore && (

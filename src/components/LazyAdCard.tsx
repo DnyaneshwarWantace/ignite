@@ -34,20 +34,17 @@ export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActio
     rootMargin: '100px' // Smaller margin to reduce premature loading
   });
 
-  // Helper functions (same as in discover page) - updated to use local URLs
-  // Get all available image URLs with Cloudinary priority
+  // Helper functions: prefer Supabase (local) URLs — backend replaces Facebook URLs with Supabase Storage URLs
   const getAllImageUrls = (ad: any) => {
     const imageUrls: string[] = [];
-    
-    // First priority: Use local Cloudinary URL if available and media is processed
+
+    // First priority: Use local Supabase URL if available and media is processed (Facebook URL was replaced by backend)
     if (ad.localImageUrl && ad.mediaStatus === 'success') {
-      console.log(`Using Cloudinary URL for ad ${ad.id}: ${ad.localImageUrl}`);
       return [ad.localImageUrl];
     }
 
-    // Second priority: Use local Cloudinary URLs array if available (for carousel)
+    // Second priority: Use local Supabase URLs array if available (for carousel)
     if (ad.localImageUrls && Array.isArray(ad.localImageUrls) && ad.mediaStatus === 'success') {
-      console.log(`Using Cloudinary URLs array for ad ${ad.id}:`, ad.localImageUrls);
       return ad.localImageUrls;
     }
     
@@ -155,9 +152,8 @@ export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActio
   };
 
   const getVideoUrls = (ad: any) => {
-    // First priority: Use local Cloudinary video URL if available and processed
+    // First priority: Use local Supabase video URL if available (Facebook URL was replaced by backend)
     if (ad.localVideoUrl && ad.mediaStatus === 'success') {
-      console.log(`Using Cloudinary video URL for ad ${ad.id}: ${ad.localVideoUrl}`);
       return {
         videoHdUrl: ad.localVideoUrl,
         videoSdUrl: ad.localVideoUrl, // Use same URL for both HD and SD
@@ -491,7 +487,7 @@ export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActio
   // Retry function for failed image loads
   const retryImageLoad = () => {
     // Only retry if media is not processed yet (for pending/failed media)
-    // If media is already processed on Cloudinary, don't retry Facebook URLs
+    // If media is already processed (Supabase URL), don't retry Facebook URLs
     if (retryCount < 3 && ad.mediaStatus !== 'success') {
       setIsRetrying(true);
       setImageError(false);
@@ -502,8 +498,8 @@ export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActio
         loadImage();
       }, 1000 * retryCount); // Increasing delay: 1s, 2s, 3s
     } else if (ad.mediaStatus === 'success') {
-      // If media is processed but still failing, it's likely a Cloudinary issue
-      console.log(`Cloudinary media failed for ad ${ad.id}, showing placeholder`);
+      // If media is processed but still failing, it's likely a Supabase/storage issue
+      console.log(`Supabase media failed for ad ${ad.id}, showing placeholder`);
       setImageError(true);
       setImageLoaded(true);
     }
@@ -514,8 +510,8 @@ export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActio
     const imageUrl = getImageUrl(ad);
     
     if (imageUrl) {
-      const isCloudinary = imageUrl.includes('cloudinary.com') || imageUrl.includes('res.cloudinary.com');
-      console.log(`Loading image for ad ${ad.id}, attempt ${retryCount + 1} (${isCloudinary ? 'Cloudinary' : 'Facebook'}): ${imageUrl}`);
+      const isLocalStorage = imageUrl.includes('supabase.co') || imageUrl.includes('cloudinary.com');
+      console.log(`Loading image for ad ${ad.id}, attempt ${retryCount + 1} (${isLocalStorage ? 'Supabase/local' : 'Facebook'}): ${imageUrl}`);
       
       const img = new Image();
       
@@ -553,9 +549,9 @@ export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActio
   const handleImageError = () => {
     setIsRetrying(false);
     
-    // If media is processed on Cloudinary but failing, don't retry
+    // If media is processed (Supabase) but failing, don't retry
     if (ad.mediaStatus === 'success') {
-      console.log(`Cloudinary media failed for ad ${ad.id}, showing placeholder`);
+      console.log(`Supabase media failed for ad ${ad.id}, showing placeholder`);
       setImageError(true);
       setImageLoaded(true);
       return;

@@ -1,6 +1,9 @@
 let mediaWorkerInitialized = false;
 let autoTrackingInitialized = false;
-let workerInterval: NodeJS.Timeout | null = null;
+let mediaWorkerTimeout: NodeJS.Timeout | null = null;
+const MEDIA_BATCH_SIZE = 15;
+const DELAY_WHEN_MORE_PENDING_MS = 5000;
+const DELAY_WHEN_IDLE_MS = 2 * 60 * 1000;
 
 export async function initializeAutoTracking() {
   // Only initialize once
@@ -52,58 +55,60 @@ export async function initializeServerSideMediaWorker() {
   }
 
   try {
-    console.log('🚀 Initializing server-side media worker...');
+    console.log('🚀 Initializing server-side media worker (continuous until queue empty)...');
 
-    // Function to process media via API endpoint (uses Supabase storage)
-    async function processMediaViaAPI(batchSize: number = 10) {
-      try {
-        const response = await fetch(`http://localhost:3000/api/v1/media/process?batch=${batchSize}`);
-        const result = await response.json();
+    function scheduleNext(delayMs: number) {
+      if (mediaWorkerTimeout) clearTimeout(mediaWorkerTimeout);
+      mediaWorkerTimeout = setTimeout(async () => {
+        mediaWorkerTimeout = null;
+        try {
+          const response = await fetch(`http://localhost:3000/api/v1/media/process?batch=${MEDIA_BATCH_SIZE}`);
+          const contentType = response.headers.get('content-type') || '';
+          if (!contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error(`❌ Media API returned non-JSON (${response.status}): ${text.slice(0, 200)}`);
+            scheduleNext(DELAY_WHEN_IDLE_MS);
+            return;
+          }
+          const result = await response.json();
 
-        if (result.success) {
-          console.log(`✅ Media processing complete: ${result.results.success} succeeded, ${result.results.failed} failed`);
-        } else {
-          console.error('❌ Media processing failed:', result.error);
+          if (result.success && result.results) {
+            const { processed, success, failed, totalDone, remaining } = result.results;
+            console.log(`📦 Media batch done: ${success} succeeded, ${failed} failed (${processed} in batch) | Total done: ${totalDone ?? '?'} | Remaining: ${remaining ?? '?'}`);
+            if (processed > 0) {
+              scheduleNext(DELAY_WHEN_MORE_PENDING_MS);
+              return;
+            }
+          } else {
+            console.error('❌ Media processing failed:', result.error);
+          }
+        } catch (error) {
+          console.error('❌ Error calling media processing API:', error);
         }
-      } catch (error) {
-        console.error('❌ Error calling media processing API:', error);
-      }
+        scheduleNext(DELAY_WHEN_IDLE_MS);
+      }, delayMs);
     }
 
-    // Process pending media immediately on startup
-    setTimeout(async () => {
-      try {
-        await processMediaViaAPI(10);
-        console.log('✅ Initial media processing complete');
-      } catch (error) {
-        console.error('❌ Error in initial media processing:', error);
-      }
-    }, 10000); // Wait 10 seconds for server to be ready
-
-    // Set up interval processing (every 2 minutes)
-    workerInterval = setInterval(async () => {
-      try {
-        await processMediaViaAPI(10);
-      } catch (error) {
-        console.error('❌ Error in media worker interval:', error);
-      }
-    }, 2 * 60 * 1000);
+    setTimeout(() => {
+      scheduleNext(0);
+    }, 3000);
 
     mediaWorkerInitialized = true;
-    console.log('✅ Server-side media worker initialized (using Supabase storage)');
+    console.log('✅ Media worker started — will process pending ads in 3s, then every 5s until queue empty');
 
-    // Handle graceful shutdown
     process.on('SIGINT', () => {
-      if (workerInterval) {
-        clearInterval(workerInterval);
-        console.log('🛑 Media worker interval cleared');
+      if (mediaWorkerTimeout) {
+        clearTimeout(mediaWorkerTimeout);
+        mediaWorkerTimeout = null;
+        console.log('🛑 Media worker stopped');
       }
     });
 
     process.on('SIGTERM', () => {
-      if (workerInterval) {
-        clearInterval(workerInterval);
-        console.log('🛑 Media worker interval cleared');
+      if (mediaWorkerTimeout) {
+        clearTimeout(mediaWorkerTimeout);
+        mediaWorkerTimeout = null;
+        console.log('🛑 Media worker stopped');
       }
     });
 

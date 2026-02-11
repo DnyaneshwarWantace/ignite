@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { ZoomIn, ZoomOut, Maximize } from "lucide-react";
 import { Label } from "@/editor-lib/image/components/ui/label";
 import { Input } from "@/editor-lib/image/components/ui/input";
 import { Button } from "@/editor-lib/image/components/ui/button";
@@ -83,26 +82,6 @@ export function CanvasSettings() {
     }
   };
 
-  const handleZoomIn = () => {
-    // Zoom is now handled by ZoomControls component
-    window.dispatchEvent(new CustomEvent('canvasZoom', { detail: { action: 'in' } }));
-  };
-
-  const handleZoomOut = () => {
-    // Zoom is now handled by ZoomControls component
-    window.dispatchEvent(new CustomEvent('canvasZoom', { detail: { action: 'out' } }));
-  };
-
-  const handleZoomFit = () => {
-    // Zoom is now handled by ZoomControls component
-    window.dispatchEvent(new CustomEvent('canvasZoom', { detail: { action: 'fit' } }));
-  };
-
-  const handleZoom100 = () => {
-    // Zoom is now handled by ZoomControls component
-    window.dispatchEvent(new CustomEvent('canvasZoom', { detail: { action: '100' } }));
-  };
-
   return (
     <div className="space-y-6">
       {/* Canvas Size */}
@@ -139,28 +118,6 @@ export function CanvasSettings() {
               className="bg-gray-50"
             />
           </div>
-        </div>
-      </div>
-
-      {/* Zoom Controls */}
-      <div className="space-y-2">
-        <Label className="text-xs font-medium text-gray-700">Zoom</Label>
-        <div className="grid grid-cols-2 gap-2">
-          <Button variant="outline" size="sm" onClick={handleZoomIn}>
-            <ZoomIn className="h-4 w-4 mr-2" />
-            Zoom In
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleZoomOut}>
-            <ZoomOut className="h-4 w-4 mr-2" />
-            Zoom Out
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleZoomFit}>
-            <Maximize className="h-4 w-4 mr-2" />
-            Fit
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleZoom100}>
-            100%
-          </Button>
         </div>
       </div>
 

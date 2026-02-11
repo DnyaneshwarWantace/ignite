@@ -20,6 +20,7 @@ import {
   Trash,
   Copy,
   Settings,
+  Loader2,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -60,6 +61,7 @@ export default function VideoEditorPage() {
   const [selectedPlatform, setSelectedPlatform] = useState('instagram-reel');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [renameProjectName, setRenameProjectName] = useState('');
+  const [openingProjectId, setOpeningProjectId] = useState<string | null>(null);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -199,6 +201,8 @@ export default function VideoEditorPage() {
   };
 
   const handleOpenProject = (projectId: string) => {
+    if (openingProjectId) return;
+    setOpeningProjectId(projectId);
     router.push(`/video-editor/edit/${projectId}`);
   };
 
@@ -283,6 +287,14 @@ export default function VideoEditorPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
+            {openingProjectId && (
+              <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg px-6 py-4 flex items-center gap-3 shadow-lg">
+                  <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                  <span className="text-black font-medium">Opening project...</span>
+                </div>
+              </div>
+            )}
             {filteredProjects.map((project) => (
               <Card key={project.id} className="bg-white border-gray-200 hover:bg-blue-50 hover:border-blue-200 transition-colors shadow-sm">
                 <CardHeader className="pb-3">
@@ -295,7 +307,7 @@ export default function VideoEditorPage() {
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" disabled={!!openingProjectId}>
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -303,6 +315,7 @@ export default function VideoEditorPage() {
                         <DropdownMenuItem
                           onClick={() => handleOpenProject(project.id)}
                           className="text-black hover:bg-blue-50"
+                          disabled={!!openingProjectId}
                         >
                           <Edit className="w-4 h-4 mr-2" />
                           Edit
@@ -310,6 +323,7 @@ export default function VideoEditorPage() {
                         <DropdownMenuItem
                           onClick={() => handleRenameClick(project)}
                           className="text-black hover:bg-blue-50"
+                          disabled={!!openingProjectId}
                         >
                           <Settings className="w-4 h-4 mr-2" />
                           Rename
@@ -317,6 +331,7 @@ export default function VideoEditorPage() {
                         <DropdownMenuItem
                           onClick={() => duplicateProject(project.id)}
                           className="text-black hover:bg-blue-50"
+                          disabled={!!openingProjectId}
                         >
                           <Copy className="w-4 h-4 mr-2" />
                           Duplicate
@@ -324,6 +339,7 @@ export default function VideoEditorPage() {
                         <DropdownMenuItem
                           onClick={() => deleteProject(project.id)}
                           className="text-red-600 hover:bg-red-50"
+                          disabled={!!openingProjectId}
                         >
                           <Trash className="w-4 h-4 mr-2" />
                           Delete
@@ -353,8 +369,13 @@ export default function VideoEditorPage() {
                       onClick={() => handleOpenProject(project.id)}
                       size="sm"
                       className="bg-black text-white hover:bg-gray-800"
+                      disabled={!!openingProjectId}
                     >
-                      <Play className="w-4 h-4 mr-1" />
+                      {openingProjectId === project.id ? (
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                      ) : (
+                        <Play className="w-4 h-4 mr-1" />
+                      )}
                       Open
                     </Button>
                   </div>

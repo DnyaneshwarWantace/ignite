@@ -90,7 +90,7 @@ IMPORTANT: Output ONLY the variations as a numbered list (1-${count}) in ${langu
 
   private async simulateAIGeneration(prompt: string, count: number): Promise<string[]> {
     try {
-      const response = await fetch('/api/generate-variations', {
+      const response = await fetch('/api/editor/video/generate-variations', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

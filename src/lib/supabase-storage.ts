@@ -1,5 +1,7 @@
 import { supabaseAdmin } from './supabase';
 
+const IMAGE_FETCH_TIMEOUT_MS = 30_000; // 30s for image URLs
+
 /**
  * Upload an image from a URL to Supabase Storage
  */
@@ -11,12 +13,19 @@ export async function uploadImageFromUrl(
   } = {}
 ): Promise<string> {
   try {
-    // Fetch the image
-    const response = await fetch(imageUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), IMAGE_FETCH_TIMEOUT_MS);
+    let response: Response;
+    try {
+      response = await fetch(imageUrl, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       throw new Error(`Failed to fetch image: ${response.statusText}`);
@@ -56,6 +65,8 @@ export async function uploadImageFromUrl(
   }
 }
 
+const VIDEO_FETCH_TIMEOUT_MS = 120_000; // 2 min for large/slow video URLs (e.g. Facebook CDN)
+
 /**
  * Upload a video from a URL to Supabase Storage
  */
@@ -67,12 +78,20 @@ export async function uploadVideoFromUrl(
   } = {}
 ): Promise<string> {
   try {
-    // Fetch the video
-    const response = await fetch(videoUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), VIDEO_FETCH_TIMEOUT_MS);
+
+    let response: Response;
+    try {
+      response = await fetch(videoUrl, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       throw new Error(`Failed to fetch video: ${response.statusText}`);
@@ -106,8 +125,14 @@ export async function uploadVideoFromUrl(
       .getPublicUrl(filepath);
 
     return publicUrl;
-  } catch (error) {
-    console.error('Error uploading video to Supabase:', error);
+  } catch (error: unknown) {
+    const isFetchTimeout = error instanceof Error && error.name === 'AbortError';
+    const isConnectTimeout = error instanceof Error && (error as NodeJS.ErrnoException).cause?.toString?.().includes('ConnectTimeoutError');
+    if (isFetchTimeout || isConnectTimeout) {
+      console.error('Video fetch from source timed out (increase VIDEO_FETCH_TIMEOUT_MS if needed):', videoUrl?.slice?.(0, 80));
+    } else {
+      console.error('Error uploading video to Supabase:', error);
+    }
     throw error;
   }
 }

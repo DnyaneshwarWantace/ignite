@@ -8,6 +8,35 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * Format a number for display with at most 2 decimal places (e.g. 253.00, 82.35).
+ * Use across the app so we never show long decimals like 253.00080000000001.
+ */
+export function formatDecimal(value: number, maxDecimals = 2): string {
+  if (typeof value !== "number" || Number.isNaN(value)) return String(value);
+  if (Number.isInteger(value)) return String(value);
+  return Number(value.toFixed(maxDecimals)).toString();
+}
+
+/**
+ * Format any value for display in UI (e.g. combination preview). Numbers/arrays of numbers
+ * are shown with at most 2 decimal places.
+ */
+export function formatDisplayValue(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "number") return formatDecimal(value);
+  if (Array.isArray(value)) {
+    return value
+      .map((v) => (typeof v === "number" ? formatDecimal(v) : String(v)))
+      .join(", ");
+  }
+  if (typeof value === "object" && value !== null && "value" in value) {
+    const v = (value as { value: unknown }).value;
+    return typeof v === "string" ? v : formatDisplayValue(v);
+  }
+  return String(value);
+}
+
 export const useDebouncedFunction = (callback: any, delay: number) => {
   return useMemo(() => {
     return debounce(callback, delay);

@@ -192,7 +192,7 @@ const ModalUpload: React.FC<ModalUploadProps> = ({ type = "all" }) => {
 					formData.append('projectId', projectId);
 					
 					console.log(`Uploading ${file.name} to Supabase...`);
-					const uploadResponse = await fetch('/api/upload', {
+					const uploadResponse = await fetch('/api/editor/video/upload', {
 						method: 'POST',
 						body: formData,
 					});

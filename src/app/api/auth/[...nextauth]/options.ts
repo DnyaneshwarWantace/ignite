@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
+import { compare } from "bcryptjs";
 import { supabaseAdmin } from "@/lib/supabase";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -16,33 +17,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
       authorize: async (credentials) => {
         try {
-          const email = credentials?.email as string;
-          
-          // For development, allow any user (remove this in production)
-          if (process.env.NODE_ENV === "development") {
-            return {
-              id: "dev-user",
-              email: email || "dev@example.com",
-              name: "Development User",
-            };
-          }
+          const email = (credentials?.email as string)?.trim();
+          const password = credentials?.password as string;
+          if (!email || !password) return null;
 
-          // In production, implement proper user validation
-          const { data: user } = await supabaseAdmin
-            .from('users')
-            .select('*')
-            .eq('email', email)
-            .single();
+          const { data: user, error } = await supabaseAdmin
+            .from("users")
+            .select("id, email, name, password_hash, is_admin")
+            .eq("email", email)
+            .maybeSingle();
 
-          if (user) {
-            return {
-              id: user.id,
-              email: user.email,
-              name: user.name,
-            };
-          }
+          if (error || !user) return null;
+          const hash = (user as { password_hash?: string }).password_hash;
+          if (!hash) return null;
 
-          return null;
+          const ok = await compare(password, hash);
+          if (!ok) return null;
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name || email.split("@")[0],
+            isAdmin: (user as { is_admin?: boolean }).is_admin === true,
+          };
         } catch (error) {
           console.error("Auth error:", error);
           return null;
@@ -101,6 +98,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               // User can be created later
             } else if (newUser) {
               user.id = newUser.id;
+              (user as { isAdmin?: boolean }).isAdmin = (newUser as { is_admin?: boolean }).is_admin === true;
             }
           } else {
             // Update existing user (non-blocking)
@@ -119,6 +117,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             }
 
             user.id = existingUser.id;
+            (user as { isAdmin?: boolean }).isAdmin = (existingUser as { is_admin?: boolean }).is_admin === true;
           }
         } catch (dbError) {
           console.error("Database error in signIn callback:", dbError);
@@ -137,28 +136,73 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.sub || "";
+        (session.user as { isAdmin?: boolean }).isAdmin = token.isAdmin === true;
       }
       return session;
     },
 
     async jwt({ token, user }) {
-      if (user) {
-        token.sub = user.id;
+      // Always fetch the correct database user ID based on email
+      if (token.email) {
+        try {
+          let { data: dbUser } = await supabaseAdmin
+            .from("users")
+            .select("id, is_admin")
+            .eq("email", token.email)
+            .maybeSingle();
+
+          // If user doesn't exist in DB, create them NOW
+          if (!dbUser && token.email) {
+            const { data: newUser } = await supabaseAdmin
+              .from("users")
+              .insert({
+                email: token.email,
+                name: token.name || token.email.split("@")[0],
+                image: token.picture || null,
+              })
+              .select("id, is_admin")
+              .single();
+
+            if (newUser) {
+              dbUser = newUser;
+            }
+          }
+
+          if (dbUser) {
+            // Use database ID, not NextAuth auto-generated ID
+            token.sub = dbUser.id;
+            token.isAdmin = Boolean(dbUser.is_admin);
+          } else if (user) {
+            // Final fallback
+            token.sub = user.id;
+            token.isAdmin = (user as { isAdmin?: boolean }).isAdmin ?? false;
+          }
+        } catch (error) {
+          console.error("JWT callback error:", error);
+          if (user) {
+            token.sub = user.id;
+            token.isAdmin = (user as { isAdmin?: boolean }).isAdmin ?? false;
+          }
+        }
       }
       return token;
     },
 
     async redirect({ url, baseUrl }) {
-      // Handle redirects properly
+      // Preserve admin callback: if client asked for /admin, send them there
+      const wantAdmin = url.startsWith("/admin") || url.includes("/admin");
+      if (wantAdmin) {
+        const adminUrl = url.startsWith("/") ? `${baseUrl}${url}` : url;
+        if (adminUrl.startsWith(baseUrl)) return adminUrl;
+      }
       // If url is relative, make it absolute
       if (url.startsWith("/")) {
         return `${baseUrl}${url}`;
       }
       // If url is on the same origin, allow it
-      if (new URL(url).origin === baseUrl) {
-        return url;
-      }
-      // Default to home page
+      try {
+        if (new URL(url).origin === baseUrl) return url;
+      } catch (_) {}
       return baseUrl;
     },
   },

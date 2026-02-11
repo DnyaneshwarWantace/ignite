@@ -22,11 +22,16 @@ import { Brand, Folder } from "@prisma/client";
 import { Box, Flex, Grid, Spinner, Text } from "@radix-ui/themes";
 import { AlarmCheck, ArrowUpRight, Facebook, FacebookIcon, Link, Plus, Scan, Search, User, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { FolderContext } from "@/contexts/FolderContext";
 
 export default function XRayPage() {
+  // Start media worker loop once when X-ray page loads (so pending ads get processed without manual scrape)
+  useEffect(() => {
+    fetch("/api/v1/media/process?batch=1").catch(() => {});
+  }, []);
+
   const { data: brands, error: brandsError, isLoading: isBrandsLoading } = useFetchAllBrandsQuery();
 
   const { data: folders, error: foldersError, isLoading: isFoldersLoading } = useFetchAllFoldersQuery();

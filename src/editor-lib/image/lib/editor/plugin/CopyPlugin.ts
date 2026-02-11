@@ -124,8 +124,16 @@ class CopyPlugin implements IPluginTempl {
 
   async pasteListener(event: any) {
     const canvas = this.canvas
-    if (document.activeElement !== document.body) {
-      event.preventDefault() // Prevent default paste behavior
+    const activeEl = document.activeElement as HTMLElement | null
+    const isInputLike =
+      activeEl?.tagName === 'INPUT' ||
+      activeEl?.tagName === 'TEXTAREA' ||
+      activeEl?.getAttribute?.('contenteditable') === 'true'
+    if (isInputLike) {
+      return
+    }
+    if (activeEl !== document.body) {
+      event.preventDefault()
     } else {
       return
     }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button, Space, Typography, Input, List, Card, Modal, message } from 'antd';
 import { VideoCameraOutlined, FileTextOutlined, PictureOutlined, SoundOutlined, PlusOutlined, InfoCircleOutlined, SearchOutlined, FontSizeOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import Variations from './variations';
@@ -68,195 +68,97 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
     return elements;
   }, [timelineElements, createFontElementsFromText, createSpeedElements]);
 
-  // Load variation counts for all elements
-  useEffect(() => {
-    const loadVariationCounts = async () => {
-      console.log(`🔍 Loading variation counts for ${allElements.length} elements`);
-      const counts: Record<string, number> = {};
-      
-      for (const element of allElements) {
-        console.log(`🔍 Processing element: ${element.id} (${element.type})`);
-        try {
-          // Get project ID from URL
-          const pathParts = window.location.pathname.split('/');
-          // URL structure: /video-editor/edit/[id]
-          // pathParts: ['', 'video-editor', 'edit', 'projectId']
-          const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
-          
-          if (element.type === 'text') {
-            // Load text variations
-            const response = await fetch(`/api/editor/video/projects/${projectId}/text-variations`);
-            if (response.ok) {
-              const data = await response.json();
-              const elementVariations = data.textVariations.find((v: any) => v.elementId === element.id);
-              if (elementVariations) {
-                counts[element.id] = elementVariations.variations.length + 1; // +1 for original
-              } else {
-                counts[element.id] = 1;
-              }
-            } else {
-              counts[element.id] = 1;
-            }
-          } else if (['video', 'image', 'audio'].includes(element.type)) {
-            // Load media variations
-            const response = await fetch(`/api/editor/video/projects/${projectId}/media-variations`);
-            if (response.ok) {
-              const data = await response.json();
-              
-              // Handle the nested structure according to the schema
-              let elementVariations = [];
-              if (data.mediaVariations && Array.isArray(data.mediaVariations)) {
-                // Find the entry for this element
-                const elementEntry = data.mediaVariations.find((item: any) => item.elementId === element.id);
-                if (elementEntry && elementEntry.variations && Array.isArray(elementEntry.variations)) {
-                  elementVariations = elementEntry.variations;
-                }
-              }
-              if (elementVariations && elementVariations.length > 0) {
-                counts[element.id] = elementVariations.length + 1; // +1 for original
-              } else {
-                counts[element.id] = 1;
-              }
-            } else {
-              counts[element.id] = 1;
-            }
-          } else if (element.type === 'font') {
-            // Load font variations
-            const response = await fetch(`/api/editor/video/projects/${projectId}/font-variations`);
-            if (response.ok) {
-              const data = await response.json();
-              const elementVariations = data.fontVariations?.find((v: any) => v.elementId === element.id);
-              if (elementVariations && elementVariations.variations.length > 0) {
-                counts[element.id] = elementVariations.variations.length + 1; // +1 for original
-              } else {
-                counts[element.id] = 1;
-              }
-            } else {
-              counts[element.id] = 1;
-            }
+  // Shared logic to load variation counts from API (used on mount and when modal closes)
+  const loadVariationCountsFromApi = useCallback(async (elements: typeof allElements, projectId?: string) => {
+    if (elements.length === 0) return;
+    const pid = projectId ?? (() => {
+      const pathParts = window.location.pathname.split('/');
+      return pathParts[3] || pathParts[pathParts.length - 1];
+    })();
+    const counts: Record<string, number> = {};
+    for (const element of elements) {
+      try {
+        if (element.type === 'text') {
+          const response = await fetch(`/api/editor/video/projects/${pid}/text-variations`);
+          if (response.ok) {
+            const data = await response.json();
+            const elementVariations = data.textVariations?.find((v: any) => v.elementId === element.id);
+            counts[element.id] = elementVariations?.variations?.length != null
+              ? elementVariations.variations.length + 1
+              : 1;
           } else {
             counts[element.id] = 1;
           }
-        } catch (error) {
-          console.error('Error loading variation count for element:', element.id, error);
+        } else if (['video', 'image', 'audio'].includes(element.type)) {
+          const response = await fetch(`/api/editor/video/projects/${pid}/media-variations`);
+          if (response.ok) {
+            const data = await response.json();
+            let list: any[] = [];
+            if (data.mediaVariations && Array.isArray(data.mediaVariations)) {
+              const entry = data.mediaVariations.find((item: any) => item.elementId === element.id);
+              if (entry?.variations && Array.isArray(entry.variations)) list = entry.variations;
+            }
+            counts[element.id] = list.length > 0 ? list.length + 1 : 1;
+          } else {
+            counts[element.id] = 1;
+          }
+        } else if (element.type === 'font') {
+          const response = await fetch(`/api/editor/video/projects/${pid}/font-variations`);
+          if (response.ok) {
+            const data = await response.json();
+            const textElementId = element.id.startsWith('font-') ? element.id.replace('font-', '') : element.id;
+            const elementVariations = data.fontVariations?.find((v: any) => v.elementId === textElementId);
+            counts[element.id] = (elementVariations?.variations?.length != null && elementVariations.variations.length > 0)
+              ? elementVariations.variations.length + 1
+              : 1;
+          } else {
+            counts[element.id] = 1;
+          }
+        } else if (element.type === 'speed') {
+          const response = await fetch(`/api/editor/video/projects/${pid}/speed-variations`);
+          if (response.ok) {
+            const data = await response.json();
+            const list = data.speedVariations ?? [];
+            const entry = list.find((v: any) => v.elementId === element.id);
+            counts[element.id] = (entry?.variations?.length != null && entry.variations.length > 0)
+              ? entry.variations.length + 1
+              : 1;
+          } else {
+            counts[element.id] = 1;
+          }
+        } else {
           counts[element.id] = 1;
         }
+      } catch (error) {
+        console.error('Error loading variation count for element:', element.id, error);
+        counts[element.id] = 1;
       }
-      
-      console.log(`🔍 Setting variation counts from loadVariationCounts:`, counts);
-      setVariationCounts(counts);
-    };
-
-    if (allElements.length > 0) {
-      loadVariationCounts();
     }
-  }, [allElements]);
+    setVariationCounts(counts);
+  }, []);
+
+  // Load variation counts on mount and when allElements change
+  useEffect(() => {
+    if (allElements.length > 0) {
+      loadVariationCountsFromApi(allElements);
+    }
+  }, [allElements, loadVariationCountsFromApi]);
 
   // Listen for project loaded event
   useEffect(() => {
     const handleProjectLoaded = (event: CustomEvent) => {
       console.log('Project loaded event received:', event.detail);
-      // Reload variation counts when project is loaded
-      if (allElements.length > 0) {
-        const loadVariationCounts = async () => {
-          const counts: Record<string, number> = {};
-          
-          for (const element of allElements) {
-            try {
-              const projectId = event.detail.projectId;
-              
-              if (element.type === 'text') {
-                // Load text variations
-                const response = await fetch(`/api/editor/video/projects/${projectId}/text-variations`);
-                if (response.ok) {
-                  const data = await response.json();
-                  const elementVariations = data.textVariations.find((v: any) => v.elementId === element.id);
-                  if (elementVariations) {
-                    counts[element.id] = elementVariations.variations.length + 1;
-                  } else {
-                    counts[element.id] = 1;
-                  }
-                } else {
-                  counts[element.id] = 1;
-                }
-              } else if (['video', 'image', 'audio'].includes(element.type)) {
-                // Load media variations
-                const response = await fetch(`/api/editor/video/projects/${projectId}/media-variations`);
-                if (response.ok) {
-                  const data = await response.json();
-                  
-                                // Handle the nested structure according to the schema
-              let elementVariations = [];
-              if (data.mediaVariations && Array.isArray(data.mediaVariations)) {
-                // Find the entry for this element
-                const elementEntry = data.mediaVariations.find((item: any) => item.elementId === element.id);
-                if (elementEntry && elementEntry.variations && Array.isArray(elementEntry.variations)) {
-                  elementVariations = elementEntry.variations;
-                }
-              }
-                  if (elementVariations && elementVariations.length > 0) {
-                    counts[element.id] = elementVariations.length + 1;
-                  } else {
-                    counts[element.id] = 1;
-                  }
-                } else {
-                  counts[element.id] = 1;
-                }
-              } else if (element.type === 'font') {
-                // Load font variations
-                const response = await fetch(`/api/editor/video/projects/${projectId}/font-variations`);
-                if (response.ok) {
-                  const data = await response.json();
-                  const elementVariations = data.fontVariations?.find((v: any) => v.elementId === element.id);
-                  if (elementVariations && elementVariations.variations.length > 0) {
-                    counts[element.id] = elementVariations.variations.length + 1; // +1 for original
-                  } else {
-                    counts[element.id] = 1;
-                  }
-                } else {
-                  counts[element.id] = 1;
-                }
-              } else if (element.type === 'speed') {
-                // Load speed variations
-                const response = await fetch(`/api/editor/video/projects/${projectId}/speed-variations`);
-                if (response.ok) {
-                  const data = await response.json();
-                  console.log(`🔍 Loading speed variations for element ${element.id}:`, data);
-                  const elementVariations = data.speedVariations?.find((v: any) => v.elementId === element.id);
-                  console.log(`🔍 Found speed variations for ${element.id}:`, elementVariations);
-                  if (elementVariations && elementVariations.variations.length > 0) {
-                    counts[element.id] = elementVariations.variations.length + 1; // +1 for original
-                    console.log(`🔍 Set speed count for ${element.id}: ${counts[element.id]}`);
-                  } else {
-                    counts[element.id] = 1;
-                    console.log(`🔍 No speed variations found for ${element.id}, using count: 1`);
-                  }
-                } else {
-                  counts[element.id] = 1;
-                  console.log(`🔍 Failed to load speed variations for ${element.id}, using count: 1`);
-                }
-              } else {
-                counts[element.id] = 1;
-              }
-            } catch (error) {
-              console.error('Error loading variation count for element:', element.id, error);
-              counts[element.id] = 1;
-            }
-          }
-          
-          setVariationCounts(counts);
-        };
-        
-        loadVariationCounts();
+      if (allElements.length > 0 && event.detail?.projectId) {
+        loadVariationCountsFromApi(allElements, event.detail.projectId);
       }
     };
 
     window.addEventListener('projectLoaded', handleProjectLoaded as EventListener);
-    
+
     return () => {
       window.removeEventListener('projectLoaded', handleProjectLoaded as EventListener);
     };
-  }, [allElements]);
+  }, [allElements, loadVariationCountsFromApi]);
 
   const handleVariationsChange = (updatedElements: TimelineElement[]) => {
     onTimelineElementsChange(updatedElements);
@@ -321,6 +223,10 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
   const handleCloseVariationsModal = () => {
     console.log('Closing variations modal');
     setIsVariationsModalVisible(false);
+    // Refetch variation counts from API so sidebar shows correct count after adding variations (e.g. text)
+    if (allElements.length > 0) {
+      loadVariationCountsFromApi(allElements);
+    }
     // Don't immediately set selectedElement to null - let afterClose handle it
   };
 

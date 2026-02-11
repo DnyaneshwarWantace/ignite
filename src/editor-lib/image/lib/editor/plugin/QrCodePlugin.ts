@@ -61,7 +61,10 @@ class QrCodePlugin implements IPluginTempl {
   }
 
   async _getDataStr(options: any): Promise<string> {
-    const qrCode = new QRCodeStyling(options)
+    // QRCodeStyling needs non-empty data to generate an image; use placeholder when empty so QR still shows
+    const data = (options.data != null && String(options.data).trim() !== '') ? options.data : ' '
+    const opts = { ...options, data }
+    const qrCode = new QRCodeStyling(opts)
     const blob = await qrCode.getRawData('png')
     if (!blob) return ''
     const base64Str = (await blobToBase64(blob as any)) as string
@@ -70,7 +73,7 @@ class QrCodePlugin implements IPluginTempl {
 
   _defaultBarCodeOption() {
     return {
-      data: 'https://kuaitu.cc',
+      data: '',
       width: 200,
       margin: 10,
       errorCorrectionLevel: 'Q',
@@ -112,29 +115,51 @@ class QrCodePlugin implements IPluginTempl {
     }
   }
 
+  _getWorkspace() {
+    return this.canvas.getObjects().find((item: any) => item.id === 'workspace')
+  }
+
   async addQrCode() {
     const option = this._defaultBarCodeOption()
     const paramsOption = this._paramsToOption(option)
     const url = await this._getDataStr(paramsOption)
+    if (!url) return
+    const canvasWidth = this.canvas.getWidth() ?? 800
+    const canvasHeight = this.canvas.getHeight() ?? 600
     FabricImage.fromURL(url, { crossOrigin: 'anonymous' }).then((imgEl) => {
       imgEl.set({
         extensionType: 'qrcode',
         extension: option,
       })
-      imgEl.scaleToWidth(this.editor.getWorkspace().getScaledWidth() / 2)
+      const workspace = this._getWorkspace()
+      const targetWidth = workspace && typeof workspace.getScaledWidth === 'function'
+        ? workspace.getScaledWidth() / 2
+        : canvasWidth / 2
+      imgEl.scaleToWidth(targetWidth)
+      // Place at canvas center so it doesn't jump (no position('center') which can shift to wrong place)
+      imgEl.set({
+        left: canvasWidth / 2,
+        top: canvasHeight / 2,
+        originX: 'center',
+        originY: 'center',
+      })
+      imgEl.setCoords()
       this.canvas.add(imgEl)
       this.canvas.setActiveObject(imgEl)
-      this.editor.position('center')
       this.canvas.renderAll()
-      this.editor.saveState()
+      if (typeof this.editor.saveState === 'function') {
+        this.editor.saveState()
+      }
     })
   }
 
   async setQrCode(option: any) {
     try {
+      const activeObject = this.canvas.getActiveObjects()[0]
+      if (!activeObject || (activeObject as any).extensionType !== 'qrcode') return
       const paramsOption = this._paramsToOption(option)
       const url = await this._getDataStr(paramsOption)
-      const activeObject = this.canvas.getActiveObjects()[0]
+      if (!url) return
       FabricImage.fromURL(url, { crossOrigin: 'anonymous' }).then((imgEl) => {
         imgEl.set({
           left: activeObject.left,

@@ -10,62 +10,82 @@ export default function EditorPage() {
   const params = useParams();
   const projectId = params.projectId as string;
   const [currentProject, setCurrentProject] = useState<any>(null);
+  /** Canvas state loaded before editor mounts so canvas shows content immediately (no blank then load). */
+  const [initialCanvasState, setInitialCanvasState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchProject = async () => {
+    const loadProjectAndCanvas = async () => {
       try {
-        const response = await fetch(`/api/editor/image/projects/${projectId}`);
+        // Fetch project and canvas in parallel so we have both before showing the editor
+        const [projectRes, canvasRes] = await Promise.all([
+          fetch(`/api/editor/image/projects/${projectId}`),
+          fetch(`/api/editor/image/projects/${projectId}/canvas`),
+        ]);
 
-        if (response.ok) {
-          const data = await response.json();
+        let project: any = null;
+        let canvasStateJson: string | null = null;
+
+        if (projectRes.ok) {
+          const data = await projectRes.json();
           if (data.success && data.project) {
-            setCurrentProject({
+            project = {
               _id: data.project.id,
               id: data.project.id,
               title: data.project.name,
               width: data.project.width,
               height: data.project.height,
-              canvasState: data.project.trackItems,
               imageUrl: data.project.thumbnail || null,
               userId: data.project.userId || null,
               createdAt: data.project.createdAt,
               updatedAt: data.project.updatedAt,
-            });
-            setIsLoading(false);
-            return;
+            };
           }
         }
 
-        // If project not found in Supabase, fallback to localStorage
+        if (canvasRes.ok) {
+          const canvasData = await canvasRes.json();
+          if (canvasData.canvasState && typeof canvasData.canvasState === "object") {
+            canvasStateJson = JSON.stringify(canvasData.canvasState);
+            if (project && (canvasData.width != null || canvasData.height != null)) {
+              project.width = project.width ?? canvasData.width;
+              project.height = project.height ?? canvasData.height;
+            }
+          }
+        }
+
+        if (project) {
+          setCurrentProject(project);
+          setInitialCanvasState(canvasStateJson);
+          setIsLoading(false);
+          return;
+        }
+
+        // Project not found in API: fallback to localStorage
         const storedProject = localStorage.getItem(`project-${projectId}`);
         const storedMeta = localStorage.getItem(`project-meta-${projectId}`);
 
-        let project = {
+        project = {
           _id: projectId,
           id: projectId,
-          title: 'Untitled Project',
+          title: "Untitled Project",
           width: 800,
           height: 600,
-          canvasState: null,
           imageUrl: null,
           userId: null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
 
-        // Load canvas state from localStorage
         if (storedProject) {
           try {
-            const canvasState = JSON.parse(storedProject);
-            project.canvasState = canvasState;
+            canvasStateJson = storedProject;
           } catch (e) {
-            console.error('Error parsing stored project:', e);
+            console.error("Error parsing stored project:", e);
           }
         }
 
-        // Load project metadata from localStorage
         if (storedMeta) {
           try {
             const meta = JSON.parse(storedMeta);
@@ -73,20 +93,21 @@ export default function EditorPage() {
             if (meta.height) project.height = meta.height;
             if (meta.title) project.title = meta.title;
           } catch (e) {
-            console.error('Error parsing project metadata:', e);
+            console.error("Error parsing project metadata:", e);
           }
         }
 
         setCurrentProject(project);
+        setInitialCanvasState(canvasStateJson);
         setIsLoading(false);
-      } catch (error) {
-        console.error('Error loading project:', error);
-        setError('Failed to load project');
+      } catch (err) {
+        console.error("Error loading project:", err);
+        setError("Failed to load project");
         setIsLoading(false);
       }
     };
 
-    fetchProject();
+    loadProjectAndCanvas();
   }, [projectId]);
 
   // Loading state (single loader, light background)
@@ -131,7 +152,7 @@ export default function EditorPage() {
           left: 0,
         }}
       >
-        <EditorLayout project={currentProject} />
+        <EditorLayout project={currentProject} initialCanvasState={initialCanvasState} />
       </div>
     </CanvasProvider>
   );

@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { authMiddleware } from "@middleware";
 import { createResponse, createError } from "@apiUtils/responseutils";
 import messages from "@apiUtils/messages";
-import OpenAI from "openai";
 import { supabase } from "@/lib/supabase";
+import { callLLM } from "@/lib/llm";
 
 // Type definition for User (matching Supabase schema)
 interface User {
@@ -14,11 +14,6 @@ interface User {
 }
 
 export const dynamic = "force-dynamic";
-
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 // POST - Analyze ads and generate brief data
 export const POST = authMiddleware(
@@ -186,13 +181,11 @@ FOCUS ON:
 Return only valid JSON without any additional text or formatting.
 `;
 
-      // Call OpenAI API
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4",
-        messages: [
-          {
-            role: "system",
-            content: `You are an expert copywriter trained in Sabri Suby's direct-response marketing methodology. Your analysis embodies the aggressive, results-driven approach that has generated over $7.8 billion in client revenue. 
+      // Call AI for initial text analysis
+      const responseText = await callLLM(user.id, [
+        {
+          role: "system",
+          content: `You are an expert copywriter trained in Sabri Suby's direct-response marketing methodology. Your analysis embodies the aggressive, results-driven approach that has generated over $7.8 billion in client revenue.
 
 CORE PHILOSOPHY:
 - Write copy that cuts through noise, demands attention, and compels immediate action
@@ -208,23 +201,9 @@ ANALYSIS APPROACH:
 - Determine market positioning and competitive advantages
 
 Be precise, professional, and conversion-focused in your analysis.`
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        temperature: 0.2,
-        max_tokens: 3000
-      });
-
-      const responseText = completion.choices[0]?.message?.content;
-      
-      if (!responseText) {
-        return createError({
-          message: "Failed to generate analysis"
-        });
-      }
+        },
+        { role: "user", content: prompt }
+      ], { temperature: 0.2, max_tokens: 3000 });
 
       // Parse the JSON response
       let briefData;
@@ -249,12 +228,10 @@ Be precise, professional, and conversion-focused in your analysis.`
               try {
                 console.log(`📸 Analyzing image for ${ad.brandName}...`);
                 
-                const imageAnalysis = await openai.chat.completions.create({
-                  model: "gpt-4o",
-                  messages: [
-                    {
-                      role: "system",
-                      content: `You are an expert copywriter trained in Sabri Suby's direct-response marketing methodology. Your visual analysis embodies the aggressive, results-driven approach that has generated over $7.8 billion in client revenue.
+                const imageAnalysisText = await callLLM(user.id, [
+                  {
+                    role: "system",
+                    content: `You are an expert copywriter trained in Sabri Suby's direct-response marketing methodology. Your visual analysis embodies the aggressive, results-driven approach that has generated over $7.8 billion in client revenue.
 
 ANALYSIS APPROACH:
 - Focus on psychological triggers and conversion elements
@@ -263,13 +240,13 @@ ANALYSIS APPROACH:
 - Understand target audience psychology from visual cues
 - Extract competitive advantages and unique positioning
 - Identify risk reversal and guarantee elements`
-                    },
-                    {
-                      role: "user",
-                      content: [
-                        {
-                          type: "text",
-                          text: `Analyze this advertisement image for the brand "${ad.brandName}" using Sabri Suby's direct-response methodology:
+                  },
+                  {
+                    role: "user",
+                    content: [
+                      {
+                        type: "text",
+                        text: `Analyze this advertisement image for the brand "${ad.brandName}" using Sabri Suby's direct-response methodology:
 
 PSYCHOLOGICAL TRIGGERS:
 1. What scarcity, authority, social proof, reciprocity, commitment/consistency, or liking elements are visible?
@@ -309,21 +286,14 @@ DETAILED OBSERVATIONS:
 23. Identify hidden details or subtle messaging
 
 Provide detailed, conversion-focused insights that would help create a comprehensive marketing brief using Sabri Suby's methodology.`
-                        },
-                        {
-                          type: "image_url",
-                          image_url: {
-                            url: ad.imageUrl
-                          }
-                        }
-                      ]
-                    }
-                  ],
-                  max_tokens: 1500,
-                  temperature: 0.2
-                });
-
-                const imageAnalysisText = imageAnalysis.choices[0]?.message?.content;
+                      },
+                      {
+                        type: "image_url",
+                        image_url: { url: ad.imageUrl }
+                      }
+                    ]
+                  }
+                ], { max_tokens: 1500, temperature: 0.2 });
                 if (imageAnalysisText) {
                   imageAnalyses.push({
                     brandName: ad.brandName,
@@ -400,12 +370,10 @@ Return ONLY the enhanced JSON with this structure:
 Make it comprehensive, conversion-focused, and psychologically compelling using visual analysis to enhance text-only data.
 `;
 
-            const comprehensiveCompletion = await openai.chat.completions.create({
-              model: "gpt-4",
-              messages: [
-                {
-                  role: "system",
-                  content: `You are an expert copywriter trained in Sabri Suby's direct-response marketing methodology. Your brief creation embodies the aggressive, results-driven approach that has generated over $7.8 billion in client revenue.
+            const comprehensiveResponseText = await callLLM(user.id, [
+              {
+                role: "system",
+                content: `You are an expert copywriter trained in Sabri Suby's direct-response marketing methodology. Your brief creation embodies the aggressive, results-driven approach that has generated over $7.8 billion in client revenue.
 
 CORE PHILOSOPHY:
 - Create briefs that cut through noise, demand attention, and compel immediate action
@@ -421,17 +389,9 @@ BRIEF CREATION APPROACH:
 - Develop competitive advantages and proof elements
 
 Be thorough, detailed, and conversion-focused in your brief creation.`
-                },
-                {
-                  role: "user",
-                  content: comprehensivePrompt
-                }
-              ],
-              temperature: 0.2,
-              max_tokens: 4000
-            });
-
-            const comprehensiveResponseText = comprehensiveCompletion.choices[0]?.message?.content;
+              },
+              { role: "user", content: comprehensivePrompt }
+            ], { temperature: 0.2, max_tokens: 4000 });
             if (comprehensiveResponseText) {
               try {
                 const comprehensiveBriefData = JSON.parse(comprehensiveResponseText);

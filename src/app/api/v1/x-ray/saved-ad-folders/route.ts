@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 // GET - Fetch saved ad folders
 export const GET = authMiddleware(
-  async (request: NextRequest, context: any, user: User) => {
+  async (request: NextRequest, _context: any, user: User) => {
     try {
       const searchParams = request.nextUrl.searchParams;
       const search = searchParams.get('search') || '';
@@ -41,10 +41,66 @@ export const GET = authMiddleware(
         });
       }
 
+      // Enrich each folder's saved ads with full ad data from ads table
+      const enrichedFolders = await Promise.all(
+        (folders || []).map(async (folder: any) => {
+          if (folder.saved_ads && folder.saved_ads.length > 0) {
+            const enrichedSavedAds = await Promise.all(
+              folder.saved_ads.map(async (savedAd: any) => {
+                const { data: actualAd, error: adError } = await supabase
+                  .from('ads')
+                  .select('id, local_image_url, local_video_url, content, image_url, video_url, type, headline, description, text, media_status, created_at, brand_id, brands(id, name, logo)')
+                  .eq('id', savedAd.ad_id)
+                  .single();
+
+                if (adError) {
+                  console.error(`Error fetching ad ${savedAd.ad_id}:`, adError);
+                }
+
+                let adData: Record<string, unknown> = {};
+                try {
+                  adData = JSON.parse(savedAd.ad_data || '{}');
+                } catch {
+                  // ignore invalid stored JSON
+                }
+
+                const mergedAdData = {
+                  ...adData,
+                  id: savedAd.ad_id,
+                  localImageUrl: actualAd?.local_image_url,
+                  localVideoUrl: actualAd?.local_video_url,
+                  content: actualAd?.content || adData.content,
+                  imageUrl: actualAd?.image_url || adData.imageUrl,
+                  videoUrl: actualAd?.video_url || adData.videoUrl,
+                  type: actualAd?.type || adData.type,
+                  headline: actualAd?.headline || adData.headline,
+                  description: actualAd?.description || adData.description,
+                  text: actualAd?.text || adData.text,
+                  mediaStatus: actualAd?.media_status || adData.mediaStatus || 'pending',
+                  createdAt: actualAd?.created_at || adData.createdAt || savedAd.created_at,
+                  brand: actualAd?.brands || adData.brand || null
+                };
+
+                return {
+                  ...savedAd,
+                  adData: JSON.stringify(mergedAdData)
+                };
+              })
+            );
+
+            return {
+              ...folder,
+              savedAds: enrichedSavedAds
+            };
+          }
+          return folder;
+        })
+      );
+
       return createResponse({
         message: messages.SUCCESS,
         payload: {
-          folders: folders || []
+          folders: enrichedFolders || []
         }
       });
 
@@ -60,7 +116,7 @@ export const GET = authMiddleware(
 
 // POST - Create a new saved ad folder
 export const POST = authMiddleware(
-  async (request: NextRequest, context: any, user: User) => {
+  async (request: NextRequest, _context: any, user: User) => {
     try {
       let body;
       try {

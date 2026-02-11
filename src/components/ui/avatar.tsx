@@ -23,13 +23,23 @@ Avatar.displayName = AvatarPrimitive.Root.displayName
 const AvatarImage = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Image>,
   React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
->(({ className, ...props }, ref) => (
-  <AvatarPrimitive.Image
-    ref={ref}
-    className={cn("aspect-square h-full w-full", className)}
-    {...props}
-  />
-))
+>(({ className, src, onError, ...props }, ref) => {
+  const [imgSrc, setImgSrc] = React.useState(src);
+  React.useEffect(() => setImgSrc(src), [src]);
+  const handleError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    setImgSrc(undefined);
+    onError?.(e);
+  };
+  return (
+    <AvatarPrimitive.Image
+      ref={ref}
+      className={cn("aspect-square h-full w-full", className)}
+      src={imgSrc}
+      onError={handleError}
+      {...props}
+    />
+  );
+})
 AvatarImage.displayName = AvatarPrimitive.Image.displayName
 
 const AvatarFallback = React.forwardRef<

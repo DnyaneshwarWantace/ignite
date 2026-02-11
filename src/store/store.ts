@@ -7,20 +7,11 @@ import CustomizerReducer from "./customizer/CustomizerSlice";
 import { xrayApi, xray_slice } from "./slices/xray";
 import { discoverApi } from "./slices/discover";
 
-// Use noop storage on server (SSR) so redux-persist doesn't fail; real storage in browser
-function createNoopStorage() {
-  return {
-    getItem: () => Promise.resolve(null),
-    setItem: (_key: string, value: unknown) => Promise.resolve(value),
-    removeItem: () => Promise.resolve(),
-  };
-}
-
-const safeStorage = typeof window !== "undefined" ? storage : createNoopStorage();
-
+// Client-only store - loaded via dynamic import with ssr: false
+// No need for noop storage since this never runs on server
 const persistConfig = {
   key: "root",
-  storage: safeStorage,
+  storage,
 };
 
 const rootReducer = combineReducers({
@@ -36,7 +27,9 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) => getDefaultMiddleware({ serializableCheck: false, immutableCheck: false }).concat(xrayApi.middleware, discoverApi.middleware),
 });
 
+// Always create persistor - this file only loads on client side
 export const persistor = persistStore(store);
+
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
 export type AppState = ReturnType<typeof rootReducer>;

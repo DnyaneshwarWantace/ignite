@@ -34,7 +34,7 @@ const nextConfig = {
         'adm-zip': false,
         'koffi': false,
       };
-      
+
       // Exclude native binary files and koffi
       config.module.rules.push({
         test: /\.node$/,
@@ -50,6 +50,12 @@ const nextConfig = {
         'fluent-ffmpeg',
         'adm-zip'
       ];
+
+      // Increase chunk loading timeout to prevent ChunkLoadError on first load
+      config.output = {
+        ...config.output,
+        chunkLoadTimeout: 120000, // 120 seconds instead of default 120s
+      };
     }
 
     // Server-side externals for native modules
@@ -59,6 +65,23 @@ const nextConfig = {
         'koffi': 'commonjs koffi'
       });
     }
+
+    // Optimize chunk splitting to prevent large bundles
+    config.optimization = {
+      ...config.optimization,
+      splitChunks: {
+        ...config.optimization?.splitChunks,
+        chunks: 'all',
+        cacheGroups: {
+          ...config.optimization?.splitChunks?.cacheGroups,
+          redux: {
+            test: /[\\/]node_modules[\\/](redux|react-redux|@reduxjs)[\\/]/,
+            name: 'redux-vendor',
+            priority: 10,
+          },
+        },
+      },
+    };
 
     return config;
   },

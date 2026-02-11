@@ -25,12 +25,15 @@ export default function SaveAdModal({ isOpen, onClose, adId, adTitle, adData }: 
   const [saveAd, { isLoading: isSaving }] = useSaveAdMutation();
   const [createFolder, { isLoading: isCreatingFolder }] = useCreateSavedAdFolderMutation();
 
+  const canSave = Boolean(adId?.trim());
+
   const handleSave = async () => {
+    if (!canSave) return;
     try {
-      await saveAd({ 
-        adId, 
+      await saveAd({
+        adId: adId!.trim(),
         folderId: selectedFolder === "0" ? undefined : selectedFolder,
-        adData: JSON.stringify(adData)
+        adData: typeof adData === "string" ? adData : JSON.stringify(adData ?? {})
       });
       onClose();
       setSelectedFolder("0");
@@ -139,9 +142,9 @@ export default function SaveAdModal({ isOpen, onClose, adId, adTitle, adData }: 
               <Button variant="outline" onClick={onClose}>
                 Cancel
               </Button>
-              <Button 
-                onClick={handleSave} 
-                disabled={isSaving}
+              <Button
+                onClick={handleSave}
+                disabled={isSaving || !canSave}
                 className="flex items-center gap-2"
               >
                 {isSaving ? "Saving..." : "Save Ad"}

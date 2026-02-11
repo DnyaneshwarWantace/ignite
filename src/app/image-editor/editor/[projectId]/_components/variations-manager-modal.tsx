@@ -1,18 +1,12 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/editor-lib/image/components/ui/dialog";
 import { Button } from "@/editor-lib/image/components/ui/button";
-import { Download, Loader2, Sparkles, Image as ImageIcon } from "lucide-react";
+import { Download, Loader2, Sparkles, Image as ImageIcon, X, Layers } from "lucide-react";
 import { Badge } from "@/editor-lib/image/components/ui/badge";
 import { useCanvasContext } from "@/editor-lib/image/providers/canvas-provider";
 import { Canvas } from "fabric";
+import { formatDisplayValue } from "@/lib/utils";
 
 interface VariationsManagerModalProps {
   isOpen: boolean;
@@ -64,10 +58,14 @@ export function VariationsManagerModal({
   const [textVariationsData, setTextVariationsData] = useState<any[]>([]);
   const [imageVariationsData, setImageVariationsData] = useState<any[]>([]);
   const [fontVariationsData, setFontVariationsData] = useState<any[]>([]);
+  const [isLoadingVariations, setIsLoadingVariations] = useState(false);
 
-  // Fetch all variations from backend
+  // Fetch all variations from backend when modal opens (so we always show fresh data)
   useEffect(() => {
-    if (!projectId && !projectIdParam) return;
+    if (!isOpen) return;
+    if (!projectIdParam) return;
+
+    setIsLoadingVariations(true);
 
     const fetchVariations = async () => {
       const id = projectIdParam;
@@ -77,29 +75,42 @@ export function VariationsManagerModal({
         const textResponse = await fetch(`/api/text-variations?projectId=${id}`);
         if (textResponse.ok) {
           const textData = await textResponse.json();
-          setTextVariationsData(textData);
+          const arr = Array.isArray(textData) ? textData : [];
+          setTextVariationsData(arr);
+        } else {
+          setTextVariationsData([]);
         }
 
         // Fetch image variations
         const imageResponse = await fetch(`/api/image-variations?projectId=${id}`);
         if (imageResponse.ok) {
           const imageData = await imageResponse.json();
-          setImageVariationsData(imageData);
+          setImageVariationsData(Array.isArray(imageData) ? imageData : []);
+        } else {
+          setImageVariationsData([]);
         }
 
         // Fetch font variations
         const fontResponse = await fetch(`/api/font-variations?projectId=${id}`);
         if (fontResponse.ok) {
           const fontData = await fontResponse.json();
-          setFontVariationsData(fontData);
+          const fv = fontData?.fontVariations ?? fontData;
+          setFontVariationsData(Array.isArray(fv) ? fv : []);
+        } else {
+          setFontVariationsData([]);
         }
       } catch (error) {
         console.error('Error fetching variations:', error);
+        setTextVariationsData([]);
+        setImageVariationsData([]);
+        setFontVariationsData([]);
+      } finally {
+        setIsLoadingVariations(false);
       }
     };
 
     fetchVariations();
-  }, [projectId, projectIdParam]);
+  }, [isOpen, projectIdParam]);
 
   // Filter variations to only include text elements that exist on current canvas
   // This recalculates whenever canvas or textVariationsData changes
@@ -109,33 +120,58 @@ export function VariationsManagerModal({
       return [];
     }
 
-    // Get all text element IDs from CURRENT canvas state (fresh check)
+    // Build map: canvas text id -> { id, text }
     const canvasObjects = canvas.getObjects();
     const canvasTextIds = new Set<string>();
+    const canvasTextByContent = new Map<string, { id: string; text: string }>();
 
     canvasObjects.forEach((obj: any) => {
       const isTextObject = obj.type === 'textbox' || obj.type === 'i-text' || obj.type === 'text';
       if (isTextObject && obj.id) {
         canvasTextIds.add(obj.id);
+        const text = (obj.text || '').trim() || 'Empty text';
+        canvasTextByContent.set(text, { id: obj.id, text });
       }
     });
 
     console.log('🔍 [variationsData] Current canvas text IDs:', Array.from(canvasTextIds));
     console.log('🔍 [variationsData] Total variations from backend:', textVariationsData.length);
 
-    // Filter variations to only include elements that exist on canvas
-    const filtered = textVariationsData.filter(variation => {
-      const exists = canvasTextIds.has(variation.elementId);
-      if (!exists) {
-        console.log(`⚠️ [variationsData] Variation for ${variation.elementId} (${variation.originalText}) - element not on canvas, excluding`);
+    // Match variations to canvas: by elementId first, then by originalText (so variations show when element ID changed)
+    const usedCanvasIds = new Set<string>();
+    const result: Array<{ elementId: string; originalText: string; variations: unknown[] }> = [];
+
+    for (const variation of textVariationsData) {
+      const origText = (variation.originalText || '').trim() || 'Empty text';
+      let canvasId: string | null = null;
+
+      if (canvasTextIds.has(variation.elementId)) {
+        canvasId = variation.elementId;
+      } else {
+        // Element ID not on canvas: try to match by original text so variations still show
+        const match = canvasTextByContent.get(origText);
+        if (match && !usedCanvasIds.has(match.id)) {
+          canvasId = match.id;
+          console.log(`🔗 [variationsData] Matched variation "${origText}" to canvas element ${canvasId} (was ${variation.elementId})`);
+        }
       }
-      return exists;
-    });
 
-    const totalCombos = filtered.reduce((acc, v) => acc * (v.variations.length + 1), 1);
-    console.log(`✅ [variationsData] Filtered: ${filtered.length} of ${textVariationsData.length} match canvas. Will generate ${totalCombos} ads.`);
+      if (canvasId) {
+        usedCanvasIds.add(canvasId);
+        result.push({
+          elementId: canvasId,
+          originalText: variation.originalText ?? origText,
+          variations: (variation.variations ?? []) as TextVariation['variations'],
+        });
+      } else {
+        console.log(`⚠️ [variationsData] Variation for ${variation.elementId} (${origText}) - no matching canvas element, excluding`);
+      }
+    }
 
-    return filtered;
+    const totalCombos = result.reduce((acc, v) => acc * ((v.variations?.length ?? 0) + 1), 1);
+    console.log(`✅ [variationsData] Matched: ${result.length} of ${textVariationsData.length}. Will generate ${totalCombos} ads.`);
+
+    return result as TextVariation[];
   }, [textVariationsData, canvas]);
 
   // Filter image variations to only include image elements that exist on current canvas
@@ -529,7 +565,7 @@ export function VariationsManagerModal({
 
       // Add each text variation
       for (const v of textVariation.variations) {
-        current[textVariation.elementId] = v.text;
+        current[textVariation.elementId] = (v as { text: string }).text;
         buildCombinations(textIndex + 1, imageIndex, fontIndex, current);
       }
     };
@@ -1198,225 +1234,336 @@ export function VariationsManagerModal({
     console.log(`🎉 Finished downloading all ${adsToDownload.length} ads`);
   };
 
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto scrollbar-thin">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-purple-500" />
-            Variations Manager
-          </DialogTitle>
-          <DialogDescription>
-            Generate and download all possible combinations of your ad variations
-          </DialogDescription>
-        </DialogHeader>
+  if (!isOpen) return null;
 
-        <div className="space-y-6 py-4">
-          {/* Summary Section */}
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-            <div className="grid grid-cols-4 gap-4">
-              <div>
-                <p className="text-sm text-gray-600">Text Elements</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {variationsData?.length || 0}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Image Elements</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {imageVariationsFiltered?.length || 0}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Total Variations</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {(variationsData?.reduce(
-                    (sum, v) => sum + v.variations.length,
-                    0
-                  ) || 0) + (imageVariationsFiltered?.reduce(
-                    (sum: number, v: any) => sum + v.variations.length,
-                    0
-                  ) || 0)}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Unique Ads</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  {totalCombinations}
-                </p>
-              </div>
+  const hasAnyVariations =
+    (variationsData && variationsData.length > 0) ||
+    (imageVariationsFiltered && imageVariationsFiltered.length > 0) ||
+    (fontVariationsFiltered && fontVariationsFiltered.length > 0);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-gray-900/60 flex items-center justify-center p-2 sm:p-4">
+      <div
+        className="bg-white rounded-lg shadow-2xl overflow-hidden flex flex-col w-full h-full max-w-7xl max-h-[95vh]"
+        style={{
+          width: "95vw",
+          height: "95vh",
+          maxWidth: "1600px",
+          maxHeight: "95vh",
+        }}
+      >
+        {/* Header - same as video editor VariationModal */}
+        <div className="flex items-center justify-between p-3 sm:p-4 md:p-6 border-b border-gray-200 bg-white flex-shrink-0">
+          <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <Layers className="h-6 w-6 text-purple-500" />
+              Image Variations
+            </h2>
+            <div className="text-xs sm:text-sm text-gray-500">
+              Generate and download all combinations of your ad variations
             </div>
           </div>
 
-          {/* Text Elements with Variations */}
-          {variationsData && variationsData.length > 0 && (
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">
-                Text Elements ({variationsData.length})
-              </h3>
-              <div className="space-y-2">
-                {variationsData.map((variation, idx) => (
-                  <div
-                    key={`${variation.elementId}-${idx}`}
-                    className="border rounded-lg p-3 bg-white"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900">
-                          {variation.originalText}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="secondary" className="text-xs text-gray-900 bg-gray-100 border-gray-300">
-                            {variation.variations.length} variations
-                          </Badge>
-                          <span className="text-xs text-gray-500">
-                            ID: {variation.elementId.substring(0, 8)}...
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <Button
+              onClick={downloadAllAds}
+              disabled={isGenerating || generatedAds.filter((a) => a.imageUrl).length === 0}
+              variant="outline"
+              size="sm"
+              className="text-xs"
+            >
+              <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Download All</span>
+            </Button>
+            <Button
+              onClick={onClose}
+              variant="ghost"
+              size="sm"
+              className="text-xs"
+              title="Close"
+            >
+              <X className="w-3 h-3 sm:w-4 sm:h-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Content - scrollable, full height */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          {isLoadingVariations ? (
+            /* Loading state - don't show "No variations" until we've fetched */
+            <div className="flex items-center justify-center h-full min-h-[400px]">
+              <div className="text-center">
+                <Loader2 className="h-12 w-12 animate-spin text-purple-500 mx-auto mb-4" />
+                <p className="text-gray-600 font-medium">Loading variations...</p>
               </div>
             </div>
-          )}
-
-          {/* Image Elements with Variations */}
-          {imageVariationsFiltered && imageVariationsFiltered.length > 0 && (
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">
-                Image Elements ({imageVariationsFiltered.length})
-              </h3>
-              <div className="space-y-2">
-                {imageVariationsFiltered.map((variation: any, idx: number) => (
-                  <div
-                    key={`${variation.elementId}-${idx}`}
-                    className="border rounded-lg p-3 bg-white"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded border flex items-center justify-center overflow-hidden">
-                        <img
-                          src={variation.originalImageUrl}
-                          alt="Original"
-                          className="max-w-full max-h-full object-contain"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900 mb-1">
-                          Image Element
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="secondary" className="text-xs text-gray-900 bg-gray-100 border-gray-300">
-                            {variation.variations.length} variations
-                          </Badge>
-                          <span className="text-xs text-gray-500">
-                            ID: {variation.elementId.substring(0, 8)}...
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Auto-generating status */}
-          {isGenerating && generatedAds.length === 0 && (
-            <div className="flex justify-center pt-4">
-              <div className="flex items-center gap-2 text-purple-600">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span className="text-sm font-medium">Generating {totalCombinations} ad variations...</span>
-              </div>
-            </div>
-          )}
-
-          {/* Generated Ads Grid */}
-          {generatedAds.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-900">
-                  Generated Ads ({generatedAds.length})
+          ) : !hasAnyVariations ? (
+            /* Empty state - no variations yet (like video editor when no variations) */
+            <div className="flex items-center justify-center h-full min-h-[400px] px-4">
+              <div className="text-center max-w-md">
+                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                  <Sparkles className="h-10 w-10 text-purple-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  No variations yet
                 </h3>
-                <Button
-                  onClick={downloadAllAds}
-                  disabled={isGenerating}
-                  variant="outline"
-                  size="sm"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download All
+                <p className="text-sm text-gray-500 mb-6">
+                  Add text or image variations from the sidebar to generate multiple ad combinations. Use the Text Variations, Image Variations, or Font Variations panels.
+                </p>
+                <Button onClick={onClose} variant="outline" size="sm">
+                  Close
                 </Button>
               </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                {generatedAds.map((ad, index) => (
-                  <div
-                    key={ad.id}
-                    className="border rounded-lg overflow-hidden bg-white"
-                  >
-                    {/* Preview */}
-                    <div className="aspect-[4/3] bg-gray-100 relative">
-                      {ad.isGenerating ? (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
-                        </div>
-                      ) : ad.imageUrl ? (
-                        <img
-                          src={ad.imageUrl}
-                          alt={`Ad variation ${index + 1}`}
-                          className="w-full h-full object-contain"
-                        />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <ImageIcon className="h-8 w-8 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Info */}
-                    <div className="p-3">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-medium text-gray-900">
-                          Variation {index + 1}
-                        </p>
-                        <Button
-                          onClick={() => downloadAd(ad, index)}
-                          disabled={!ad.imageUrl || ad.isGenerating}
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 w-7 p-0"
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
-
-                      {/* Show which texts/images are used */}
-                      <div className="mt-2 space-y-1">
-                        {Object.entries(ad.combination).map(
-                          ([elementId, value]) => {
-                            const displayValue = typeof value === 'string' ? value : String(value);
-                            const isShortText = displayValue.length < 50;
-                            return (
-                              <p
-                                key={elementId}
-                                className="text-xs text-gray-900 truncate"
-                                title={displayValue}
-                              >
-                                {isShortText ? displayValue : `${displayValue.substring(0, 30)}...`}
-                              </p>
-                            );
-                          }
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+            </div>
+          ) : isGenerating && generatedAds.length === 0 ? (
+            /* Generating state */
+            <div className="flex items-center justify-center h-full min-h-[400px]">
+              <div className="text-center">
+                <Loader2 className="h-12 w-12 animate-spin text-purple-500 mx-auto mb-4" />
+                <p className="text-gray-600 font-medium">Generating {totalCombinations} ad variations...</p>
+                <p className="text-sm text-gray-500 mt-1">This may take a moment</p>
               </div>
+            </div>
+          ) : (
+            <div className="p-4 sm:p-6 space-y-6">
+              {/* Summary Section */}
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Text Elements</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {variationsData?.length || 0}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Image Elements</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {imageVariationsFiltered?.length || 0}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Total Variations</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {(variationsData?.reduce(
+                        (sum, v) => sum + v.variations.length,
+                        0
+                      ) || 0) +
+                        (imageVariationsFiltered?.reduce(
+                          (sum: number, v: any) => sum + v.variations.length,
+                          0
+                        ) || 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Unique Ads</p>
+                    <p className="text-2xl font-bold text-purple-600">
+                      {totalCombinations}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Text Elements with Variations */}
+              {variationsData && variationsData.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                    Text Elements ({variationsData.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {variationsData.map((variation, idx) => (
+                      <div
+                        key={`${variation.elementId}-${idx}`}
+                        className="border rounded-lg p-3 bg-white"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-900">
+                              {variation.originalText}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge
+                                variant="secondary"
+                                className="text-xs text-gray-900 bg-gray-100 border-gray-300"
+                              >
+                                {variation.variations.length} variations
+                              </Badge>
+                              <span className="text-xs text-gray-500">
+                                ID: {variation.elementId.substring(0, 8)}...
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Image Elements with Variations */}
+              {imageVariationsFiltered && imageVariationsFiltered.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                    Image Elements ({imageVariationsFiltered.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {imageVariationsFiltered.map((variation: any, idx: number) => (
+                      <div
+                        key={`${variation.elementId}-${idx}`}
+                        className="border rounded-lg p-3 bg-white"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded border flex items-center justify-center overflow-hidden">
+                            <img
+                              src={variation.originalImageUrl}
+                              alt="Original"
+                              className="max-w-full max-h-full object-contain"
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-900 mb-1">
+                              Image Element
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge
+                                variant="secondary"
+                                className="text-xs text-gray-900 bg-gray-100 border-gray-300"
+                              >
+                                {variation.variations.length} variations
+                              </Badge>
+                              <span className="text-xs text-gray-500">
+                                ID: {variation.elementId.substring(0, 8)}...
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Generating in progress (ads list already shown) */}
+              {isGenerating && generatedAds.length > 0 && (
+                <div className="flex items-center gap-2 text-purple-600 py-2">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="text-sm font-medium">
+                    Generating {generatedAds.filter((a) => !a.imageUrl).length} remaining...
+                  </span>
+                </div>
+              )}
+
+              {/* Generated Ads Grid */}
+              {generatedAds.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-semibold text-gray-900">
+                      Generated Ads ({generatedAds.length})
+                    </h3>
+                    <Button
+                      onClick={downloadAllAds}
+                      disabled={isGenerating}
+                      variant="outline"
+                      size="sm"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download All
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {generatedAds.map((ad, index) => (
+                      <div
+                        key={ad.id}
+                        className="border rounded-lg overflow-hidden bg-white"
+                      >
+                        <div className="aspect-square bg-gray-100 relative">
+                          {ad.isGenerating ? (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+                            </div>
+                          ) : ad.imageUrl ? (
+                            <img
+                              src={ad.imageUrl}
+                              alt={`Ad variation ${index + 1}`}
+                              className="w-full h-full object-contain"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <ImageIcon className="h-8 w-8 text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-2 sm:p-3">
+                          <div className="flex items-center justify-between gap-1">
+                            <p className="text-xs font-medium text-gray-900 truncate">
+                              Variation {index + 1}
+                            </p>
+                            <Button
+                              onClick={() => downloadAd(ad, index)}
+                              disabled={!ad.imageUrl || ad.isGenerating}
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 flex-shrink-0"
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="mt-1 space-y-0.5 max-h-12 overflow-hidden">
+                            {Object.entries(ad.combination).slice(0, 2).map(([elementId, value]) => {
+                              const displayValue = formatDisplayValue(value);
+                              return (
+                                <p
+                                  key={elementId}
+                                  className="text-xs text-gray-600 truncate"
+                                  title={displayValue}
+                                >
+                                  {displayValue.length > 25
+                                    ? `${displayValue.substring(0, 25)}...`
+                                    : displayValue}
+                                </p>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Has variations but no generated ads yet (e.g. still loading/calculating) */}
+              {hasAnyVariations &&
+                generatedAds.length === 0 &&
+                !isGenerating && (
+                  <div className="flex items-center justify-center py-12">
+                    <p className="text-sm text-gray-500">
+                      Your variations are set. Ads will generate automatically.
+                    </p>
+                  </div>
+                )}
             </div>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+
+        {/* Footer - same style as video editor */}
+        <div className="border-t border-gray-200 p-3 sm:p-4 md:p-6 bg-gray-50 flex-shrink-0">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="text-xs sm:text-sm text-gray-600">
+              {hasAnyVariations && (
+                <span>
+                  {totalCombinations} unique ad{totalCombinations !== 1 ? "s" : ""} possible
+                  {generatedAds.length > 0 &&
+                    ` • ${generatedAds.filter((a) => a.imageUrl).length} generated`}
+                </span>
+              )}
+              {!hasAnyVariations && (
+                <span>Add variations from the sidebar to get started</span>
+              )}
+            </div>
+            <div className="text-xs text-gray-500">Image Editor Variations</div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

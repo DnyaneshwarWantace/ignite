@@ -27,6 +27,7 @@ const navItems: NavItem[] = [
   { href: "/writer", label: "Writer", icon: "/images/icons/writer.svg" },
   { href: "/video-editor", label: "Video Editor", icon: "/images/icons/design.svg" },
   { href: "/image-editor", label: "Image Editor", icon: "/images/icons/design.svg" },
+  { href: "/ai-writer/dnas", label: "AI Writer", icon: "/images/icons/writer.svg" },
   // { href: "/designer", label: "Designer", icon: "/images/icons/design.svg" },
   // { href: "/performance", label: "Performance", icon: "/images/icons/performance.svg" },
 ];
@@ -36,6 +37,7 @@ const secondaryNavItems: NavItem[] = [
   { href: "/my-created-ads", label: "My Created Ads", icon: "/images/icons/saved.svg" },
 ];
 
+
 export function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -44,7 +46,7 @@ export function Sidebar() {
   return (
     <div className="w-64 h-screen flex flex-col border-r bg-background">
       <div className="p-4">
-        <Link href="/" className="flex items-center space-x-2 mb-4">
+        <Link href="/" className="flex items-center space-x-2 mb-4" prefetch={false}>
           <img src="/logo.svg" alt="Ignite Logo" />
           <span className="text-lg font-semibold">Ignite</span>
         </Link>
@@ -53,9 +55,10 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              prefetch={false}
               className={cn(
                 "flex items-center space-x-2 text-sm rounded-md px-3 py-2 transition-colors",
-                pathname === item.href ? "bg-[#F9FAFB] text-foreground font-medium" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                (pathname === item.href || (item.href !== "/" && pathname?.startsWith(item.href)) || (item.href.startsWith("/ai-writer") && pathname?.startsWith("/ai-writer"))) ? "bg-[#F9FAFB] text-foreground font-medium" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
               )}
             >
               <Image src={item.icon} alt={item.label} width={16} height={16} className="h-4 w-4" />
@@ -84,6 +87,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              prefetch={false}
               className={cn(
                 "flex items-center space-x-2 text-sm rounded-md px-3 py-2 transition-colors",
                 pathname === item.href ? "bg-[#F9FAFB] text-foreground font-medium" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -96,7 +100,7 @@ export function Sidebar() {
         </nav>
       </div>
       <div className="p-4 mt-auto">
-        <Link href="/settings" className="flex items-center space-x-2 text-sm text-muted-foreground hover:text-foreground">
+        <Link href="/settings" className="flex items-center space-x-2 text-sm text-muted-foreground hover:text-foreground" prefetch={false}>
           <Settings className="h-4 w-4" />
           <span>Settings</span>
         </Link>

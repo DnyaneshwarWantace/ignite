@@ -82,8 +82,8 @@ const SceneEmpty = () => {
 				const projectId = pathParts[3] || pathParts[pathParts.length - 1]; // Get project ID from index 3
 				formData.append('projectId', projectId);
 				
-				console.log(`Uploading ${file.name} to Cloudinary...`);
-				const uploadResponse = await fetch('/api/upload', {
+				console.log(`Uploading ${file.name}...`);
+				const uploadResponse = await fetch('/api/editor/video/upload', {
 					method: 'POST',
 					body: formData,
 				});
@@ -93,9 +93,13 @@ const SceneEmpty = () => {
 				}
 				
 				const uploadResult = await uploadResponse.json();
-				const cloudinaryUrl = uploadResult.asset.cloudinaryUrl;
+				const uploadedUrl = uploadResult.asset?.supabaseUrl;
 				
-				console.log("File uploaded to Cloudinary:", cloudinaryUrl);
+				if (!uploadedUrl) {
+					throw new Error('Upload succeeded but no URL returned');
+				}
+				
+				console.log("File uploaded:", uploadedUrl);
 			
 			if (fileType.startsWith('image/')) {
 					console.log("Adding image file");
@@ -108,7 +112,7 @@ const SceneEmpty = () => {
 					},
 					type: "image",
 					details: {
-							src: cloudinaryUrl, // Use Cloudinary URL instead of local URL
+							src: uploadedUrl,
 							left: 0,
 							top: 0,
 							width: currentPlatform.width,
@@ -120,7 +124,7 @@ const SceneEmpty = () => {
 					payload: {
 						...imagePayload,
 							metadata: {
-								cloudinaryUrl: cloudinaryUrl,
+								uploadedUrl,
 								assetId: uploadResult.asset.id,
 							},
 					},
@@ -129,14 +133,14 @@ const SceneEmpty = () => {
 			} else if (fileType.startsWith('video/')) {
 					console.log("Adding video file");
 					
-					// Get duration from Cloudinary upload result (more reliable)
-					const videoDuration = uploadResult.asset.metadata?.duration 
+					// Get duration from upload result metadata if available
+					const videoDuration = uploadResult.asset?.metadata?.duration 
 						? Math.round(uploadResult.asset.metadata.duration * 1000) // Convert seconds to milliseconds
 						: 5000; // Fallback duration
 					
-					console.log("Video duration from Cloudinary:", videoDuration, "ms");
+					console.log("Video duration:", videoDuration, "ms");
 					
-					// Create video payload with Cloudinary URL
+					// Create video payload with uploaded URL
 					const videoPayload = {
 						id: generateId(),
 						display: {
@@ -145,7 +149,7 @@ const SceneEmpty = () => {
 						},
 						type: "video",
 						details: {
-							src: cloudinaryUrl, // Use Cloudinary URL instead of local URL
+							src: uploadedUrl,
 							left: 0,
 							top: 0,
 							width: currentPlatform.width,
@@ -157,11 +161,11 @@ const SceneEmpty = () => {
 						payload: {
 							...videoPayload,
 							metadata: {
-								previewUrl: cloudinaryUrl,
+								previewUrl: uploadedUrl,
 								duration: videoDuration,
 								originalWidth: uploadResult.asset.metadata?.width || 1920,
 								originalHeight: uploadResult.asset.metadata?.height || 1080,
-								cloudinaryUrl: cloudinaryUrl,
+								uploadedUrl,
 								assetId: uploadResult.asset.id,
 							},
 						},
@@ -177,10 +181,10 @@ const SceneEmpty = () => {
 						id: generateId(),
 						type: 'audio',
 						details: {
-								src: cloudinaryUrl, // Use Cloudinary URL instead of local URL
+								src: uploadedUrl,
 							},
 							metadata: {
-								cloudinaryUrl: cloudinaryUrl,
+								uploadedUrl,
 								assetId: uploadResult.asset.id,
 							},
 					},

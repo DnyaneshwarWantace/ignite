@@ -26,19 +26,26 @@ export const GET = authMiddleware(
         });
       }
 
-      // Check if ad is saved
       const { data: savedAd, error: savedAdError } = await supabase
         .from('saved_ads')
-        .select('*')
+        .select('id')
         .eq('ad_id', adId)
         .eq('user_id', user.id)
         .limit(1)
-        .single();
+        .maybeSingle();
+
+      if (savedAdError) {
+        console.error('Error checking saved ad:', savedAdError);
+        return createError({
+          message: "Failed to check if ad is saved",
+          payload: { error: savedAdError.message }
+        });
+      }
 
       return createResponse({
         message: messages.SUCCESS,
         payload: {
-          isSaved: !!savedAd && !savedAdError
+          isSaved: !!savedAd
         }
       });
 

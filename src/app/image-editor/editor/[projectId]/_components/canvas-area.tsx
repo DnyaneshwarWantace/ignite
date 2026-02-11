@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { useParams } from "next/navigation";
 import { Canvas, FabricObject } from "fabric";
 import { useCanvasContext } from "@/editor-lib/image/providers/canvas-provider";
 import { ZoomControls } from "./canvas/zoom-controls";
@@ -38,16 +39,21 @@ import LockPlugin from "@/editor-lib/image/lib/editor/plugin/LockPlugin";
 import AddBaseTypePlugin from "@/editor-lib/image/lib/editor/plugin/AddBaseTypePlugin";
 import RulerPlugin from "@/editor-lib/image/lib/editor/plugin/RulerPlugin";
 import { ContextMenu } from "./context-menu";
+import { Loader2 } from "lucide-react";
 
 interface CanvasAreaProps {
   rulerEnabled: boolean;
   /** Project with platform dimensions (width/height) - canvas size matches selected platform */
   project?: { width?: number; height?: number } | null;
+  /** Canvas state (JSON string) from page load so we show content immediately without a second fetch. */
+  initialCanvasState?: string | null;
 }
 
 const DEFAULT_CANVAS_SIZE = { width: 1080, height: 1080 };
 
-export function CanvasArea({ rulerEnabled, project }: CanvasAreaProps) {
+export function CanvasArea({ rulerEnabled, project, initialCanvasState }: CanvasAreaProps) {
+  const params = useParams();
+  const projectId = params?.projectId as string | undefined;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { setCanvas, setEditor, canvas } = useCanvasContext();
@@ -58,6 +64,8 @@ export function CanvasArea({ rulerEnabled, project }: CanvasAreaProps) {
     width: projectWidth ?? DEFAULT_CANVAS_SIZE.width,
     height: projectHeight ?? DEFAULT_CANVAS_SIZE.height,
   });
+  /** Block interaction until initial canvas state is applied (or we know there's none). */
+  const [isCanvasReady, setIsCanvasReady] = useState(false);
 
   // Image editor uses system fonts only; no database fonts
   // Calculate zoom to fit canvas in container
@@ -161,7 +169,8 @@ export function CanvasArea({ rulerEnabled, project }: CanvasAreaProps) {
     // Check if canvas is already initialized
     const existingCanvas = (canvasRef.current as any).__fabricCanvas;
     if (existingCanvas) {
-      // Don't recreate canvas, just update size
+      // Don't recreate canvas, just update size; already ready
+      setIsCanvasReady(true);
       return;
     }
 
@@ -280,9 +289,36 @@ export function CanvasArea({ rulerEnabled, project }: CanvasAreaProps) {
         }
       }
 
-      // Load canvas state from localStorage if exists
-      const savedCanvasState = localStorage.getItem('canvas-state');
-      if (savedCanvasState && fabricCanvas) {
+      // Use canvas state already loaded on the page (no second fetch), or fetch/localStorage
+      const resolveInitialState = async (): Promise<string | null> => {
+        if (initialCanvasState != null && initialCanvasState !== '') {
+          return initialCanvasState;
+        }
+        if (projectId) {
+          try {
+            const res = await fetch(`/api/editor/image/projects/${projectId}/canvas`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.canvasState && typeof data.canvasState === 'object') {
+                return JSON.stringify(data.canvasState);
+              }
+            }
+          } catch (e) {
+            console.warn('Could not load canvas from backend, using localStorage:', e);
+          }
+        }
+        return localStorage.getItem('canvas-state');
+      };
+
+      resolveInitialState().then((savedCanvasState) => {
+        if (!savedCanvasState || !fabricCanvas) {
+          const canvas = fabricCanvas;
+          if (canvas?.getElement()) {
+            requestAnimationFrame(() => canvas.requestRenderAll());
+          }
+          setIsCanvasReady(true);
+          return;
+        }
         // Prefer project (platform) dimensions when available so canvas size matches selected platform
         let loadedWidth = canvasSize.width;
         let loadedHeight = canvasSize.height;
@@ -314,69 +350,31 @@ export function CanvasArea({ rulerEnabled, project }: CanvasAreaProps) {
         // Update canvas dimensions to match loaded state
         fabricCanvas.setDimensions({ width: loadedWidth, height: loadedHeight });
 
-        // Load fonts BEFORE loading canvas state to prevent FOUT (Flash of Unstyled Text)
         const canvasStateString = savedCanvasState;
-        
-        // Use FontPlugin's hookImportBefore to load all fonts used in the canvas state
-        const loadFontsPromise = canvasEditor.hooksEntity?.hookImportBefore
-          ? new Promise<void>((resolve) => {
-              canvasEditor.hooksEntity.hookImportBefore.callAsync(canvasStateString, () => {
-                resolve();
-              });
-            })
-          : Promise.resolve();
-        
-        // Wait for fonts to load, then load canvas state
-        // Also ensure canvas is fully initialized before loading
-        Promise.all([
-          loadFontsPromise,
-          // Wait for canvas to be fully ready
-          new Promise<void>((resolve) => {
-            const checkCanvasReady = (attempts = 0) => {
-              if (fabricCanvas && fabricCanvas.getElement() && fabricCanvas.width && fabricCanvas.height) {
-                // Canvas is ready
-                requestAnimationFrame(() => {
-                  setTimeout(() => resolve(), 50);
-                });
-                return;
-              }
 
-              if (attempts < 20) {
-                // Retry up to 20 times (1 second total)
-                setTimeout(() => checkCanvasReady(attempts + 1), 50);
-              } else {
-                // Give up after 20 attempts
-                console.warn('Canvas not ready after retries, proceeding anyway');
-                resolve();
-              }
-            };
-            checkCanvasReady();
-          })
-        ])
-          .then(async () => {
-            // Fonts are loaded and canvas is ready, safe to load canvas state
-            if (!fabricCanvas || !fabricCanvas.getElement()) {
-              console.warn('Canvas not available for loading state');
+        // Load canvas state ASAP: minimal wait for canvas to be ready (no extra 30ms/1s delay).
+        const canvasReadyPromise = new Promise<void>((resolve) => {
+          const checkCanvasReady = (attempts = 0) => {
+            if (fabricCanvas && fabricCanvas.getElement() && fabricCanvas.width && fabricCanvas.height) {
+              requestAnimationFrame(() => resolve());
               return;
             }
-            
-            // Load canvas state with additional delay to ensure everything is ready
+            if (attempts < 5) {
+              setTimeout(() => checkCanvasReady(attempts + 1), 20);
+            } else {
+              resolve();
+            }
+          };
+          checkCanvasReady();
+        });
+
+        canvasReadyPromise
+          .then(async () => {
+            if (!fabricCanvas || !fabricCanvas.getElement()) return;
             try {
-              await new Promise<void>((resolve) => {
-                requestAnimationFrame(() => {
-                  setTimeout(async () => {
-                    try {
-                      if (fabricCanvas && savedCanvasState) {
-                        await fabricCanvas.loadFromJSON(JSON.parse(savedCanvasState));
-                      }
-                      resolve();
-                    } catch (loadError) {
-                      console.error('Error loading canvas state:', loadError);
-                      resolve();
-                    }
-                  }, 50);
-                });
-              });
+              if (savedCanvasState) {
+                await fabricCanvas.loadFromJSON(JSON.parse(savedCanvasState));
+              }
             } catch (loadError) {
               console.error('Error loading canvas state:', loadError);
             }
@@ -445,51 +443,29 @@ export function CanvasArea({ rulerEnabled, project }: CanvasAreaProps) {
                 }
               });
             }
+
+            // Load fonts in background so text gets correct fonts when ready (no blocking)
+            if (canvasStateString && canvasEditor.hooksEntity?.hookImportBefore) {
+              canvasEditor.hooksEntity.hookImportBefore.callAsync(canvasStateString, () => {
+                if (fabricCanvas?.getElement()) {
+                  fabricCanvas.requestRenderAll();
+                }
+              });
+            }
+            setIsCanvasReady(true);
           })
           .catch((error: any) => {
             console.error('Error loading canvas state:', error);
-            // Fallback: try loading without font preloading after a delay
             if (fabricCanvas && savedCanvasState) {
-              setTimeout(() => {
-                try {
-                  const canvasElement = fabricCanvas?.getElement?.();
-                  if (fabricCanvas && canvasElement && savedCanvasState) {
-                    requestAnimationFrame(() => {
-                      setTimeout(() => {
-                        if (fabricCanvas && savedCanvasState) {
-                          fabricCanvas.loadFromJSON(JSON.parse(savedCanvasState)).then(() => {
-                            requestAnimationFrame(() => {
-                              const el = fabricCanvas?.getElement?.();
-                              if (fabricCanvas && el) {
-                                fabricCanvas.requestRenderAll();
-                              }
-                            });
-                          }).catch((fallbackError: any) => {
-                            console.error('Error in fallback load:', fallbackError);
-                          });
-                        }
-                      }, 50);
-                    });
-                  } else {
-                    console.warn('Canvas not ready for fallback load');
-                  }
-                } catch (e) {
-                  console.error('Error in fallback load:', e);
-                }
-              }, 500);
+              try {
+                fabricCanvas.loadFromJSON(JSON.parse(savedCanvasState)).then(() => {
+                  if (fabricCanvas?.getElement()) fabricCanvas.requestRenderAll();
+                }).catch(() => {});
+              } catch (e) {}
             }
+            setIsCanvasReady(true);
           });
-      } else if (fabricCanvas) {
-        requestAnimationFrame(() => {
-          try {
-            if (fabricCanvas && fabricCanvas.getElement()) {
-              fabricCanvas.requestRenderAll();
-            }
-          } catch (e) {
-            console.warn('Could not render canvas:', e);
-          }
-        });
-      }
+      });
 
       // Ensure workspace doesn't interfere with selection
       const ensureWorkspaceConfig = () => {
@@ -674,16 +650,38 @@ export function CanvasArea({ rulerEnabled, project }: CanvasAreaProps) {
               height = canvasSize.height;
             }
 
-            // Save to localStorage
-            localStorage.setItem(`canvas-state`, JSON.stringify(canvasJSON));
             const meta = {
               width,
               height,
               title: 'Image Editor',
               updatedAt: Date.now(),
             };
-            localStorage.setItem(`canvas-meta`, JSON.stringify(meta));
-            console.log('✅ Auto-saved to localStorage');
+            // Save to backend when projectId is available (like video editor)
+            if (projectId) {
+              try {
+                const res = await fetch(`/api/editor/image/projects/${projectId}/canvas`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ canvasState: canvasJSON, width, height }),
+                });
+                if (res.ok) {
+                  console.log('✅ Auto-saved to backend');
+                } else {
+                  localStorage.setItem(`canvas-state`, JSON.stringify(canvasJSON));
+                  localStorage.setItem(`canvas-meta`, JSON.stringify(meta));
+                  console.log('✅ Auto-saved to localStorage (backend failed)');
+                }
+              } catch (err) {
+                console.warn('Backend save failed, using localStorage:', err);
+                localStorage.setItem(`canvas-state`, JSON.stringify(canvasJSON));
+                localStorage.setItem(`canvas-meta`, JSON.stringify(meta));
+                console.log('✅ Auto-saved to localStorage');
+              }
+            } else {
+              localStorage.setItem(`canvas-state`, JSON.stringify(canvasJSON));
+              localStorage.setItem(`canvas-meta`, JSON.stringify(meta));
+              console.log('✅ Auto-saved to localStorage');
+            }
           } catch (error) {
             console.warn('Auto-save failed:', error);
           }
@@ -835,6 +833,19 @@ export function CanvasArea({ rulerEnabled, project }: CanvasAreaProps) {
         contain: "layout style paint", // Prevent layout shifts from affecting parent
       }}
     >
+      {/* Block interaction and show loader until initial canvas state is applied */}
+      {!isCanvasReady && (
+        <div
+          className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-white/90 backdrop-blur-sm"
+          style={{ pointerEvents: "auto" }}
+          aria-busy="true"
+          aria-label="Loading canvas"
+        >
+          <Loader2 className="h-10 w-10 animate-spin text-purple-600" />
+          <p className="text-sm font-medium text-gray-700">Loading canvas...</p>
+          <p className="text-xs text-gray-500">Please wait before adding elements</p>
+        </div>
+      )}
       {/* Canvas preview area - scales with CSS transform */}
       <div
         style={{

@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import validation from "./validation";
 import { scrapeCompanyAds, extractPageIdFromInput } from "@apiUtils/adScraper";
 import { startAutoTracking } from "@/lib/auto-tracker";
+import { getUserApiKey } from "@/lib/user-api-keys";
 
 // Type definition for User (matching Supabase schema)
 interface User {
@@ -167,8 +168,11 @@ export const POST = authMiddleware(
       const effectiveOffset = offset || existingAdsCount;
       console.log(`Using offset: ${effectiveOffset} (provided: ${offset}, existing: ${existingAdsCount})`);
       
+      // Fetch user's ScrapeCreators key (falls back to env inside scraper)
+      const userScrapeKey = await getUserApiKey(user.id, 'scrape_creators');
+
       // Limit to 200 ads per request (one API call)
-      let scrapedAds = await scrapeCompanyAds(extractedPageId, 200, effectiveOffset);
+      let scrapedAds = await scrapeCompanyAds(extractedPageId, 200, effectiveOffset, userScrapeKey || undefined);
       
       if (scrapedAds.length === 0) {
         // For testing purposes, create a mock ad if no ads are found

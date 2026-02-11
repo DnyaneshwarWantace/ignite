@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 // GET - Fetch saved ads
 export const GET = authMiddleware(
-  async (request: NextRequest, context: any, user: User) => {
+  async (request: NextRequest, _context: any, user: User) => {
     try {
       const searchParams = request.nextUrl.searchParams;
       const folderId = searchParams.get('folderId');
@@ -40,7 +40,7 @@ export const GET = authMiddleware(
       // Build Supabase query with proper filters
       let query = supabase
         .from('saved_ads')
-        .select('*, folder:saved_ad_folders(*)', { count: 'exact' })
+        .select('*, folder:saved_ad_folders(*)', { count: 'exact' as const })
         .eq('user_id', user.id);
 
       // If folderId is provided, filter by folder
@@ -65,12 +65,12 @@ export const GET = authMiddleware(
         });
       }
 
-      // Fetch actual ad data for each saved ad to get Supabase URLs
+      // Fetch actual ad data for each saved ad to get Supabase URLs and full metadata
       const savedAdsWithFullData = await Promise.all(
         (savedAds || []).map(async (savedAd: any) => {
           const { data: actualAd, error: adError } = await supabase
             .from('ads')
-            .select('id, local_image_url, local_video_url, content, image_url, video_url, type, headline, description, text')
+            .select('id, local_image_url, local_video_url, content, image_url, video_url, type, headline, description, text, media_status, created_at, brand_id, brands(id, name, logo)')
             .eq('id', savedAd.ad_id)
             .single();
 
@@ -78,8 +78,12 @@ export const GET = authMiddleware(
             console.error(`Error fetching ad ${savedAd.ad_id}:`, adError);
           }
 
-          // Merge saved ad data with actual ad data
-          const adData = JSON.parse(savedAd.ad_data || '{}');
+          let adData: Record<string, unknown> = {};
+          try {
+            adData = JSON.parse(savedAd.ad_data || '{}');
+          } catch {
+            // ignore invalid stored JSON
+          }
           const mergedAdData = {
             ...adData,
             id: savedAd.ad_id,
@@ -91,7 +95,10 @@ export const GET = authMiddleware(
             type: actualAd?.type || adData.type,
             headline: actualAd?.headline || adData.headline,
             description: actualAd?.description || adData.description,
-            text: actualAd?.text || adData.text
+            text: actualAd?.text || adData.text,
+            mediaStatus: actualAd?.media_status || adData.mediaStatus || 'pending',
+            createdAt: actualAd?.created_at || adData.createdAt || savedAd.created_at,
+            brand: actualAd?.brands || adData.brand || null
           };
 
           return {
@@ -106,6 +113,7 @@ export const GET = authMiddleware(
         })
       );
 
+      const total = totalCount ?? 0;
       return createResponse({
         message: messages.SUCCESS,
         payload: {
@@ -113,8 +121,8 @@ export const GET = authMiddleware(
           pagination: {
             page,
             limit,
-            total: totalCount,
-            totalPages: Math.ceil(totalCount / limit)
+            total,
+            totalPages: limit > 0 ? Math.ceil(total / limit) : 0
           }
         }
       });
@@ -131,13 +139,24 @@ export const GET = authMiddleware(
 
 // POST - Save an ad to a folder
 export const POST = authMiddleware(
-  async (request: NextRequest, context: any, user: User) => {
+  async (request: NextRequest, _context: any, user: User) => {
     try {
-      const { adId, folderId, adData } = await request.json();
-
-      if (!adId) {
+      let body: { adId?: string; folderId?: string; adData?: string };
+      try {
+        body = await request.json();
+      } catch {
         return createError({
-          message: "Ad ID is required"
+          message: "Invalid request body",
+          status: 400
+        });
+      }
+      const { adId, folderId, adData } = body ?? {};
+
+      const trimmedAdId = typeof adId === 'string' ? adId.trim() : '';
+      if (!trimmedAdId) {
+        return createError({
+          message: "Ad ID is required",
+          status: 400
         });
       }
 
@@ -145,14 +164,15 @@ export const POST = authMiddleware(
       const { data: existingSavedAd, error: checkError } = await supabase
         .from('saved_ads')
         .select('*')
-        .eq('ad_id', adId)
+        .eq('ad_id', trimmedAdId)
         .eq('user_id', user.id)
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (existingSavedAd && !checkError) {
         return createError({
-          message: "Ad is already saved"
+          message: "Ad is already saved",
+          status: 400
         });
       }
 
@@ -179,9 +199,9 @@ export const POST = authMiddleware(
       const { data: savedAd, error: saveError } = await supabase
         .from('saved_ads')
         .insert({
-          ad_id: adId,
-          ad_data: adData || JSON.stringify({}),
-          folder_id: folderToUse?.id || null,
+          ad_id: trimmedAdId,
+          ad_data: typeof adData === 'string' ? adData : JSON.stringify(adData ?? {}),
+          folder_id: folderToUse?.id ?? null,
           user_id: user.id
         })
         .select('*, folder:saved_ad_folders(*)')
@@ -191,15 +211,16 @@ export const POST = authMiddleware(
         console.error('Error saving ad:', saveError);
         return createError({
           message: "Failed to save ad",
+          status: 400,
           payload: { error: saveError.message }
         });
       }
 
       return createResponse({
-        message: "Ad saved successfully",
+        message: messages.SUCCESS,
         payload: {
-          savedAd: savedAd,
-          folderId: folderToUse?.id || '0'
+          savedAd,
+          folderId: folderToUse?.id ?? '0'
         }
       });
 

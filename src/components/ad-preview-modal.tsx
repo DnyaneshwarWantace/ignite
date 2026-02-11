@@ -6,9 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { 
   Play, 
   Download, 
@@ -611,16 +608,15 @@ export default function AdPreviewModal({ isOpen, onClose, ad }: AdPreviewModalPr
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(95vh-140px)]">
               {/* Left Side - Ad Content - Centered */}
               <div className="lg:col-span-2 flex justify-center items-start h-full bg-[#F9FAFB] rounded-lg p-6">
-                <div className="w-full max-w-sm h-full flex flex-col">
-                  {/* Custom Modal Wrapper with Figma Styling */}
-                  <div className="figma-ad-card-wrapper w-[362px] h-[558px] overflow-hidden bg-white border border-[#E4E7EC] shadow-[0px_1px_2px_rgba(16,24,40,0.05)] rounded-2xl">
+                <div className="w-full max-w-sm h-full flex flex-col items-center overflow-auto">
+                  {/* Custom Modal Wrapper - sizes to ad content like discover */}
+                  <div className="figma-ad-card-wrapper w-full max-w-[362px] overflow-hidden bg-white border border-[#E4E7EC] shadow-[0px_1px_2px_rgba(16,24,40,0.05)] rounded-2xl">
                     <style dangerouslySetInnerHTML={{
                       __html: `
                         .figma-ad-card-wrapper .card {
                           border: none !important;
                           box-shadow: none !important;
                           border-radius: 0 !important;
-                          height: 100% !important;
                           width: 100% !important;
                           display: flex !important;
                           flex-direction: column !important;
@@ -655,20 +651,19 @@ export default function AdPreviewModal({ isOpen, onClose, ad }: AdPreviewModalPr
                         }
                         
                         .figma-ad-card-wrapper .card-header .action-buttons {
-                          display: none !important;
+                          display: flex !important;
                         }
                         
                         .figma-ad-card-wrapper .card-content {
                           padding: 0 !important;
-                          flex: 1 !important;
                           display: flex !important;
                           flex-direction: column !important;
-                          min-height: 0 !important;
                         }
                         
                         .figma-ad-card-wrapper .description-section {
-                          width: 338px !important;
-                          height: 80px !important;
+                          width: 100% !important;
+                          max-width: 100% !important;
+                          min-height: 48px !important;
                           margin: 12px auto 0 auto !important;
                           display: flex !important;
                           align-items: center !important;
@@ -687,8 +682,8 @@ export default function AdPreviewModal({ isOpen, onClose, ad }: AdPreviewModalPr
                         }
                         
                         .figma-ad-card-wrapper .media-section {
-                          width: 338px !important;
-                          height: 320px !important;
+                          width: 100% !important;
+                          max-width: 100% !important;
                           margin: 12px auto 0 auto !important;
                           border-radius: 8px !important;
                           overflow: hidden !important;
@@ -699,46 +694,77 @@ export default function AdPreviewModal({ isOpen, onClose, ad }: AdPreviewModalPr
                         .figma-ad-card-wrapper .media-section img,
                         .figma-ad-card-wrapper .media-section video {
                           width: 100% !important;
-                          height: 100% !important;
-                          object-fit: cover !important;
-                          border-radius: 8px !important;
+                          height: auto !important;
                           display: block !important;
+                          vertical-align: middle !important;
+                          border-radius: 8px !important;
+                        }
+                        
+                        .figma-ad-card-wrapper .media-section video {
+                          object-fit: contain !important;
+                        }
+                        
+                        .figma-ad-card-wrapper .media-section img {
+                          object-fit: contain !important;
                         }
                         
                         .figma-ad-card-wrapper .card-footer {
-                          width: 338px !important;
-                          height: 66px !important;
+                          width: 100% !important;
+                          max-width: 100% !important;
+                          min-height: 66px !important;
                           margin: 12px auto 0 auto !important;
                           padding: 0 !important;
                           flex-shrink: 0 !important;
+                          overflow: hidden !important;
+                          box-sizing: border-box !important;
+                        }
+                        
+                        .figma-ad-card-wrapper .card-footer > div,
+                        .figma-ad-card-wrapper .card-footer .cta-section {
+                          max-width: 100% !important;
+                          overflow: hidden !important;
+                          min-width: 0 !important;
                         }
                         
                         .figma-ad-card-wrapper .cta-section {
                           width: 100% !important;
-                          height: 66px !important;
+                          max-width: 100% !important;
+                          min-height: 66px !important;
                           background: #F9FAFB !important;
                           border-radius: 8px !important;
                           padding: 12px !important;
-                          display: flex !important;
+                          display: grid !important;
+                          grid-template-columns: minmax(0, 1fr) auto !important;
                           align-items: center !important;
                           gap: 8px !important;
+                          overflow: hidden !important;
+                          box-sizing: border-box !important;
                         }
                         
                         .figma-ad-card-wrapper .cta-section .url-info {
-                          flex: 1 !important;
+                          min-width: 0 !important;
+                          max-width: 100% !important;
                           display: flex !important;
                           flex-direction: column !important;
                           gap: 4px !important;
+                          overflow: hidden !important;
                         }
                         
-                        .figma-ad-card-wrapper .cta-section .url-info .url-title {
+                        .figma-ad-card-wrapper .cta-section .url-info .url-title,
+                        .figma-ad-card-wrapper .cta-section .url-info .url-title * {
                           font-size: 12px !important;
                           color: #475467 !important;
                           text-transform: uppercase !important;
                           margin: 0 !important;
+                          white-space: nowrap !important;
+                          overflow: hidden !important;
+                          text-overflow: ellipsis !important;
+                          max-width: 100% !important;
+                          min-width: 0 !important;
                         }
                         
-                        .figma-ad-card-wrapper .cta-section .url-info .url-desc {
+                        .figma-ad-card-wrapper .cta-section .url-info .url-desc,
+                        .figma-ad-card-wrapper .cta-section .url-info .url-desc * {
                           font-size: 14px !important;
                           font-weight: 500 !important;
                           color: #101828 !important;
@@ -746,6 +772,8 @@ export default function AdPreviewModal({ isOpen, onClose, ad }: AdPreviewModalPr
                           overflow: hidden !important;
                           text-overflow: ellipsis !important;
                           margin: 0 !important;
+                          max-width: 100% !important;
+                          min-width: 0 !important;
                         }
                         
                         .figma-ad-card-wrapper .cta-section .cta-button {
@@ -756,6 +784,7 @@ export default function AdPreviewModal({ isOpen, onClose, ad }: AdPreviewModalPr
                           font-weight: 600 !important;
                           padding: 8px 12px !important;
                           height: 36px !important;
+                          min-width: 88px !important;
                           box-shadow: 0px 1px 2px rgba(16, 24, 40, 0.05), inset 0px 0px 0px 1px rgba(16, 24, 40, 0.18), inset 0px -2px 0px rgba(16, 24, 40, 0.05) !important;
                           border-radius: 8px !important;
                           flex-shrink: 0 !important;
@@ -808,7 +837,9 @@ export default function AdPreviewModal({ isOpen, onClose, ad }: AdPreviewModalPr
                       url_desc={ad.landingPageUrl || ""}
                       onCtaClick={() => handleLandingPageClick()}
                       onSaveAd={() => {}}
-                      hideActions={true}
+                      hideActions={false}
+                      disablePreviewOpen={true}
+                      expand={true}
                       isActive={ad.status === "Still Running"}
                       content={ad.content}
                     />

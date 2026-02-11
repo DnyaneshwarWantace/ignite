@@ -10,6 +10,7 @@ import { useCanvasContext } from "@/editor-lib/image/providers/canvas-provider";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/editor-lib/image/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
 import { filters as fabricFilters } from 'fabric';
+import { formatDecimal } from "@/lib/utils";
 
 const NO_PARAMS_FILTERS = [
   { key: "BlackWhite", label: "Black & White" },
@@ -262,7 +263,7 @@ export function FiltersPanel() {
               <div className="space-y-1">
                 <div className="flex justify-between">
                   <Label className="text-xs font-medium text-gray-700">brightness</Label>
-                  <span className="text-xs font-semibold text-gray-900">{brightness.toFixed(2)}</span>
+                  <span className="text-xs font-semibold text-gray-900">{formatDecimal(brightness)}</span>
                 </div>
                 <Slider
                   value={[brightness]}
@@ -295,7 +296,7 @@ export function FiltersPanel() {
               <div className="space-y-1">
                 <div className="flex justify-between">
                   <Label className="text-xs font-medium text-gray-700">contrast</Label>
-                  <span className="text-xs font-semibold text-gray-900">{contrast.toFixed(2)}</span>
+                  <span className="text-xs font-semibold text-gray-900">{formatDecimal(contrast)}</span>
                 </div>
                 <Slider
                   value={[contrast]}
@@ -328,7 +329,7 @@ export function FiltersPanel() {
               <div className="space-y-1">
                 <div className="flex justify-between">
                   <Label className="text-xs font-medium text-gray-700">saturation</Label>
-                  <span className="text-xs font-semibold text-gray-900">{saturation.toFixed(2)}</span>
+                  <span className="text-xs font-semibold text-gray-900">{formatDecimal(saturation)}</span>
                 </div>
                 <Slider
                   value={[saturation]}
@@ -361,7 +362,7 @@ export function FiltersPanel() {
               <div className="space-y-1">
                 <div className="flex justify-between">
                   <Label className="text-xs font-medium text-gray-700">blur</Label>
-                  <span className="text-xs font-semibold text-gray-900">{blur.toFixed(2)}</span>
+                  <span className="text-xs font-semibold text-gray-900">{formatDecimal(blur)}</span>
                 </div>
                 <Slider
                   value={[blur]}
@@ -394,7 +395,7 @@ export function FiltersPanel() {
               <div className="space-y-1">
                 <div className="flex justify-between">
                   <Label className="text-xs font-medium text-gray-700">rotation</Label>
-                  <span className="text-xs font-semibold text-gray-900">{hueRotation.toFixed(2)}</span>
+                  <span className="text-xs font-semibold text-gray-900">{formatDecimal(hueRotation)}</span>
                 </div>
                 <Slider
                   value={[hueRotation]}
@@ -427,7 +428,7 @@ export function FiltersPanel() {
               <div className="space-y-1">
                 <div className="flex justify-between">
                   <Label className="text-xs font-medium text-gray-700">gamma</Label>
-                  <span className="text-xs font-semibold text-gray-900">{gamma.toFixed(2)}</span>
+                  <span className="text-xs font-semibold text-gray-900">{formatDecimal(gamma)}</span>
                 </div>
                 <Slider
                   value={[gamma]}

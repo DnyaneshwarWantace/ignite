@@ -280,7 +280,7 @@ function getPlatformFromAd(ad: any, content: any, snapshot: any): string {
 function getImageFromAd(ad: any, content: any, snapshot: any): string | null {
   // Priority order for images
   const imageSources = [
-    ad.localImageUrl,           // Cloudinary URL (highest priority)
+    ad.localImageUrl,           // Supabase Storage URL (highest priority)
     ad.imageUrl,               // Original image URL
     snapshot.images?.[0]?.original_image_url,
     snapshot.images?.[0]?.resized_image_url,

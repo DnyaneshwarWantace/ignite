@@ -62,7 +62,7 @@ cat ~/.ssh/id_ed25519.pub
 ### Clone Repository
 ```bash
 cd /root
-git clone git@github.com:DnyaneshwarWantace/ignite.git ignite
+git clone -b ignite-main git@github.com:DnyaneshwarWantace/ignite.git ignite
 cd /root/ignite
 ```
 
@@ -194,7 +194,7 @@ Add redirect URI: `https://editor.scalez.in/ignite/api/auth/callback/google`
 ```bash
 # Pull & deploy
 cd /root/ignite
-git pull origin master
+git pull origin ignite-main
 npm install
 npm run build
 pm2 restart ignite

@@ -75,18 +75,29 @@ git clone -b ignite-main git@github.com:DnyaneshwarWantace/ignite.git ignite
 cd /root/ignite
 ```
 
-**If DNS Error (ssh: Could not resolve hostname github.com):**
+**If DNS Error (Could not resolve host: github.com):**
 ```bash
-# Check internet/DNS
-ping 8.8.8.8
-ping github.com
+# Fix 1: Set Google DNS (RECOMMENDED)
+sudo bash -c 'cat > /etc/resolv.conf << EOF
+nameserver 8.8.8.8
+nameserver 8.8.4.4
+nameserver 1.1.1.1
+EOF'
 
-# If ping fails, restart network
-sudo systemctl restart networking
-sudo systemctl restart systemd-resolved
+# Prevent it from being overwritten
+sudo chattr +i /etc/resolv.conf
 
-# Or use IP temporarily
-echo "140.82.121.4 github.com" | sudo tee -a /etc/hosts
+# Test DNS
+ping -c 2 github.com
+
+# If ping works, try clone again
+git clone -b ignite-main https://github.com/DnyaneshwarWantace/ignite.git ignite
+```
+
+**Alternative: Add GitHub IP to hosts file:**
+```bash
+echo "140.82.121.3 github.com" | sudo tee -a /etc/hosts
+git clone -b ignite-main https://github.com/DnyaneshwarWantace/ignite.git ignite
 ```
 
 ---

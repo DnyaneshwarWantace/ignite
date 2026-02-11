@@ -60,10 +60,33 @@ cat ~/.ssh/id_ed25519.pub
 ```
 
 ### Clone Repository
+
+**Option 1: Using HTTPS (Recommended - Simpler)**
+```bash
+cd /root
+git clone -b ignite-main https://github.com/DnyaneshwarWantace/ignite.git ignite
+cd /root/ignite
+```
+
+**Option 2: Using SSH (If SSH key is set up)**
 ```bash
 cd /root
 git clone -b ignite-main git@github.com:DnyaneshwarWantace/ignite.git ignite
 cd /root/ignite
+```
+
+**If DNS Error (ssh: Could not resolve hostname github.com):**
+```bash
+# Check internet/DNS
+ping 8.8.8.8
+ping github.com
+
+# If ping fails, restart network
+sudo systemctl restart networking
+sudo systemctl restart systemd-resolved
+
+# Or use IP temporarily
+echo "140.82.121.4 github.com" | sudo tee -a /etc/hosts
 ```
 
 ---
@@ -198,6 +221,17 @@ git pull origin ignite-main
 npm install
 npm run build
 pm2 restart ignite
+```
+
+**If you cloned with HTTPS and git asks for password:**
+```bash
+# Store credentials
+git config --global credential.helper store
+
+# Or use personal access token
+git config --global credential.helper cache
+
+# Next pull will ask for username/token once, then cache it
 ```
 
 ## PM2 Commands

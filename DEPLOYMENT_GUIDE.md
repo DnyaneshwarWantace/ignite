@@ -61,10 +61,9 @@ cat ~/.ssh/id_ed25519.pub
 
 ### Clone Repository
 ```bash
-cd /var/www
-sudo git clone git@github.com:DnyaneshwarWantace/ignite.git ignite
-sudo chown -R \$USER:\$USER /var/www/ignite
-cd /var/www/ignite
+cd /root
+git clone git@github.com:DnyaneshwarWantace/ignite.git ignite
+cd /root/ignite
 ```
 
 ---
@@ -117,7 +116,7 @@ module.exports = {
     name: 'ignite',
     script: 'npm',
     args: 'start',
-    cwd: '/var/www/ignite',
+    cwd: '/root/ignite',
     instances: 1,
     autorestart: true,
     env: {
@@ -194,7 +193,7 @@ Add redirect URI: `https://editor.scalez.in/ignite/api/auth/callback/google`
 
 ```bash
 # Pull & deploy
-cd /var/www/ignite
+cd /root/ignite
 git pull origin master
 npm install
 npm run build

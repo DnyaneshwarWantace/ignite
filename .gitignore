@@ -31,6 +31,7 @@ yarn-error.log*
 .env.postgres
 .env.production
 .env.sqlite
+.fix_commit
 # vercel
 .vercel
 

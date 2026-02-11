@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Subdirectory deployment configuration
+  basePath: process.env.NODE_ENV === 'production' ? '/ignite' : '',
+  assetPrefix: process.env.NODE_ENV === 'production' ? '/ignite' : '',
   reactStrictMode: false,
   images: {
     remotePatterns: [

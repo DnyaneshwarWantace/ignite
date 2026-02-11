@@ -1,182 +1,225 @@
-# Ignite Project - Server Deployment Guide
+# Complete Server Deployment Guide for Ignite
+## Deploy to: editor.scalez.in/ignite
 
-## 🚀 Production Deployment Checklist
+---
 
-### 1. Environment Variables Setup
+## Prerequisites on Server
 
-Create a `.env.local` file on your server with the following variables:
-
+### 1. System Requirements
 ```bash
-# Database Configuration (Neon PostgreSQL)
-DATABASE_URL="postgresql://neondb_owner:npg_OTdtgJk18qeG@ep-rapid-paper-a1phvwlf-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+# Check Node.js version (Need 18.x or 20.x)
+node -v
 
-# NextAuth Configuration
-NEXTAUTH_URL="https://yourdomain.com"
-NEXTAUTH_SECRET="your-nextauth-secret-key-here"
+# If not installed or old version:
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
 
-# Google OAuth (if using)
-AUTH_GOOGLE_ID="your-google-client-id"
-AUTH_GOOGLE_SECRET="your-google-client-secret"
-
-# LinkedIn OAuth (if using)
-AUTH_LINKEDIN_ID="your-linkedin-client-id"
-AUTH_LINKEDIN_SECRET="your-linkedin-client-secret"
-
-# API Configuration
-NEXT_PUBLIC_BACKEND_URL="https://yourdomain.com/api/v1"
-
-# Cloudinary Configuration (for media processing)
-NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME="your-cloud-name"
-CLOUDINARY_API_KEY="your-api-key"
-CLOUDINARY_API_SECRET="your-api-secret"
-
-# Environment
-NODE_ENV="production"
+# Verify installation
+node -v  # Should show v20.x.x
+npm -v   # Should show 10.x.x
 ```
 
-### 2. Database Setup
+### 2. Install Essential Tools
+```bash
+# Git
+sudo apt-get update
+sudo apt-get install -y git
 
-Your project is now configured to use **Neon PostgreSQL** (cloud database). No local database setup required!
+# PM2 (Process Manager)
+sudo npm install -g pm2
 
-1. **Database is already configured** and ready to use
-2. **Run Prisma setup**:
-   ```bash
-   npx prisma db push
-   npx prisma generate
-   ```
+# Update Remotion (if old version exists)
+sudo npm install -g @remotion/cli@latest @remotion/lambda@latest
 
-### 3. Auto-Tracking Configuration
+# PostgreSQL client
+sudo apt-get install -y postgresql-client
 
-The auto-tracking service is now configured to run **every 24 hours** automatically. It will:
+# Nginx (if not installed)
+sudo apt-get install -y nginx
 
-- ✅ Start automatically when the server starts
-- ✅ Run every 24 hours (86400000 milliseconds)
-- ✅ Track all configured brand pages
-- ✅ Update ad statuses and add new ads
-- ✅ Handle errors gracefully and continue running
+# FFmpeg (required for video processing)
+sudo apt-get install -y ffmpeg
 
-### 4. Media Processing
+# Certbot (for SSL)
+sudo apt-get install -y certbot python3-certbot-nginx
+```
 
-The media worker will:
-- ✅ Process pending media files every 2 minutes
-- ✅ Handle video transcription and processing
-- ✅ Work with Cloudinary for media storage
+---
 
-### 5. Build and Deploy
+## Step 1: Clone Repository with SSH
+
+### Setup SSH Key for GitHub
+```bash
+# Generate SSH key (if not exists)
+ssh-keygen -t ed25519 -C "your-email@example.com"
+
+# Copy public key
+cat ~/.ssh/id_ed25519.pub
+
+# Add to GitHub: https://github.com/settings/keys
+```
+
+### Clone Repository
+```bash
+cd /var/www
+sudo git clone git@github.com:DnyaneshwarWantace/ignite.git ignite
+sudo chown -R \$USER:\$USER /var/www/ignite
+cd /var/www/ignite
+```
+
+---
+
+## Step 2: Configure Next.js for Subdirectory
+
+Edit `next.config.js` and add:
+
+```javascript
+const nextConfig = {
+  basePath: '/ignite',
+  assetPrefix: '/ignite',
+  // ... rest of existing config
+};
+```
+
+---
+
+## Step 3: Environment Variables
+
+Create `.env.production`:
+
+```env
+NEXTAUTH_URL="https://editor.scalez.in/ignite"
+NEXT_PUBLIC_BACKEND_URL="https://editor.scalez.in/ignite/api/v1"
+
+# Copy all other vars from .env file
+```
+
+---
+
+## Step 4: Build
 
 ```bash
-# Install dependencies
 npm install
-
-# Build the application
+npm run db:production_generate
+npm run db:production_push
 npm run build
-
-# Start the production server
-npm start
 ```
 
-### 6. Process Management (Recommended)
+---
 
-Use PM2 for process management:
+## Step 5: PM2 Setup
+
+Create `ecosystem.config.js`:
+
+```javascript
+module.exports = {
+  apps: [{
+    name: 'ignite',
+    script: 'npm',
+    args: 'start',
+    cwd: '/var/www/ignite',
+    instances: 1,
+    autorestart: true,
+    env: {
+      NODE_ENV: 'production',
+      PORT: 3001
+    }
+  }]
+};
+```
 
 ```bash
-# Install PM2
-npm install -g pm2
-
-# Start the application
-pm2 start npm --name "ignite" -- start
-
-# Save PM2 configuration
+mkdir -p logs
+pm2 start ecosystem.config.js
 pm2 save
-
-# Setup PM2 to start on boot
 pm2 startup
 ```
 
-### 7. Monitoring Auto-Tracking
+---
 
-Check auto-tracking status via API:
-```bash
-curl https://yourdomain.com/api/v1/auto-tracker
-```
+## Step 6: Nginx Config
 
-Expected response:
-```json
-{
-  "success": true,
-  "status": {
-    "isRunning": true,
-    "isCycleInProgress": false,
-    "lastCycleStartTime": "2025-01-11T10:00:00.000Z",
-    "lastCycleEndTime": "2025-01-11T10:30:00.000Z",
-    "nextCycleTime": "2025-01-12T10:00:00.000Z",
-    "trackedPagesCount": 5
-  }
+Create `/etc/nginx/sites-available/editor.scalez.in`:
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name editor.scalez.in;
+
+    # Root (existing editor)
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+    }
+
+    # Ignite subdirectory
+    location /ignite {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+    }
+
+    client_max_body_size 100M;
 }
 ```
 
-### 8. Manual Auto-Tracking Control
-
-Start auto-tracking manually:
 ```bash
-curl -X POST https://yourdomain.com/api/v1/auto-tracker
+sudo ln -s /etc/nginx/sites-available/editor.scalez.in /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
 ```
 
-Track specific page:
+---
+
+## Step 7: SSL
 ```bash
-curl -X POST "https://yourdomain.com/api/v1/auto-tracker?pageId=your-page-id"
+sudo certbot --nginx -d editor.scalez.in
 ```
 
-### 9. Logs and Monitoring
+---
 
-Check application logs:
+## Step 8: Update Google OAuth
+Add redirect URI: `https://editor.scalez.in/ignite/api/auth/callback/google`
+
+---
+
+## Deployment Commands
+
 ```bash
-# If using PM2
+# Pull & deploy
+cd /var/www/ignite
+git pull origin master
+npm install
+npm run build
+pm2 restart ignite
+```
+
+## PM2 Commands
+```bash
 pm2 logs ignite
-
-# If using systemd
-journalctl -u your-service-name -f
+pm2 restart ignite
+pm2 status
+pm2 monit
 ```
 
-### 10. Security Considerations
+## Troubleshooting
+```bash
+# Logs
+pm2 logs ignite --lines 100
+sudo tail -f /var/log/nginx/error.log
 
-- ✅ Environment variables are properly configured
-- ✅ Database credentials are secure
-- ✅ OAuth secrets are protected
-- ✅ Auto-tracking runs with proper error handling
-- ✅ Media processing is rate-limited
+# Check ports
+sudo lsof -i :3001
 
-## 🔧 Troubleshooting
+# Restart all
+pm2 restart ignite
+sudo systemctl restart nginx
+```
 
-### Auto-tracking not starting?
-1. Check server logs for initialization errors
-2. Verify database connection
-3. Check if brands are configured in the database
-4. Test manual tracking via API
-
-### Media processing issues?
-1. Verify Cloudinary credentials
-2. Check media worker logs
-3. Ensure sufficient server resources
-
-### Database connection issues?
-1. Verify DATABASE_URL format
-2. Check PostgreSQL service status
-3. Verify user permissions
-
-## 📊 Performance Notes
-
-- Auto-tracking runs every 24 hours to minimize server load
-- Media processing is batched every 2 minutes
-- Database queries are optimized with pagination
-- Error handling prevents service crashes
-
-## 🔄 Updates and Maintenance
-
-To update the application:
-1. Pull latest code
-2. Run `npm install`
-3. Run `npm run build`
-4. Restart the application
-
-The auto-tracking service will automatically restart with the new configuration. 

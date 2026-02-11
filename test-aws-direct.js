@@ -16,9 +16,9 @@ const { LambdaClient, ListFunctionsCommand, GetFunctionCommand } = require('@aws
 const { S3Client, ListObjectsV2Command } = require('@aws-sdk/client-s3');
 const { STSClient, GetCallerIdentityCommand } = require('@aws-sdk/client-sts');
 
-// Get credentials from environment or use defaults from .env file
-const AWS_ACCESS_KEY_ID = process.env.REMOTION_AWS_ACCESS_KEY_ID || 'AKIA4O7BVEMBJOR4Y2OZ';
-const AWS_SECRET_ACCESS_KEY = process.env.REMOTION_AWS_SECRET_ACCESS_KEY || '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';
+// Get credentials from environment (.env or export)
+const AWS_ACCESS_KEY_ID = process.env.REMOTION_AWS_ACCESS_KEY_ID;
+const AWS_SECRET_ACCESS_KEY = process.env.REMOTION_AWS_SECRET_ACCESS_KEY;
 const REGION = 'us-east-1';
 
 if (!AWS_ACCESS_KEY_ID || !AWS_SECRET_ACCESS_KEY) {
@@ -199,7 +199,7 @@ function printResults(results) {
     });
     console.log('\n💡 SOLUTION:');
     console.log('   1. Go to AWS Console → IAM → Users');
-    console.log('   2. Find your user (with access key starting with AKIA4O7BVEMBJOR4Y2OZ)');
+    console.log('   2. Find your user (check Security credentials for the access key ID)');
     console.log('   3. Click "Add permissions" → "Attach policies directly"');
     console.log('   4. Attach these policies:');
     console.log('      - AWSLambda_FullAccess');

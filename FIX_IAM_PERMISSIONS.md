@@ -13,7 +13,7 @@
 ### Step 2: Find Your IAM User
 1. Click **Services** → Search **IAM**
 2. Click **Users** in left sidebar
-3. Find the user that has access key starting with `AKIA4O7BVEMBJOR4Y2OZ`
+3. Find the user that owns your Remotion access key (check Security credentials tab)
    - If you're not sure, check the user's "Security credentials" tab
 
 ### Step 3: Add Permissions

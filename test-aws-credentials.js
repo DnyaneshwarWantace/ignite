@@ -11,8 +11,8 @@ const { exec } = require('child_process');
 const { promisify } = require('util');
 const execAsync = promisify(exec);
 
-const AWS_ACCESS_KEY_ID = process.env.REMOTION_AWS_ACCESS_KEY_ID || 'AKIA4O7BVEMBJOR4Y2OZ';
-const AWS_SECRET_ACCESS_KEY = process.env.REMOTION_AWS_SECRET_ACCESS_KEY || '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';
+const AWS_ACCESS_KEY_ID = process.env.REMOTION_AWS_ACCESS_KEY_ID;
+const AWS_SECRET_ACCESS_KEY = process.env.REMOTION_AWS_SECRET_ACCESS_KEY;
 
 async function testCredentials() {
   console.log('🔍 Testing AWS Credentials for Remotion Lambda...\n');

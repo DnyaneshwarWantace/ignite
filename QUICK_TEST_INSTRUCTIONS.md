@@ -23,8 +23,8 @@
 ### Option 2: Test with AWS CLI (If Installed)
 
 ```bash
-export REMOTION_AWS_ACCESS_KEY_ID=AKIA4O7BVEMBJOR4Y2OZ
-export REMOTION_AWS_SECRET_ACCESS_KEY="j1abVm225WBG+f1RT+YkXO91RHMQdmBWZAOSCgTV"
+export REMOTION_AWS_ACCESS_KEY_ID=your-access-key-id
+export REMOTION_AWS_SECRET_ACCESS_KEY=your-secret-access-key
 
 # Test 1: Verify credentials
 aws sts get-caller-identity --region us-east-1
@@ -42,9 +42,9 @@ npx remotion lambda functions ls --region=us-east-1
 ### Option 3: Test with Node Script
 
 ```bash
-# Set environment variables
-export REMOTION_AWS_ACCESS_KEY_ID=AKIA4O7BVEMBJOR4Y2OZ
-export REMOTION_AWS_SECRET_ACCESS_KEY="j1abVm225WBG+f1RT+YkXO91RHMQdmBWZAOSCgTV"
+# Set environment variables (use values from your .env)
+export REMOTION_AWS_ACCESS_KEY_ID=your-access-key-id
+export REMOTION_AWS_SECRET_ACCESS_KEY=your-secret-access-key
 
 # Run test script
 node test-aws-credentials.js

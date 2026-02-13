@@ -1,6 +1,6 @@
 import { auth } from "@/app/api/auth/[...nextauth]/options";
 import { ADMIN_LOGIN, DEFAULT_REDIRECT, PUBLIC_ROUTES, ROOT } from "@/lib/routes";
-import { NextFetchEvent, NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 // CVE-2025-29927: reject requests that try to bypass middleware via x-middleware-subrequest
 function blockMiddlewareBypass(req: NextRequest) {
@@ -37,10 +37,10 @@ const withAuth = auth((req) => {
   }
 });
 
-export default function middleware(req: NextRequest, event: NextFetchEvent) {
+export default function middleware(req: NextRequest) {
   const blocked = blockMiddlewareBypass(req);
   if (blocked) return blocked;
-  return withAuth(req, event);
+  return withAuth(req, {});
 }
 
 export const config = {

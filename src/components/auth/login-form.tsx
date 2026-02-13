@@ -3,6 +3,7 @@ import { signIn } from "next-auth/react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { useState } from "react";
+import { DEFAULT_REDIRECT } from "@/lib/routes";
 
 export default function LoginForm() {
   const [email, setemail] = useState("");
@@ -32,7 +33,7 @@ export default function LoginForm() {
             signIn("credentials", {
               email,
               password,
-              callbackUrl: "/x-ray",
+              callbackUrl: DEFAULT_REDIRECT,
             });
           }
         }}

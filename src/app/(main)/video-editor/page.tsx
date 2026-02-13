@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ROOT } from '@/lib/routes';
+import { withBasePath } from '@/lib/base-path';
 
 interface Project {
   id: string;
@@ -85,8 +86,9 @@ export default function VideoEditorPage() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-      const response = await fetch('/api/editor/video/projects', {
+      const response = await fetch(withBasePath('/api/editor/video/projects'), {
         signal: controller.signal,
+        credentials: 'include',
         headers: {
           'Cache-Control': 'no-cache',
         },
@@ -113,8 +115,9 @@ export default function VideoEditorPage() {
     if (!newProjectName.trim()) return;
 
     try {
-      const response = await fetch('/api/editor/video/projects', {
+      const response = await fetch(withBasePath('/api/editor/video/projects'), {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -138,8 +141,9 @@ export default function VideoEditorPage() {
 
   const deleteProject = async (projectId: string) => {
     try {
-      const response = await fetch(`/api/editor/video/projects/${projectId}`, {
+      const response = await fetch(withBasePath(`/api/editor/video/projects/${projectId}`), {
         method: 'DELETE',
+        credentials: 'include',
       });
 
       if (response.ok) {
@@ -152,8 +156,9 @@ export default function VideoEditorPage() {
 
   const duplicateProject = async (projectId: string) => {
     try {
-      const response = await fetch(`/api/editor/video/projects/${projectId}/duplicate`, {
+      const response = await fetch(withBasePath(`/api/editor/video/projects/${projectId}/duplicate`), {
         method: 'POST',
+        credentials: 'include',
       });
 
       if (response.ok) {
@@ -169,8 +174,9 @@ export default function VideoEditorPage() {
     if (!selectedProject || !renameProjectName.trim()) return;
 
     try {
-      const response = await fetch(`/api/editor/video/projects/${selectedProject.id}`, {
+      const response = await fetch(withBasePath(`/api/editor/video/projects/${selectedProject.id}`), {
         method: 'PUT',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },

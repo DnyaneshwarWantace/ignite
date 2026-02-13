@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Editor from "@/editor-lib/video/features/editor";
 import { ROOT } from "@/lib/routes";
+import { withBasePath } from "@/lib/base-path";
 
 export default function EditPage({
 	params,
@@ -37,7 +38,7 @@ export default function EditPage({
 		// Check access and fetch scene once; pass scene to Editor so it doesn't show a second loader
 		const checkProjectAccess = async () => {
 			try {
-				const response = await fetch(`/api/editor/video/scene/${projectId}`);
+				const response = await fetch(withBasePath(`/api/editor/video/scene/${projectId}`), { credentials: 'include' });
 				if (!response.ok) {
 					router.push('/projects');
 					return;

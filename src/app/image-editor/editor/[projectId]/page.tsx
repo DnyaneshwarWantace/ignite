@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { withBasePath } from "@/lib/base-path";
 import { EditorLayout } from "./_components/editor-layout";
 import { CanvasProvider } from "@/editor-lib/image/providers/canvas-provider";
 
@@ -20,8 +21,8 @@ export default function EditorPage() {
       try {
         // Fetch project and canvas in parallel so we have both before showing the editor
         const [projectRes, canvasRes] = await Promise.all([
-          fetch(`/api/editor/image/projects/${projectId}`),
-          fetch(`/api/editor/image/projects/${projectId}/canvas`),
+          fetch(withBasePath(`/api/editor/image/projects/${projectId}`), { credentials: "include" }),
+          fetch(withBasePath(`/api/editor/image/projects/${projectId}/canvas`), { credentials: "include" }),
         ]);
 
         let project: any = null;

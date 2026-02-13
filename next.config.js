@@ -21,8 +21,11 @@ const nextConfig = {
     ],
   },
   webpack: (config, { isServer }) => {
-    // Prefer CommonJS/main over ESM/module to use UMD versions of problematic packages
-    config.resolve.mainFields = ['main', 'module'];
+    // Force webpack to use UMD version of @designcombo/frames
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@designcombo/frames': require.resolve('@designcombo/frames/dist/frames.umd.cjs'),
+    };
 
     // Exclude native modules from client-side bundles
     if (!isServer) {

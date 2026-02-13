@@ -1,8 +1,9 @@
 /** @type {import('next').NextConfig} */
+const basePath = process.env.NODE_ENV === 'production' ? '/ignite' : '';
 const nextConfig = {
-  // Subdirectory deployment configuration
-  basePath: process.env.NODE_ENV === 'production' ? '/ignite' : '',
-  assetPrefix: process.env.NODE_ENV === 'production' ? '/ignite' : '',
+  basePath,
+  assetPrefix: basePath || undefined,
+  env: { NEXT_PUBLIC_BASE_PATH: basePath },
   reactStrictMode: false,
   eslint: { ignoreDuringBuilds: true },
   images: {

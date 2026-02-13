@@ -47,7 +47,7 @@ export function Sidebar() {
     <div className="w-64 h-screen flex flex-col border-r bg-background">
       <div className="p-4">
         <Link href="/" className="flex items-center space-x-2 mb-4" prefetch={false}>
-          <img src="/logo.svg" alt="Ignite Logo" />
+          <img src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/logo.svg`} alt="Ignite Logo" />
           <span className="text-lg font-semibold">Ignite</span>
         </Link>
         <nav className="space-y-2 ">

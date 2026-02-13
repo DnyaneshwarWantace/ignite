@@ -1,8 +1,16 @@
 import { auth } from "@/app/api/auth/[...nextauth]/options";
 import { ADMIN_LOGIN, DEFAULT_REDIRECT, PUBLIC_ROUTES, ROOT } from "@/lib/routes";
-import { NextResponse } from "next/server";
+import { NextFetchEvent, NextRequest, NextResponse } from "next/server";
 
-export default auth((req) => {
+// CVE-2025-29927: reject requests that try to bypass middleware via x-middleware-subrequest
+function blockMiddlewareBypass(req: NextRequest) {
+  if (req.headers.get("x-middleware-subrequest")) {
+    return new NextResponse(null, { status: 403 });
+  }
+  return null;
+}
+
+const withAuth = auth((req) => {
   try {
     const { nextUrl } = req;
     const isAuthenticated = !!req.auth;
@@ -28,6 +36,12 @@ export default auth((req) => {
     return Response.redirect(new URL(ROOT, req.nextUrl));
   }
 });
+
+export default function middleware(req: NextRequest, event: NextFetchEvent) {
+  const blocked = blockMiddlewareBypass(req);
+  if (blocked) return blocked;
+  return withAuth(req, event);
+}
 
 export const config = {
   // Exclude api, all _next (static/image/HMR/chunks), static files

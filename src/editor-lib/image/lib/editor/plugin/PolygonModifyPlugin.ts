@@ -1,7 +1,7 @@
 import { Polygon, Point, Control, Transform, FabricObject, util, type TPointerEvent } from 'fabric';
 import { drawImg } from '../utils/utils';
 // @ts-ignore - SVG import
-import edgeImg from '../assets/edgecontrol.svg';
+import edgeImg from '../assets/edgeControl.svg';
 import { noop } from 'lodash-es';
 import type { IEditor, IPluginTempl } from '../interface/Editor';
 

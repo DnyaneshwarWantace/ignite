@@ -197,6 +197,8 @@ server {
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host \$host;
         proxy_cache_bypass \$http_upgrade;
+        # CVE-2025-29927: block middleware bypass (strip before Next.js sees it)
+        proxy_set_header x-middleware-subrequest "";
     }
 
     client_max_body_size 100M;
@@ -252,6 +254,18 @@ pm2 restart ignite
 pm2 status
 pm2 monit
 ```
+
+## Security: Next.js middleware bypass (CVE-2025-29927)
+
+Older Next.js versions can be abused so auth is bypassed via the `x-middleware-subrequest` header. This app is patched by:
+
+1. **Upgrading Next.js** to 14.2.25+ (see `package.json`).
+2. **Middleware** rejecting requests that send that header (see `src/middleware.ts`).
+3. **Nginx** (above) overwriting that header with an empty value before the request reaches Next.js.
+
+After any deploy, run `npm install` and `npm run build` so the upgraded Next.js is used. If you use another reverse proxy (e.g. Caddy, HAProxy), strip or clear the `x-middleware-subrequest` request header before proxying to Next.js.
+
+---
 
 ## Troubleshooting
 ```bash

@@ -5,6 +5,8 @@ import { compare } from "bcryptjs";
 import { supabaseAdmin } from "@/lib/supabase";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  // Next.js strips basePath before the handler, so the request path is /api/auth/* not /ignite/api/auth/*
+  basePath: "/api/auth",
   providers: [
     GoogleProvider({
       clientId: process.env.AUTH_GOOGLE_ID as string,

@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { withBasePath } from "@/lib/base-path";
 export default function EmptyState({ title, description, buttonText, onClick, writer = false }: any) {
   return (
     <motion.div
@@ -13,7 +14,7 @@ export default function EmptyState({ title, description, buttonText, onClick, wr
         {/* <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }}>
           <Plus className="h-12 w-12 text-gray-400" />
         </motion.div> */}
-        <img src={writer ? "/images/writer-empty.svg" : "/images/c-empty.svg"} alt="blank" />
+        <img src={withBasePath(writer ? "/images/writer-empty.svg" : "/images/c-empty.svg")} alt="blank" />
       </div>
       <h3 className="mb text-lg text-muted-foreground font-semibold">{title}</h3>
       <p className="mb-4 text-sm text-gray-500">{description}</p>

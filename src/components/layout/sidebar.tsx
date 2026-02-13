@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Separator } from "../ui/separator";
 import { InputWithIcon } from "../ui/input-with-icon";
 import { cn } from "@/lib/utils";
+import { withBasePath } from "@/lib/base-path";
 import { usePathname } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { signOut, useSession } from "next-auth/react";
@@ -47,7 +48,7 @@ export function Sidebar() {
     <div className="w-64 h-screen flex flex-col border-r bg-background">
       <div className="p-4">
         <Link href="/" className="flex items-center space-x-2 mb-4" prefetch={false}>
-          <img src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/logo.svg`} alt="Ignite Logo" />
+          <img src={withBasePath("/logo.svg")} alt="Ignite Logo" />
           <span className="text-lg font-semibold">Ignite</span>
         </Link>
         <nav className="space-y-2 ">
@@ -61,7 +62,7 @@ export function Sidebar() {
                 (pathname === item.href || (item.href !== "/" && pathname?.startsWith(item.href)) || (item.href.startsWith("/ai-writer") && pathname?.startsWith("/ai-writer"))) ? "bg-[#F9FAFB] text-foreground font-medium" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
               )}
             >
-              <Image src={item.icon} alt={item.label} width={16} height={16} className="h-4 w-4" />
+              <Image src={withBasePath(item.icon)} alt={item.label} width={16} height={16} className="h-4 w-4" />
               <span>{item.label}</span>
             </Link>
           ))}
@@ -93,7 +94,7 @@ export function Sidebar() {
                 pathname === item.href ? "bg-[#F9FAFB] text-foreground font-medium" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
               )}
             >
-              <Image src={item.icon} alt={item.label} width={16} height={16} className="h-4 w-4" />
+              <Image src={withBasePath(item.icon)} alt={item.label} width={16} height={16} className="h-4 w-4" />
               <span>{item.label}</span>
             </Link>
           ))}

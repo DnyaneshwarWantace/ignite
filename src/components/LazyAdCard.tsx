@@ -3,6 +3,7 @@ import { useInView } from 'react-intersection-observer';
 import AdCard from './ad-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCheckIfAdSavedQuery } from '@/store/slices/xray';
+import { withBasePath } from '@/lib/base-path';
 
 interface LazyAdCardProps {
   ad: any;
@@ -380,7 +381,7 @@ export default function LazyAdCard({ ad, onCtaClick, onSaveAd, expand, hideActio
       }
     }
     
-    return "/placeholder.svg?height=32&width=32";
+    return withBasePath("/placeholder.svg?height=32&width=32");
   };
 
   const getBrandName = (ad: any) => {

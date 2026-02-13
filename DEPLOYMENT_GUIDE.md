@@ -129,7 +129,8 @@ NEXT_PUBLIC_SUPABASE_URL=https://nrfujyhdlrszkbtsfuac.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5yZnVqeWhkbHJzemtidHNmdWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3NTA4MzgsImV4cCI6MjA4MjMyNjgzOH0.D7DiAn81QUUax6mRIHrbFBzIcp6ywbzBZlJiLdmiTrg
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5yZnVqeWhkbHJzemtidHNmdWFjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2Njc1MDgzOCwiZXhwIjoyMDgyMzI2ODM4fQ.EEnQDdRT3dUy9s8vjYPAE5PHNXZ6h09qF0JbVJbKJOE
 
-# Auth js
+# Auth (required when app is at /ignite: use full URL including base path)
+NEXTAUTH_URL="https://editor.scalez.in/ignite"
 NEXTAUTH_SECRET="3+sdBgEhEe2uzw3xdZKlwLtj/UU92OycSYFIUPSWBHA="
 AUTH_SECRET="3+sdBgEhEe2uzw3xdZKlwLtj/UU92OycSYFIUPSWBHA="
 AUTH_TRUST_HOST=1

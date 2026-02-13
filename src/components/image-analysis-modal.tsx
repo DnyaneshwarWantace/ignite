@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Typography } from "@/components/ui/typography";
 import { Badge } from "@/components/ui/badge";
 import { Eye, Loader2, Sparkles } from "lucide-react";
+import { withBasePath } from "@/lib/base-path";
 
 interface ImageAnalysisModalProps {
   isOpen: boolean;
@@ -113,7 +114,7 @@ export default function ImageAnalysisModal({ isOpen, onCloseAction, imageUrl, im
                 alt="Advertisement to analyze"
                 className="w-full h-full object-contain"
                 onError={(e) => {
-                  e.currentTarget.src = '/images/c-empty.svg';
+                  e.currentTarget.src = withBasePath('/images/c-empty.svg');
                 }}
               />
             </div>

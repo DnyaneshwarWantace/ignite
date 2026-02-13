@@ -32,6 +32,7 @@ import {
   filterAds,
   FilterState 
 } from "@/lib/adFiltering";
+import { withBasePath } from "@/lib/base-path";
 import Masonry from "react-masonry-css";
 const OverallStats = dynamic(() => import("@/components/overall-statistics"), { ssr: false });
 
@@ -258,7 +259,7 @@ export default function Brand({ params }: { params: { brand: string } }) {
                        snapshot.branded_content?.page_profile_pic_url ||
                        snapshot.profile_picture_url ||
                        content.page_profile_picture_url ||
-                       "/placeholder.svg?height=32&width=32";
+                       withBasePath("/placeholder.svg?height=32&width=32");
         }
         
         // Brand name
@@ -278,7 +279,7 @@ export default function Brand({ params }: { params: { brand: string } }) {
     }
     
     return {
-      brandAvatar: currentBrand?.logo || "/placeholder.svg?height=32&width=32",
+      brandAvatar: currentBrand?.logo || withBasePath("/placeholder.svg?height=32&width=32"),
       brandName: currentBrand?.name || "Unknown Brand"
     };
   };

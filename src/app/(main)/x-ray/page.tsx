@@ -25,6 +25,7 @@ import { useRouter } from "next/navigation";
 import { useContext, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { FolderContext } from "@/contexts/FolderContext";
+import { withBasePath } from "@/lib/base-path";
 
 export default function XRayPage() {
   // Start media worker loop once when X-ray page loads (so pending ads get processed without manual scrape)
@@ -321,7 +322,7 @@ export default function XRayPage() {
                         window.open("https://www.facebook.com/ads/library/", "_blank");
                       }}
                     >
-                      <img src="/images/icons/Facebook.svg" className="mr-2" alt="Facebook icon" />
+                      <img src={withBasePath("/images/icons/Facebook.svg")} className="mr-2" alt="Facebook icon" />
                       Add Library
                       <ArrowUpRight className="ml-2 w-9 h-9" />
                     </Button>

@@ -1,12 +1,11 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { showToast } from "@/lib/toastUtils";
-
-const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000/api/v1";
+import { getApiBaseUrl } from "@/lib/base-path";
 
 export const discoverApi = createApi({
   reducerPath: "discoverApi",
-  baseQuery: fetchBaseQuery({ 
-    baseUrl: API_URL,
+  baseQuery: fetchBaseQuery({
+    baseUrl: getApiBaseUrl(),
     credentials: 'include',
     prepareHeaders: (headers, { getState }) => {
       headers.set('Content-Type', 'application/json');

@@ -15,6 +15,7 @@ import AdCarousel from "./AdCarousel";
 import SaveAdModal from "./save-ad-modal";
 
 import { useCheckIfAdSavedQuery } from "@/store/slices/xray";
+import { withBasePath } from "@/lib/base-path";
 
 // Global video manager to ensure only one video plays at a time
 class VideoManager {
@@ -783,7 +784,7 @@ export default function AdCard({
                           </div>
                         ) : (
                           <img 
-                            src="/images/c-empty.svg" 
+                            src={withBasePath("/images/c-empty.svg")} 
                             alt="No media available" 
                             className="w-16 h-16 mx-auto mb-2 opacity-50"
                           />

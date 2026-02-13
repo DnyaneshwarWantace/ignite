@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { withBasePath } from "@/lib/base-path";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -553,17 +554,17 @@ export default function AdPreviewModal({ isOpen, onClose, ad }: AdPreviewModalPr
         const snapshot = content.snapshot || {};
         const brandedContent = snapshot.branded_content || {};
         
-        return snapshot.page_profile_picture_url || 
+        return snapshot.page_profile_picture_url ||
                brandedContent.page_profile_pic_url ||
                snapshot.profile_picture_url ||
                content.page_profile_picture_url ||
-               "/placeholder.svg?height=32&width=32";
+               withBasePath("/placeholder.svg?height=32&width=32");
       } catch (e) {
         console.error('Error parsing ad content for brand avatar:', e);
       }
     }
     
-    return "/placeholder.svg?height=32&width=32";
+    return withBasePath("/placeholder.svg?height=32&width=32");
   };
 
   if (!isOpen) return null;

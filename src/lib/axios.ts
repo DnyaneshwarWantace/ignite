@@ -1,9 +1,15 @@
 // utils/axiosInstance.ts
 
 import axios from "axios";
+import { getBasePath } from "@/lib/base-path";
+
+const getClientBaseURL = () =>
+  typeof window !== "undefined"
+    ? `${window.location.origin}${getBasePath()}/api/v1`
+    : process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000/api/v1";
 
 const axiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000/api/v1",
+  baseURL: process.env.NEXT_PUBLIC_BACKEND_URL || getClientBaseURL(),
   headers: {
     "Content-Type": "application/json",
   },
@@ -13,7 +19,9 @@ const axiosInstance = axios.create({
 // Add a request interceptor
 axiosInstance.interceptors.request.use(
   (config) => {
-    // You can add auth tokens or other custom headers here
+    if (typeof window !== "undefined") {
+      config.baseURL = `${window.location.origin}${getBasePath()}/api/v1`;
+    }
     const token = localStorage.getItem("token"); // Example for JWT
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;

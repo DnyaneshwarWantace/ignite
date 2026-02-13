@@ -6,6 +6,7 @@ import moment from "moment";
 import { Flex, Grid } from "@radix-ui/themes";
 import { Brand, Folder } from "@prisma/client";
 import Link from "next/link";
+import { withBasePath } from "@/lib/base-path";
 
 export default function AccordionFolder({
   children,
@@ -20,7 +21,7 @@ export default function AccordionFolder({
       <AccordionTrigger className="hover:no-underline ">
         <Grid align={"center"} columns="3" rows="1">
           <Flex className="space-x-2" align={"center"}>
-            <img src="/images/icons/folder.svg" className="w-[40px] h-[40px]" alt="Folder icon" />
+            <img src={withBasePath("/images/icons/folder.svg")} className="w-[40px] h-[40px]" alt="Folder icon" />
             <Typography variant="title" className=" text-sm hover:underline">
               <Link href={`/x-ray/brand/${id}`}>{name}</Link>
             </Typography>

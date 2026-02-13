@@ -1,5 +1,6 @@
 "use client";
 import { useSession, signOut } from "next-auth/react";
+import { ROOT } from "@/lib/routes";
 import { useRouter } from "next/navigation";
 import { Button } from "../ui/button";
 import {
@@ -22,7 +23,7 @@ export default function UserMenu() {
   }
 
   const handleSignOut = async () => {
-    await signOut({ callbackUrl: "/login" });
+    await signOut({ callbackUrl: ROOT });
   };
 
   const handleProjectsClick = () => {

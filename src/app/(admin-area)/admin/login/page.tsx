@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Shield, Loader2 } from "lucide-react";
+import { ROOT } from "@/lib/routes";
 
 export default function AdminLoginPage() {
   const searchParams = useSearchParams();
@@ -106,7 +107,7 @@ export default function AdminLoginPage() {
           </CardContent>
         </Card>
         <p className="text-center mt-4">
-          <a href="/login" className="text-sm text-muted-foreground hover:text-foreground underline">
+          <a href={ROOT} className="text-sm text-muted-foreground hover:text-foreground underline">
             Not an admin? Use the main login
           </a>
         </p>

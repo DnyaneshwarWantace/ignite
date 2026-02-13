@@ -51,8 +51,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     strategy: "jwt",
   },
   pages: {
-    signIn: "/login",
-    error: "/login",
+    signIn: `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/login`,
+    error: `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/login`,
   },
   callbacks: {
     async signIn({ user, account, profile }) {

@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Editor from "@/editor-lib/video/features/editor";
+import { ROOT } from "@/lib/routes";
 
 export default function EditPage({
 	params,
@@ -29,7 +30,7 @@ export default function EditPage({
 
 		// If not authenticated, redirect to login
 		if (!session) {
-			router.push('/login');
+			router.push(ROOT);
 			return;
 		}
 

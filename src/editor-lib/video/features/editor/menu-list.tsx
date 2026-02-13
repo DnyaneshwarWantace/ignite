@@ -12,6 +12,7 @@ import {
 import { MenuItem } from "./menu-item/menu-item";
 import { useIsLargeScreen } from "@/editor-lib/video/hooks/use-media-query";
 import { useSession, signOut } from "next-auth/react";
+import { ROOT } from "@/lib/routes";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -110,7 +111,7 @@ const UserProfile = memo(() => {
 	}
 
 	const handleSignOut = async () => {
-		await signOut({ callbackUrl: "/login" });
+		await signOut({ callbackUrl: ROOT });
 	};
 
 	const getInitials = (name: string) => {

@@ -35,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ROOT } from '@/lib/routes';
 
 interface Project {
   id: string;
@@ -67,7 +68,7 @@ export default function ImageEditorPage() {
   useEffect(() => {
     if (status === 'loading') return;
     if (!session) {
-      router.push('/login');
+      router.push(ROOT);
     }
   }, [session, status, router]);
 

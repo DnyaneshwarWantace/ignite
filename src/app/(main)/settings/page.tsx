@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useSession, signOut } from "next-auth/react";
+import { ROOT } from "@/lib/routes";
 import {
   User,
   Shield,
@@ -484,7 +485,7 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSignOut = () => { signOut({ callbackUrl: "/login" }); };
+  const handleSignOut = () => { signOut({ callbackUrl: ROOT }); };
 
   const configuredCount = savedKeys.length;
   const totalCount = PROVIDERS.length;

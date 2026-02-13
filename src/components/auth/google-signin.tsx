@@ -1,12 +1,13 @@
 "use client";
 import { signIn } from "next-auth/react";
 import { Button } from "../ui/button";
+import { DEFAULT_REDIRECT } from "@/lib/routes";
 
 export default function GoogleBtn() {
   return (
     <Button
       onClick={() => {
-        signIn("google", { callbackUrl: "/x-ray" });
+        signIn("google", { callbackUrl: DEFAULT_REDIRECT });
       }}
       variant="outline"
       className="w-full"

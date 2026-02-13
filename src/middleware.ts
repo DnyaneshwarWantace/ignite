@@ -18,15 +18,17 @@ const withAuth = auth((req) => {
     const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
 
     if (isPublicRoute && isAuthenticated) {
+      const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
       if (pathname === ADMIN_LOGIN)
-        return Response.redirect(new URL("/admin", nextUrl));
+        return Response.redirect(new URL(`${basePath}/admin`, nextUrl));
       return Response.redirect(new URL(DEFAULT_REDIRECT, nextUrl));
     }
 
     if (!isAuthenticated && !isPublicRoute) {
-      const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
+      const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+      const isAdminRoute = pathname === `${basePath}/admin` || pathname.startsWith(`${basePath}/admin/`);
       const loginUrl = new URL(isAdminRoute ? ADMIN_LOGIN : ROOT, nextUrl);
-      loginUrl.searchParams.set("callbackUrl", isAdminRoute ? "/admin" : pathname);
+      loginUrl.searchParams.set("callbackUrl", isAdminRoute ? `${basePath}/admin` : pathname);
       return Response.redirect(loginUrl);
     }
 

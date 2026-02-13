@@ -8,6 +8,7 @@ import { LayoutDashboard, Users, Activity, Shield, BarChart2 } from "lucide-reac
 import { cn } from "@/lib/utils";
 import { Typography } from "@/components/ui/typography";
 import { Button } from "@/components/ui/button";
+import { ADMIN_LOGIN, ROOT } from "@/lib/routes";
 
 const adminNav = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
@@ -25,17 +26,17 @@ export default function AdminLayout({
   const router = useRouter();
   const pathname = usePathname();
   const isAdmin = (session?.user as { isAdmin?: boolean })?.isAdmin;
-  const isLoginPage = pathname === "/admin/login";
+  const isLoginPage = pathname === ADMIN_LOGIN;
 
   useEffect(() => {
     if (isLoginPage) return;
     if (status === "loading") return;
     if (!session?.user) {
-      router.replace("/admin/login");
+      router.replace(ADMIN_LOGIN);
       return;
     }
     if (!isAdmin) {
-      router.replace("/");
+      router.replace(ROOT);
       return;
     }
   }, [session, status, isAdmin, router, isLoginPage]);

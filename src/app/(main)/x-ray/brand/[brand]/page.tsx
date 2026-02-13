@@ -33,6 +33,7 @@ import {
   FilterState 
 } from "@/lib/adFiltering";
 import { withBasePath } from "@/lib/base-path";
+import { ROOT } from "@/lib/routes";
 import Masonry from "react-masonry-css";
 const OverallStats = dynamic(() => import("@/components/overall-statistics"), { ssr: false });
 
@@ -426,7 +427,7 @@ export default function Brand({ params }: { params: { brand: string } }) {
                 You need to be logged in to view brand data.
               </Typography>
               <Button 
-                onClick={() => window.location.href = '/login'}
+                onClick={() => window.location.href = ROOT}
                 className="bg-purple-500 text-white hover:bg-purple-600 w-full sm:w-auto justify-center"
               >
                 Go to Login

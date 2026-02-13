@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Spinner } from "@radix-ui/themes";
+import { ROOT, DEFAULT_REDIRECT } from "@/lib/routes";
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -14,10 +15,10 @@ export default function Home() {
 
     if (session) {
       // User is authenticated, redirect to main app
-      router.push("/x-ray");
+      router.push(DEFAULT_REDIRECT);
     } else {
       // User is not authenticated, redirect to login
-      router.push("/login");
+      router.push(ROOT);
     }
   }, [session, status, router]);
 

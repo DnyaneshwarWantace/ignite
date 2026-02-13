@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SessionProvider } from "next-auth/react";
+import { getBasePath } from "@/lib/base-path";
 import { ThemeProvider } from "next-themes";
 import { IconButton, Theme } from "@radix-ui/themes";
 import { closeSnackbar, SnackbarProvider } from "notistack";
@@ -35,7 +36,7 @@ export default function ProviderWrapper({ children }: { children: React.ReactNod
 
   return (
     <ReduxToolkitProviders>
-      <SessionProvider>
+      <SessionProvider basePath={typeof window !== "undefined" ? `${getBasePath()}/api/auth` : undefined}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <Theme>
             <SnackbarProvider

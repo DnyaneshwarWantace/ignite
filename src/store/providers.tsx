@@ -1,5 +1,6 @@
 "use client";
 import { SessionProvider } from "next-auth/react";
+import { getBasePath } from "@/lib/base-path";
 import { store, persistor } from "./store";
 import { Provider } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
@@ -27,7 +28,7 @@ export function ReduxToolkitProviders({ children }: { children: any }) {
           hideIconVariant
           anchorOrigin={{ vertical: "top", horizontal: "right" }}
         >
-          <SessionProvider>{children}</SessionProvider>
+          <SessionProvider basePath={typeof window !== "undefined" ? `${getBasePath()}/api/auth` : undefined}>{children}</SessionProvider>
         </SnackbarProvider>
       </PersistGate>
     </Provider>

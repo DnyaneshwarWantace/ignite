@@ -189,21 +189,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
 
     async redirect({ url, baseUrl }) {
-      // Preserve admin callback: if client asked for /admin, send them there
+      // baseUrl may be .../ignite/api/auth; app base for redirects is .../ignite
+      const appBase = baseUrl.replace(/\/api\/auth\/?$/, "") || baseUrl;
       const wantAdmin = url.startsWith("/admin") || url.includes("/admin");
       if (wantAdmin) {
-        const adminUrl = url.startsWith("/") ? `${baseUrl}${url}` : url;
-        if (adminUrl.startsWith(baseUrl)) return adminUrl;
+        const adminUrl = url.startsWith("/") ? `${appBase}${url}` : url;
+        if (adminUrl.startsWith(appBase)) return adminUrl;
       }
-      // If url is relative, make it absolute
       if (url.startsWith("/")) {
-        return `${baseUrl}${url}`;
+        return `${appBase}${url}`;
       }
-      // If url is on the same origin, allow it
       try {
-        if (new URL(url).origin === baseUrl) return url;
+        if (new URL(url).origin === new URL(appBase).origin) return url;
       } catch (_) {}
-      return baseUrl;
+      return appBase;
     },
   },
   debug: process.env.NODE_ENV === "development",

@@ -4,8 +4,6 @@ const nextConfig = {
   basePath: process.env.NODE_ENV === 'production' ? '/ignite' : '',
   assetPrefix: process.env.NODE_ENV === 'production' ? '/ignite' : '',
   reactStrictMode: false,
-  // Transpile @designcombo packages to fix webpack parsing errors
-  transpilePackages: ['@designcombo/frames', '@designcombo/state', '@designcombo/timeline', '@designcombo/events', '@designcombo/types'],
   images: {
     remotePatterns: [
       {
@@ -23,6 +21,12 @@ const nextConfig = {
     ],
   },
   webpack: (config, { isServer }) => {
+    // Resolve @designcombo packages to use UMD version to avoid parsing errors
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@designcombo/frames$': '@designcombo/frames/dist/frames.umd.cjs',
+    };
+
     // Exclude native modules from client-side bundles
     if (!isServer) {
       config.resolve.fallback = {
@@ -91,7 +95,18 @@ const nextConfig = {
     return config;
   },
   experimental: {
-    serverComponentsExternalPackages: ['vosk-koffi', 'koffi', 'fluent-ffmpeg', 'fs-extra', 'adm-zip'],
+    serverComponentsExternalPackages: [
+      'vosk-koffi',
+      'koffi',
+      'fluent-ffmpeg',
+      'fs-extra',
+      'adm-zip',
+      '@designcombo/frames',
+      '@designcombo/state',
+      '@designcombo/timeline',
+      '@designcombo/events',
+      '@designcombo/types'
+    ],
     instrumentationHook: true // Re-enabled with non-blocking initialization
   }
 };

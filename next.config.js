@@ -21,11 +21,8 @@ const nextConfig = {
     ],
   },
   webpack: (config, { isServer }) => {
-    // Resolve @designcombo packages to use UMD version to avoid parsing errors
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@designcombo/frames$': '@designcombo/frames/dist/frames.umd.cjs',
-    };
+    // Prefer CommonJS/main over ESM/module to use UMD versions of problematic packages
+    config.resolve.mainFields = ['main', 'module'];
 
     // Exclude native modules from client-side bundles
     if (!isServer) {

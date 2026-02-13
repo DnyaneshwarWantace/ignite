@@ -18,7 +18,7 @@ import { Button } from "@/editor-lib/video/components/ui/button";
 interface MenuItemData {
 	id: string;
 	label: string;
-	icon: React.ComponentType<{ width?: number }>;
+	icon: React.ComponentType<Record<string, unknown>>;
 }
 
 // Menu items configuration

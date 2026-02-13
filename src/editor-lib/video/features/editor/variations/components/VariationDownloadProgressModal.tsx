@@ -69,8 +69,7 @@ const VariationDownloadProgressModal: React.FC<VariationDownloadProgressModalPro
             </div>
             <div className="w-full max-w-xs bg-gray-200 rounded-full h-2">
               <div 
-                className="h-2 rounded-full transition-all duration-300"
-                className="bg-primary"
+                className="h-2 rounded-full transition-all duration-300 bg-primary"
                 style={{ 
                   width: `${progress}%` 
                 }}

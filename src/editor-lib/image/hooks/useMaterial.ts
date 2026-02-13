@@ -5,7 +5,7 @@
 
 import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useCanvasContext } from '@/providers/canvas-provider';
+import { useCanvasContext } from '@/editor-lib/image/providers/canvas-provider';
 import dayjs from 'dayjs';
 
 // Material API functions (no auth needed)

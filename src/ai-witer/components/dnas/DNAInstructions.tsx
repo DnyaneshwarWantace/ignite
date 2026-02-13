@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown, Play } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 export default function DNAInstructions() {
   const [isOpen, setIsOpen] = useState(false);

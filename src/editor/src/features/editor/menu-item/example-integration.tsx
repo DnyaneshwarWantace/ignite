@@ -5,11 +5,16 @@ import VariationsManager from './variations-manager';
 
 const { Sider, Content } = Layout;
 
-// Example timeline elements - replace with your actual timeline data
-const initialTimelineElements = [
+type TimelineElement =
+  | { id: string; type: 'video'; name: string; content: string; duration: number; variations: never[] }
+  | { id: string; type: 'text'; name: string; content: string; variations: never[] }
+  | { id: string; type: 'image'; name: string; content: string; variations: never[] }
+  | { id: string; type: 'audio'; name: string; content: string; variations: never[] };
+
+const initialTimelineElements: TimelineElement[] = [
   {
     id: 'video-1',
-    type: 'video' as const,
+    type: 'video',
     name: 'Main Product Video',
     content: 'https://example.com/video1.mp4',
     duration: 30,
@@ -17,21 +22,21 @@ const initialTimelineElements = [
   },
   {
     id: 'text-1',
-    type: 'text' as const,
+    type: 'text',
     name: 'Call to Action',
     content: 'Best summer sale! Don\'t miss out on amazing deals.',
     variations: []
   },
   {
     id: 'image-1',
-    type: 'image' as const,
+    type: 'image',
     name: 'Product Image',
     content: 'https://example.com/product.jpg',
     variations: []
   },
   {
     id: 'audio-1',
-    type: 'audio' as const,
+    type: 'audio',
     name: 'Background Music',
     content: 'https://example.com/music.mp3',
     variations: []
@@ -42,16 +47,18 @@ const ExampleEditor: React.FC = () => {
   const [timelineElements, setTimelineElements] = useState(initialTimelineElements);
   const [selectedMenu, setSelectedMenu] = useState('variations');
 
-  // Example function to add new timeline element
   const addTimelineElement = (type: 'video' | 'text' | 'image' | 'audio') => {
-    const newElement = {
+    const base = {
       id: `new-${type}-${Date.now()}`,
-      type,
       name: `New ${type.charAt(0).toUpperCase() + type.slice(1)}`,
       content: `https://example.com/new-${type}.${type === 'video' ? 'mp4' : type === 'audio' ? 'mp3' : 'jpg'}`,
-      duration: type === 'video' ? 30 : undefined,
-      variations: []
+      variations: [] as never[]
     };
+    const newElement: TimelineElement =
+      type === 'video' ? { ...base, type: 'video', duration: 30 }
+      : type === 'text' ? { ...base, type: 'text' }
+      : type === 'image' ? { ...base, type: 'image' }
+      : { ...base, type: 'audio' };
 
     setTimelineElements(prev => [...prev, newElement]);
     message.success(`Added new ${type} element to timeline`);

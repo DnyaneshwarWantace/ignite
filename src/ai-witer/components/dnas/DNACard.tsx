@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Edit, Trash2, Star, Database } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import Card from "../ui/Card";
 
 interface DNACardProps {
   id: string;

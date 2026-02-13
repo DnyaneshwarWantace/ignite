@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useCanvasContext } from '@/providers/canvas-provider';
+import { useCanvasContext } from '@/editor-lib/image/providers/canvas-provider';
 import Editor, { EventType } from '@/editor-lib/image/lib/editor';
 const { SelectMode, SelectEvent } = EventType;
 import type { FabricObject } from 'fabric';

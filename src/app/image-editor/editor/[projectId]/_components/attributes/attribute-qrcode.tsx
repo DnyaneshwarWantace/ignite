@@ -20,6 +20,8 @@ export function AttributeQRCode() {
   const [cornersDotType, setCornersDotType] = useState("square");
   const [background, setBackground] = useState("#ffffff");
   const [errorCorrectionLevel, setErrorCorrectionLevel] = useState("M");
+  type ColorFieldKey = "dots" | "cornersSquare" | "cornersDot" | "background";
+  const [openColorPicker, setOpenColorPicker] = useState<ColorFieldKey | null>(null);
   /** Skip calling setQrCode when we just synced state from selection (otherwise every click regenerates the QR). */
   const skipNextApplyRef = useRef(false);
 
@@ -108,9 +110,6 @@ export function AttributeQRCode() {
   const dotsTypes = ["rounded", "dots", "classy", "classy-rounded", "square", "extra-rounded"];
   const cornersTypes = ["dot", "square", "extra-rounded"];
   const errorLevels = ["L", "M", "Q", "H"];
-
-  type ColorFieldKey = "dots" | "cornersSquare" | "cornersDot" | "background";
-  const [openColorPicker, setOpenColorPicker] = useState<ColorFieldKey | null>(null);
 
   const ColorField = ({
     label,

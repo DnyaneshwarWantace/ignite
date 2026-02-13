@@ -3,13 +3,13 @@
 import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
-import PageHeader from "@/components/layout/PageHeader";
-import DNAInstructions from "@/components/dnas/DNAInstructions";
-import DNACard from "@/components/dnas/DNACard";
-import EmptyState from "@/components/dnas/EmptyState";
-import Button from "@/components/ui/Button";
-import DeleteConfirmDialog from "@/components/ui/DeleteConfirmDialog";
+import { createClient } from "../../lib/supabase/client";
+import PageHeader from "../../components/layout/PageHeader";
+import DNAInstructions from "../../components/dnas/DNAInstructions";
+import DNACard from "../../components/dnas/DNACard";
+import EmptyState from "../../components/dnas/EmptyState";
+import Button from "../../components/ui/Button";
+import DeleteConfirmDialog from "../../components/ui/DeleteConfirmDialog";
 
 interface DNA {
   id: string;

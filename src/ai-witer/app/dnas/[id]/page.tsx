@@ -4,9 +4,9 @@ import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
-import { DNA_SECTIONS } from "@/lib/constants";
-import DNASection from "@/components/dnas/DNASection";
+import { createClient } from "../../../lib/supabase/client";
+import { DNA_SECTIONS } from "../../../lib/constants";
+import DNASection from "../../../components/dnas/DNASection";
 
 interface DNASectionData {
   id: string;
@@ -53,7 +53,7 @@ export default function DNAEditPage() {
       // Map sections to state
       const sectionsMap: Record<string, DNASectionData> = {};
       DNA_SECTIONS.forEach((section) => {
-        const existing = sectionsData?.find((s) => s.section_id === section.id);
+        const existing = sectionsData?.find((s: { section_id: string }) => s.section_id === section.id);
         const content = existing?.content?.trim() || section.defaultValue || "";
         sectionsMap[section.id] = existing
           ? {

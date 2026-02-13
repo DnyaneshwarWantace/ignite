@@ -4,7 +4,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { auth } from '@/app/api/auth/[...nextauth]/options';
 import { supabase, TABLES } from '@/editor-lib/video/lib/supabase';
-import { generateVariationFileName } from '@/editor-lib/image/utils/variation-naming';
+import { generateVariationFileName } from '@/editor-lib/video/utils/variation-naming';
 
 const execAsync = promisify(exec);
 
@@ -206,7 +206,6 @@ async function processLambdaJob(jobId: string, videoData: any) {
           .insert({
             user_id: job.videoData.userId,
             user_email: job.videoData.userEmail || '',
-            company_domain: job.videoData.companyDomain || '',
             activity_type: 'video_download',
             project_id: job.videoData.projectId || 'unknown',
             project_name: job.videoData.projectName || 'Unknown Project',
@@ -452,10 +451,9 @@ export async function POST(request: NextRequest) {
       videoTrackItems: processedVideoTrackItems,
       audioTrackItems: processedAudioTrackItems,
       progressBarSettings: progressBarSettings,
-      userId: session.user.id, // Include userId for cost tracking
+      userId: session.user.id,
       userEmail: session.user.email,
-      companyDomain: session.user.companyDomain,
-      userSessionId: userSessionId, // Include session ID for user isolation
+      userSessionId: userSessionId,
       projectId: projectId || 'unknown',
       projectName: projectName || 'Unknown Project',
     };

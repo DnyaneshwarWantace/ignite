@@ -3,10 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import { getAgentUrl } from "@/lib/agent-mapping";
-import CharacterLimitTextarea from "@/components/ui/CharacterLimitTextarea";
+import Card from "../ui/Card";
+import { cn } from "../../lib/utils";
+import { getAgentUrl } from "../../lib/agent-mapping";
+import CharacterLimitTextarea from "../ui/CharacterLimitTextarea";
 
 interface DNASectionProps {
   id: string;

@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import prisma from "@prisma/index";
 
-// Force route to be dynamic and prevent static optimization
 export const dynamic = "force-dynamic";
-export const runtime = "edge";
 export const preferredRegion = "auto";
 
 export async function GET(

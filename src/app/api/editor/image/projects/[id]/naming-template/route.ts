@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { auth } from '@/app/api/auth/[...nextauth]/options';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabase(): SupabaseClient {
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) throw new Error('Supabase env not configured');
+  return createClient(url, key);
+}
 
 // GET - Load naming template for project
 export async function GET(
@@ -27,7 +29,7 @@ export async function GET(
     const userId = session.user.id;
     console.log('User ID from session:', userId);
 
-    // Load template from database
+    const supabase = getSupabase();
     const { data, error } = await supabase
       .from('project_naming_templates')
       .select('*')
@@ -116,7 +118,8 @@ export async function PUT(
     };
     
     console.log('Attempting upsert with data:', upsertData);
-    
+
+    const supabase = getSupabase();
     const { data, error } = await supabase
       .from('project_naming_templates')
       .upsert(upsertData, {
@@ -175,6 +178,7 @@ export async function DELETE(
     const userId = session.user.id;
     console.log('User ID from session:', userId);
 
+    const supabase = getSupabase();
     const { error } = await supabase
       .from('project_naming_templates')
       .delete()

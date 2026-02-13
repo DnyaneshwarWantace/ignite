@@ -41,28 +41,17 @@ class CustomTextbox extends Textbox {
   _wrapText(text: any, maxWidth: any): any {
     try {
       if (!text || !maxWidth) {
-        // Try parent implementation if it exists
-        if (super._wrapText) {
-          return super._wrapText(text, maxWidth);
-        }
-        return [text];
+        return super._wrapText(text, maxWidth);
       }
-      
-      // Get canvas context for text measurement
+
       const canvas = (this as any).canvas;
       if (!canvas) {
-        if (super._wrapText) {
-          return super._wrapText(text, maxWidth);
-        }
-        return [text];
+        return super._wrapText(text, maxWidth);
       }
-      
+
       const ctx = canvas.getContext('2d');
       if (!ctx) {
-        if (super._wrapText) {
-          return super._wrapText(text, maxWidth);
-        }
-        return [text];
+        return super._wrapText(text, maxWidth);
       }
       
       // Set font properties for accurate measurement
@@ -107,11 +96,7 @@ class CustomTextbox extends Textbox {
       
       return lines.length > 0 ? lines : [''];
     } catch (error) {
-      // Fallback to parent implementation if override fails
-      if (super._wrapText) {
-        return super._wrapText(text, maxWidth);
-      }
-      return [text];
+      return super._wrapText(text, maxWidth);
     }
   }
 

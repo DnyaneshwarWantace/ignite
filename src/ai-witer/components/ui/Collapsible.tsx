@@ -2,7 +2,7 @@
 
 import { useState, ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 interface CollapsibleProps {
   title: string;

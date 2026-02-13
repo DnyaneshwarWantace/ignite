@@ -33,6 +33,7 @@ const usePlatformStore = create<PlatformState>((set) => ({
 
 // Client-side only hook to prevent hydration issues
 export const usePlatformStoreClient = () => {
+  const store = usePlatformStore();
   if (typeof window === 'undefined') {
     return {
       currentPlatform: DEFAULT_PLATFORM,
@@ -43,7 +44,7 @@ export const usePlatformStoreClient = () => {
       toggleOverlay: () => {},
     };
   }
-  return usePlatformStore();
+  return store;
 };
 
 export default usePlatformStore; 

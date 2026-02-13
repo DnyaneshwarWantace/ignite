@@ -46,14 +46,13 @@ export default class PathTextPlugin implements IPluginTempl {
   };
   
   _createdHandler = (opt: any) => {
-    if (this.options == null) return;
+    const options = this.options;
+    if (options == null) return;
     const path = opt.path as any;
-    
+
     if (!path) return;
-    
-    // Use requestAnimationFrame to ensure path is fully initialized
+
     requestAnimationFrame(() => {
-      // Ensure path segments info is calculated (critical for text to follow path)
       const getPathSegmentsInfo = (util as any).getPathSegmentsInfo;
       if (getPathSegmentsInfo && path.path) {
         try {
@@ -62,33 +61,28 @@ export default class PathTextPlugin implements IPluginTempl {
           console.warn('Failed to calculate path segments:', e);
         }
       }
-      
-      // Ensure path is configured properly
-      path.set({ 
-        stroke: this.options.lineColor,
+
+      path.set({
+        stroke: options.lineColor,
         strokeWidth: 2,
         fill: '',
         selectable: false,
         evented: false,
       });
-      
-      // Ensure path coordinates are set
+
       path.setCoords();
-      
-      // Add path to canvas (needed for text to reference it)
+
       if (!this.canvas.getObjects().includes(path)) {
         this.canvas.add(path);
       }
-      
-      const text = this.options.defaultText;
-      const fontSize = this.options.defaultFontSize;
-      
-      // Create text object with path properties
-      // CRITICAL: These properties make text follow the curve
+
+      const text = options.defaultText;
+      const fontSize = options.defaultFontSize;
+
       const textObject = new IText(text, {
         fontFamily: 'arial',
         fontSize: fontSize,
-        fill: this.options.color,
+        fill: options.color,
         id: uuid(),
         editable: true,
         // Path properties - these make text follow the curve

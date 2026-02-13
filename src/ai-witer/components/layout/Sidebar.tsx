@@ -8,7 +8,7 @@ import {
   FileText,
   History
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 const navigation = [
   { name: "DNAs", href: "/dnas", icon: Database },

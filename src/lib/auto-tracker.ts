@@ -231,4 +231,13 @@ export async function triggerManualStatusCheck(): Promise<void> {
     log(`Error in manual status check: ${error}`);
     throw error;
   }
+}
+
+/**
+ * Triggers a status check (optionally scoped to a page in the future).
+ * For now runs full check; pageId is logged for API compatibility.
+ */
+export async function trackSpecificPage(pageId: string): Promise<void> {
+  log(`🔄 Track specific page requested: ${pageId}`);
+  await checkAllAdStatuses();
 } 

@@ -54,12 +54,15 @@ export const TextVariationModal: React.FC<TextVariationModalProps> = ({
   const aiService = AIVariationService.getInstance();
 
   const handleGenerateVariations = async () => {
-    if (!element.originalContent?.text) return;
+    const textContent = typeof element.originalContent === 'string'
+      ? element.originalContent
+      : (element.originalContent as { text?: string })?.text;
+    if (!textContent) return;
 
     setIsGenerating(true);
     try {
       const response = await aiService.generateTextVariations({
-        originalText: element.originalContent.text,
+        originalText: textContent,
         variationType: generationType,
         targetLanguage: selectedLanguage,
         count: 10
@@ -77,12 +80,9 @@ export const TextVariationModal: React.FC<TextVariationModalProps> = ({
   const handleSaveVariations = () => {
     const variations: TextVariation[] = editableVariations.map((text, index) => ({
       id: `variation-${Date.now()}-${index}`,
-      content: text,
-      type: 'ai-generated',
-      metadata: {
-        language: generationType === 'language' ? selectedLanguage : 'English',
-        aiPrompt: `Generated ${generationType} variation`
-      }
+      text,
+      type: 'ai' as const,
+      language: generationType === 'language' ? selectedLanguage : undefined
     }));
 
     onAddVariations(variations);
@@ -134,7 +134,7 @@ export const TextVariationModal: React.FC<TextVariationModalProps> = ({
               </div>
               <div className="mt-3 p-3 bg-gray-50 rounded-lg">
                 <p className="text-sm text-gray-700">
-                  "{element.originalContent?.text || 'No text content'}"
+                  "{typeof element.originalContent === 'string' ? element.originalContent : (element.originalContent as { text?: string })?.text || 'No text content'}"
                 </p>
               </div>
             </CardContent>

@@ -3,7 +3,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
-import { generateVariationFileName } from '@/editor-lib/image/utils/variation-naming';
+import { generateVariationFileName } from '@/editor-lib/video/utils/variation-naming';
 
 const execAsync = promisify(exec);
 
@@ -436,12 +436,13 @@ export async function PUT(request: NextRequest) {
         metadata: job.videoData?.variation?.metadata
       };
       const filename = generateVariationFileName(variationNamingData, job.videoData?.projectName);
-      
-      return new NextResponse(videoBuffer, {
+      const body = new Uint8Array(videoBuffer);
+
+      return new NextResponse(body, {
         headers: {
           'Content-Type': 'video/mp4',
           'Content-Disposition': `attachment; filename="${filename}"`,
-          'Content-Length': videoBuffer.length.toString(),
+          'Content-Length': String(body.length),
         },
       });
     } catch (error) {

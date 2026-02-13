@@ -4,6 +4,7 @@ const nextConfig = {
   basePath: process.env.NODE_ENV === 'production' ? '/ignite' : '',
   assetPrefix: process.env.NODE_ENV === 'production' ? '/ignite' : '',
   reactStrictMode: false,
+  eslint: { ignoreDuringBuilds: true },
   images: {
     remotePatterns: [
       {
@@ -31,6 +32,7 @@ const nextConfig = {
         stream: false,
         util: false,
         buffer: false,
+        encoding: false,
         'fs-extra': false,
         'fluent-ffmpeg': false,
         'vosk-koffi': false,

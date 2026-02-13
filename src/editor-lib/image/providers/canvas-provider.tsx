@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, ReactNode } from "react";
 import type { Canvas as FabricCanvas } from "fabric";
-import type { IEditor, SelectionMode } from "@/types/editor";
+import type { IEditor, SelectionMode } from "@/editor-lib/image/types/editor";
 
 interface CanvasContextType {
   // Canvas & Editor

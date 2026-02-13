@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Search, Star } from "lucide-react";
 import * as Icons from "lucide-react";
-import { AGENTS } from "@/lib/agents";
-import PageHeader from "@/components/layout/PageHeader";
+import { AGENTS } from "../../../lib/ai-writer/agents";
+import PageHeader from "../../components/layout/PageHeader";
 
 const FILTERS = [
   "Favorites",

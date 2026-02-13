@@ -126,7 +126,6 @@ export async function POST(request: NextRequest) {
         .insert({
           user_id: userId,
           user_email: session.user.email || '',
-          company_domain: session.user.companyDomain || '',
           activity_type: 'asset_upload',
           project_id: projectId,
           project_name: project.name || '',

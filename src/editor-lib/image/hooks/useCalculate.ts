@@ -4,7 +4,7 @@
  */
 
 import { useCallback } from 'react';
-import { useCanvasContext } from '@/providers/canvas-provider';
+import { useCanvasContext } from '@/editor-lib/image/providers/canvas-provider';
 
 export function useCalculate() {
   const { editor } = useCanvasContext();

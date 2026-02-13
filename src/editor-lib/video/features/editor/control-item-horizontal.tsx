@@ -497,7 +497,7 @@ export default function ControlItemHorizontal() {
 	);
 }
 type Item = {
-	icon: React.ComponentType<{ width: number }>;
+	icon: React.ComponentType<Record<string, unknown>>;
 	label: string;
 	id: string;
 };

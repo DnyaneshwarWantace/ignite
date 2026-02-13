@@ -4,14 +4,14 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { ChevronDown, Copy, Save, FileText, Info, BarChart3, Download, Eye } from "lucide-react";
 import * as Icons from "lucide-react";
-import { AGENTS } from "@/lib/agents";
-import { docOSStorage } from "@/lib/storage";
-import CharacterLimitTextarea from "@/components/ui/CharacterLimitTextarea";
-import Select from "@/components/ui/Select";
-import { createClient } from "@/lib/supabase/client";
-import DeleteConfirmDialog from "@/components/ui/DeleteConfirmDialog";
+import { AGENTS } from "../../../../lib/ai-writer/agents";
+import { docOSStorage } from "../../../../lib/ai-writer/storage";
+import CharacterLimitTextarea from "../../../components/ui/CharacterLimitTextarea";
+import Select from "../../../components/ui/Select";
+import { createClient } from "../../../lib/supabase/client";
+import DeleteConfirmDialog from "../../../components/ui/DeleteConfirmDialog";
 import ReactMarkdown from "react-markdown";
-import { getUserFriendlyError, extractErrorFromResponse } from "@/lib/errorMessages";
+import { getUserFriendlyError, extractErrorFromResponse } from "../../../../lib/ai-writer/errorMessages";
 
 const LANGUAGES = [
   { code: "en", name: "English", flag: "🇺🇸" },

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Mic } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 interface CharacterLimitTextareaProps {
   value: string;

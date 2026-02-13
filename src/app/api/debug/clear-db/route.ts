@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import prisma from "@prisma/index";
 
 export const dynamic = "force-dynamic";
 

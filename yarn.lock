@@ -2385,10 +2385,10 @@
   dependencies:
     rxjs "^7.8.1"
 
-"@designcombo/frames@0.0.2":
-  version "0.0.2"
-  resolved "https://registry.npmjs.org/@designcombo/frames/-/frames-0.0.2.tgz"
-  integrity sha512-EAoePr/yleyctQxtr8htkYLjVS11G0TpB8PKLiweO5akC7+2ijqiJfnS6zeEMKzZvwG5onZfFI3gAUNOT0Dfdw==
+"@designcombo/frames@^0.0.3":
+  version "0.0.3"
+  resolved "https://registry.npmjs.org/@designcombo/frames/-/frames-0.0.3.tgz"
+  integrity sha512-CC10G1oqJB+ybZuCx+ncXUPKIMkV6H+82VnwN2kd4sOn3KmFxWQvdJYxu+RLCl2dxdE1O4mEMQDbsiHZwGmJhA==
   dependencies:
     "@webav/mp4box.js" "0.5.3-fenghen"
     m3u8-parser "^7.1.0"
@@ -4766,6 +4766,14 @@
     tslib "2.8.1"
     ws "^8.18.2"
 
+"@supabase/ssr@^0.5.2":
+  version "0.5.2"
+  resolved "https://registry.npmjs.org/@supabase/ssr/-/ssr-0.5.2.tgz"
+  integrity sha512-n3plRhr2Bs8Xun1o4S3k1CDv17iH5QY9YcoEvXX3bxV1/5XSasA0mNXYycFmADIdtdE6BG9MRjP5CGIs8qxC8A==
+  dependencies:
+    "@types/cookie" "^0.6.0"
+    cookie "^0.7.0"
+
 "@supabase/storage-js@2.89.0":
   version "2.89.0"
   resolved "https://registry.npmjs.org/@supabase/storage-js/-/storage-js-2.89.0.tgz"
@@ -4962,7 +4970,7 @@
   dependencies:
     "@types/node" "*"
 
-"@types/cookie@0.6.0":
+"@types/cookie@^0.6.0", "@types/cookie@0.6.0":
   version "0.6.0"
   resolved "https://registry.npmjs.org/@types/cookie/-/cookie-0.6.0.tgz"
   integrity sha512-4Kh9a6B2bQciAhf7FSuMRRkUWecJgJu9nPnx3yzpsfXX/c50REIqpHY4C82bXP90qrLtXtkDxTZosYO3UpOwlA==
@@ -5135,7 +5143,14 @@
   dependencies:
     "@types/node" "*"
 
-"@types/lodash@^4.17.10":
+"@types/lodash-es@^4.17.12":
+  version "4.17.12"
+  resolved "https://registry.npmjs.org/@types/lodash-es/-/lodash-es-4.17.12.tgz"
+  integrity sha512-0NgftHUcV4v34VhXm8QBSftKVXtbkBG3ViCjs6+eJ5a6y6Mi/jiFGPc1sC7QK+9BFhWrURE3EOggmWaSxL9OzQ==
+  dependencies:
+    "@types/lodash" "*"
+
+"@types/lodash@*", "@types/lodash@^4.17.10":
   version "4.17.10"
   resolved "https://registry.npmjs.org/@types/lodash/-/lodash-4.17.10.tgz"
   integrity sha512-YpS0zzoduEhuOWjAotS6A5AVCva7X4lVlYLF0FYHAY9sdraBfnatttHItlWeZdGhuEkf+OzMNg2ZYAx8t+52uQ==
@@ -6570,6 +6585,11 @@ convert-source-map@^1.5.0:
   version "1.9.0"
   resolved "https://registry.npmjs.org/convert-source-map/-/convert-source-map-1.9.0.tgz"
   integrity sha512-ASFBup0Mz1uyiIjANan1jzLQami9z1PoYSZCiiYW2FczPbenXc45FZdBZLzOT+r6+iciuEModtmCti+hjaAk0A==
+
+cookie@^0.7.0:
+  version "0.7.2"
+  resolved "https://registry.npmjs.org/cookie/-/cookie-0.7.2.tgz"
+  integrity sha512-yki5XnKuf750l50uGTllt6kKILY4nQ1eNIQatoXEByZ5dWgnKqbnqmTrBE5B4N7lrMJKQ2ytWMiTO2o0v6Ew/w==
 
 cookie@0.6.0:
   version "0.6.0"

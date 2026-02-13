@@ -21,12 +21,6 @@ const nextConfig = {
     ],
   },
   webpack: (config, { isServer }) => {
-    // Force webpack to use UMD version of @designcombo/frames
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@designcombo/frames': require.resolve('@designcombo/frames/dist/frames.umd.cjs'),
-    };
-
     // Exclude native modules from client-side bundles
     if (!isServer) {
       config.resolve.fallback = {

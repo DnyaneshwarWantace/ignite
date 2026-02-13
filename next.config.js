@@ -4,6 +4,8 @@ const nextConfig = {
   basePath: process.env.NODE_ENV === 'production' ? '/ignite' : '',
   assetPrefix: process.env.NODE_ENV === 'production' ? '/ignite' : '',
   reactStrictMode: false,
+  // Transpile @designcombo packages to fix webpack parsing errors
+  transpilePackages: ['@designcombo/frames', '@designcombo/state', '@designcombo/timeline', '@designcombo/events', '@designcombo/types'],
   images: {
     remotePatterns: [
       {

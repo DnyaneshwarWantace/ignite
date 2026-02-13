@@ -63,16 +63,16 @@ cat ~/.ssh/id_ed25519.pub
 
 **Option 1: Using HTTPS (Recommended - Simpler)**
 ```bash
-cd /root
+cd /var/www
 git clone -b ignite-main https://github.com/DnyaneshwarWantace/ignite.git ignite
-cd /root/ignite
+cd /var/www/ignite
 ```
 
 **Option 2: Using SSH (If SSH key is set up)**
 ```bash
-cd /root
+cd /var/www
 git clone -b ignite-main git@github.com:DnyaneshwarWantace/ignite.git ignite
-cd /root/ignite
+cd /var/www/ignite
 ```
 
 **If DNS Error (Could not resolve host: github.com):**
@@ -150,7 +150,7 @@ module.exports = {
     name: 'ignite',
     script: 'npm',
     args: 'start',
-    cwd: '/root/ignite',
+    cwd: '/var/www/ignite',
     instances: 1,
     autorestart: true,
     env: {
@@ -227,7 +227,7 @@ Add redirect URI: `https://editor.scalez.in/ignite/api/auth/callback/google`
 
 ```bash
 # Pull & deploy
-cd /root/ignite
+cd /var/www/ignite
 git pull origin ignite-main
 npm install
 npm run build

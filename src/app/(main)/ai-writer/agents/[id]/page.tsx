@@ -11,6 +11,7 @@ import Select from "@/components/ai-writer/ui/Select";
 import DeleteConfirmDialog from "@/components/ai-writer/ui/DeleteConfirmDialog";
 import ReactMarkdown from "react-markdown";
 import { getUserFriendlyError, extractErrorFromResponse } from "@/lib/ai-writer/errorMessages";
+import { withBasePath } from "@/lib/base-path";
 
 const LANGUAGES = [
   { code: "en", name: "English", flag: "🇺🇸" },
@@ -71,7 +72,7 @@ export default function AgentPage() {
   const loadHistory = async () => {
     if (!agentId) return;
     try {
-      const res = await fetch(`/api/v1/ai-writer/history?agentId=${encodeURIComponent(agentId)}`, { credentials: "include" });
+      const res = await fetch(withBasePath(`/api/v1/ai-writer/history?agentId=${encodeURIComponent(agentId)}`), { credentials: "include" });
       if (!res.ok) return;
       const json = await res.json();
       const list = json.payload ?? [];
@@ -83,7 +84,7 @@ export default function AgentPage() {
 
   const saveToHistory = async (payload: { content: string; agentName?: string; dnaId?: string; metadata?: unknown }) => {
     try {
-      const res = await fetch("/api/v1/ai-writer/history", {
+      const res = await fetch(withBasePath("/api/v1/ai-writer/history"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -116,7 +117,7 @@ export default function AgentPage() {
 
   const loadDNAs = async () => {
     try {
-      const res = await fetch("/api/v1/ai-writer/dnas", { credentials: "include" });
+      const res = await fetch(withBasePath("/api/v1/ai-writer/dnas"), { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load DNAs");
       const json = await res.json();
       const data = json.payload ?? [];
@@ -183,7 +184,7 @@ export default function AgentPage() {
       const sectionsWithContent: string[] = [];
 
       if (selectedDNA) {
-        const secRes = await fetch(`/api/v1/ai-writer/dnas/${selectedDNA}/sections`, { credentials: "include" });
+        const secRes = await fetch(withBasePath(`/api/v1/ai-writer/dnas/${selectedDNA}/sections`), { credentials: "include" });
         if (secRes.ok) {
           const secData = await secRes.json();
           const sectionsData = secData.payload ?? [];
@@ -215,7 +216,7 @@ export default function AgentPage() {
         }
       }
 
-      const apiResponse = await fetch("/api/v1/ai-writer/generate", {
+      const apiResponse = await fetch(withBasePath("/api/v1/ai-writer/generate"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

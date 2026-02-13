@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
       .from(TABLES.PROJECTS)
       .select('id, project_id, name, platform, aspect_ratio, created_at, updated_at, thumbnail, duration, status')
       .eq('user_id', userId)
+      .eq('editor_type', 'image')
       .neq('status', 'deleted')
       .order('updated_at', { ascending: false })
       .limit(50);
@@ -114,6 +115,7 @@ export async function POST(request: NextRequest) {
         project_id: projectId,
         name,
         platform,
+        editor_type: 'image',
         aspect_ratio: platformConfig.aspectRatio,
         width: platformConfig.width,
         height: platformConfig.height,

@@ -20,6 +20,7 @@ export async function GET(
       .select('speed_variations')
       .eq('id', id)
       .eq('user_id', session.user.id)
+      .eq('editor_type', 'image')
       .neq('status', 'deleted')
       .single();
 
@@ -70,6 +71,7 @@ export async function PUT(
       .select('speed_variations')
       .eq('id', id)
       .eq('user_id', session.user.id)
+      .eq('editor_type', 'image')
       .neq('status', 'deleted')
       .single();
 
@@ -114,7 +116,8 @@ export async function PUT(
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
-      .eq('user_id', session.user.id);
+      .eq('user_id', session.user.id)
+      .eq('editor_type', 'image');
 
     if (updateError) {
       console.error('Speed variations save error:', updateError);
@@ -164,6 +167,7 @@ export async function DELETE(
       .select('speed_variations')
       .eq('id', id)
       .eq('user_id', session.user.id)
+      .eq('editor_type', 'image')
       .neq('status', 'deleted')
       .single();
 
@@ -212,7 +216,8 @@ export async function DELETE(
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
-      .eq('user_id', session.user.id);
+      .eq('user_id', session.user.id)
+      .eq('editor_type', 'image');
 
     if (updateError) {
       console.error('Speed variation deletion error:', updateError);

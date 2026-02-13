@@ -20,6 +20,7 @@ export async function GET(
       .select('font_variations')
       .eq('id', id)
       .eq('user_id', session.user.id)
+      .eq('editor_type', 'image')
       .neq('status', 'deleted')
       .single();
 
@@ -70,6 +71,7 @@ export async function PUT(
       .select('font_variations')
       .eq('id', id)
       .eq('user_id', session.user.id)
+      .eq('editor_type', 'image')
       .neq('status', 'deleted')
       .single();
 
@@ -121,7 +123,8 @@ export async function PUT(
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
-      .eq('user_id', session.user.id);
+      .eq('user_id', session.user.id)
+      .eq('editor_type', 'image');
 
     if (updateError) {
       console.error('Font variations save error:', updateError);
@@ -171,6 +174,7 @@ export async function DELETE(
       .select('font_variations')
       .eq('id', id)
       .eq('user_id', session.user.id)
+      .eq('editor_type', 'image')
       .neq('status', 'deleted')
       .single();
 
@@ -219,7 +223,8 @@ export async function DELETE(
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
-      .eq('user_id', session.user.id);
+      .eq('user_id', session.user.id)
+      .eq('editor_type', 'image');
 
     if (updateError) {
       console.error('Font variation deletion error:', updateError);
@@ -267,6 +272,7 @@ export async function PATCH(
       .select('font_variations')
       .eq('id', id)
       .eq('user_id', session.user.id)
+      .eq('editor_type', 'image')
       .neq('status', 'deleted')
       .single();
 
@@ -315,7 +321,8 @@ export async function PATCH(
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
-      .eq('user_id', session.user.id);
+      .eq('user_id', session.user.id)
+      .eq('editor_type', 'image');
 
     if (updateError) {
       console.error('Font variation deletion error:', updateError);

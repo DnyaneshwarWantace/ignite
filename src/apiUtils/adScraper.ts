@@ -33,13 +33,13 @@ export async function scrapeCompanyAds(pageId: string, limit: number = 200, offs
     // If we have an offset, we need to skip ads until we reach the offset
     const shouldSkipAds = offset > 0;
     
-    // Keep fetching until we have enough ads or no more available (max 100 requests to avoid infinite loops)
+    const pageSize = 50;
     while (hasMore && totalFetched < limit && allAds.length < 100 * 30) {
-      const url: string = cursor 
-        ? `${SCRAPE_CREATORS_BASE_URL}/company/ads?pageId=${pageId}&cursor=${cursor}`
-        : `${SCRAPE_CREATORS_BASE_URL}/company/ads?pageId=${pageId}`;
-        
-      console.log(`Fetching batch ${Math.floor((totalFetched + skippedAds) / 50) + 1}, URL: ${url}`);
+      const params = new URLSearchParams({ pageId, limit: String(pageSize) });
+      if (cursor) params.set('cursor', cursor);
+      const url = `${SCRAPE_CREATORS_BASE_URL}/company/ads?${params.toString()}`;
+
+      console.log(`Fetching batch ${Math.floor((totalFetched + skippedAds) / pageSize) + 1}, URL: ${url.substring(0, 120)}...`);
       
       const response: any = await axios.get(url, {
         headers: {
@@ -94,9 +94,8 @@ export async function scrapeCompanyAds(pageId: string, limit: number = 200, offs
       
       console.log(`Total ads fetched so far: ${totalFetched}, skipped: ${skippedAds}`);
       
-      // Add a small delay to avoid rate limiting
       if (hasMore) {
-        await new Promise(resolve => setTimeout(resolve, 500)); // Reduced delay for faster scraping
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
 

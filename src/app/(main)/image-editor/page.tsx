@@ -293,7 +293,7 @@ export default function ImageEditorPage() {
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4 gap-6">
             {openingProjectId && (
               <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
                 <div className="bg-white rounded-lg px-6 py-4 flex items-center gap-3 shadow-lg">
@@ -355,8 +355,8 @@ export default function ImageEditorPage() {
                     </DropdownMenu>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="aspect-square bg-gray-100 rounded-lg mb-4 flex items-center justify-center">
+                <CardContent className="pt-0">
+                  <div className="aspect-square bg-gray-100 rounded-lg mb-4 flex items-center justify-center min-h-[120px]">
                     {project.thumbnail ? (
                       <img
                         src={project.thumbnail}
@@ -367,15 +367,15 @@ export default function ImageEditorPage() {
                       <Image className="w-12 h-12 text-gray-400" />
                     )}
                   </div>
-                  <div className="flex justify-between items-center text-sm text-gray-600">
-                    <div className="flex items-center">
-                      <Calendar className="w-4 h-4 mr-1" />
-                      {new Date(project.updatedAt).toLocaleDateString()}
+                  <div className="flex flex-wrap justify-between items-center gap-2 text-sm text-gray-600">
+                    <div className="flex items-center min-w-0 flex-1">
+                      <Calendar className="w-4 h-4 mr-1.5 flex-shrink-0" />
+                      <span className="truncate">{new Date(project.updatedAt).toLocaleDateString()}</span>
                     </div>
                     <Button
                       onClick={() => handleOpenProject(project.id)}
                       size="sm"
-                      className="bg-black text-white hover:bg-gray-800"
+                      className="bg-black text-white hover:bg-gray-800 flex-shrink-0"
                       disabled={!!openingProjectId}
                     >
                       {openingProjectId === project.id ? (

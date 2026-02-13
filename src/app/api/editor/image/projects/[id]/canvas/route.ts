@@ -39,6 +39,7 @@ export async function PUT(
       .select('metadata')
       .eq('id', projectId)
       .eq('user_id', userId)
+      .eq('editor_type', 'image')
       .neq('status', 'deleted')
       .single();
 
@@ -62,7 +63,8 @@ export async function PUT(
         updated_at: new Date().toISOString(),
       })
       .eq('id', projectId)
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('editor_type', 'image');
 
     if (updateError) {
       console.error('Canvas save error:', updateError);
@@ -104,6 +106,7 @@ export async function GET(
       .select('metadata')
       .eq('id', projectId)
       .eq('user_id', userId)
+      .eq('editor_type', 'image')
       .neq('status', 'deleted')
       .single();
 

@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import DeleteConfirmDialog from "@/components/ai-writer/ui/DeleteConfirmDialog";
+import { withBasePath } from "@/lib/base-path";
 
 interface DNA {
   id: string;
@@ -47,7 +48,7 @@ export default function DNAsPage() {
 
   const loadDNAs = async () => {
     try {
-      const res = await fetch("/api/v1/ai-writer/dnas", { credentials: "include" });
+      const res = await fetch(withBasePath("/api/v1/ai-writer/dnas"), { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load DNAs");
       const data = await res.json();
       setDnas(data.payload ?? []);
@@ -62,7 +63,7 @@ export default function DNAsPage() {
 
   const handleSetDefault = async (dnaId: string) => {
     try {
-      const res = await fetch(`/api/v1/ai-writer/dnas/${dnaId}`, {
+      const res = await fetch(withBasePath(`/api/v1/ai-writer/dnas/${dnaId}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -83,7 +84,7 @@ export default function DNAsPage() {
   const confirmDelete = async () => {
     if (!dnaToDelete) return;
     try {
-      const res = await fetch(`/api/v1/ai-writer/dnas/${dnaToDelete.id}`, {
+      const res = await fetch(withBasePath(`/api/v1/ai-writer/dnas/${dnaToDelete.id}`), {
         method: "DELETE",
         credentials: "include",
       });
@@ -112,7 +113,7 @@ export default function DNAsPage() {
     setCreateError(null);
     setCreating(true);
     try {
-      const res = await fetch("/api/v1/ai-writer/dnas", {
+      const res = await fetch(withBasePath("/api/v1/ai-writer/dnas"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

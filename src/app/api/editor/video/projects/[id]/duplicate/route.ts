@@ -24,6 +24,7 @@ export async function POST(
       .select('*')
       .eq('id', projectId)
       .eq('user_id', userId)
+      .eq('editor_type', 'video')
       .neq('status', 'deleted')
       .single();
 
@@ -39,6 +40,7 @@ export async function POST(
         project_id: generateId(),
         name: `${originalProject.name} (Copy)`,
         platform: originalProject.platform,
+        editor_type: 'video',
         aspect_ratio: originalProject.aspect_ratio,
         width: originalProject.width,
         height: originalProject.height,
@@ -51,7 +53,7 @@ export async function POST(
         video_variations: originalProject.video_variations,
         thumbnail: originalProject.thumbnail,
         duration: originalProject.duration,
-        exports: [], // Don't duplicate exports
+        exports: [],
       })
       .select()
       .single();

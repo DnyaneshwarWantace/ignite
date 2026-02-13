@@ -20,6 +20,7 @@ export async function GET(
       .select('video_variations')
       .eq('id', id)
       .eq('user_id', session.user.id)
+      .eq('editor_type', 'video')
       .neq('status', 'deleted')
       .single();
 
@@ -70,6 +71,7 @@ export async function PUT(
       .select('video_variations')
       .eq('id', id)
       .eq('user_id', session.user.id)
+      .eq('editor_type', 'video')
       .neq('status', 'deleted')
       .single();
 
@@ -119,7 +121,8 @@ export async function PUT(
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
-      .eq('user_id', session.user.id);
+      .eq('user_id', session.user.id)
+      .eq('editor_type', 'video');
 
     if (updateError) {
       console.error('Media variations save error:', updateError);
@@ -169,6 +172,7 @@ export async function DELETE(
       .select('video_variations')
       .eq('id', id)
       .eq('user_id', session.user.id)
+      .eq('editor_type', 'video')
       .neq('status', 'deleted')
       .single();
 
@@ -210,7 +214,8 @@ export async function DELETE(
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
-      .eq('user_id', session.user.id);
+      .eq('user_id', session.user.id)
+      .eq('editor_type', 'video');
 
     if (updateError) {
       console.error('Media variations delete error:', updateError);
@@ -258,6 +263,7 @@ export async function PATCH(
       .select('video_variations')
       .eq('id', id)
       .eq('user_id', session.user.id)
+      .eq('editor_type', 'video')
       .neq('status', 'deleted')
       .single();
 
@@ -317,7 +323,8 @@ export async function PATCH(
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
-      .eq('user_id', session.user.id);
+      .eq('user_id', session.user.id)
+      .eq('editor_type', 'video');
 
     if (updateError) {
       console.error('Media variation delete error:', updateError);

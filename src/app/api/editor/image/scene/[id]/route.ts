@@ -23,6 +23,7 @@ export async function GET(
       .select('name, track_items, size, metadata')
       .eq('id', projectId)
       .eq('user_id', userId)
+      .eq('editor_type', 'image')
       .neq('status', 'deleted')
       .single();
 
@@ -81,6 +82,7 @@ export async function PUT(
       })
       .eq('id', projectId)
       .eq('user_id', userId)
+      .eq('editor_type', 'image')
       .neq('status', 'deleted')
       .select('name, track_items, size, metadata')
       .single();

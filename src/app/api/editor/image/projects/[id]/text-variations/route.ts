@@ -23,6 +23,7 @@ export async function GET(
       .select('text_variations')
       .eq('id', projectId)
       .eq('user_id', userId)
+      .eq('editor_type', 'image')
       .neq('status', 'deleted')
       .single();
 
@@ -65,6 +66,7 @@ export async function POST(
       .select('text_variations')
       .eq('id', projectId)
       .eq('user_id', userId)
+      .eq('editor_type', 'image')
       .neq('status', 'deleted')
       .single();
 
@@ -92,6 +94,7 @@ export async function POST(
       })
       .eq('id', projectId)
       .eq('user_id', userId)
+      .eq('editor_type', 'image')
       .select('text_variations')
       .single();
 
@@ -138,6 +141,7 @@ export async function PUT(
       .select('text_variations')
       .eq('id', projectId)
       .eq('user_id', userId)
+      .eq('editor_type', 'image')
       .neq('status', 'deleted')
       .single();
 
@@ -169,6 +173,7 @@ export async function PUT(
       })
       .eq('id', projectId)
       .eq('user_id', userId)
+      .eq('editor_type', 'image')
       .select('text_variations')
       .single();
 
@@ -220,6 +225,7 @@ export async function DELETE(
       .select('text_variations')
       .eq('id', projectId)
       .eq('user_id', userId)
+      .eq('editor_type', 'image')
       .neq('status', 'deleted')
       .single();
 
@@ -242,6 +248,7 @@ export async function DELETE(
       })
       .eq('id', projectId)
       .eq('user_id', userId)
+      .eq('editor_type', 'image')
       .select('text_variations')
       .single();
 

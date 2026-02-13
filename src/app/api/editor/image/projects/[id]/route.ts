@@ -24,6 +24,7 @@ export async function GET(
       .select('*')
       .eq('id', projectId)
       .eq('user_id', userId)
+      .eq('editor_type', 'image')
       .neq('status', 'deleted')
       .single();
 
@@ -97,6 +98,7 @@ export async function PUT(
       .update(updateData)
       .eq('id', projectId)
       .eq('user_id', userId)
+      .eq('editor_type', 'image')
       .neq('status', 'deleted')
       .select()
       .single();
@@ -161,6 +163,7 @@ export async function DELETE(
       })
       .eq('id', projectId)
       .eq('user_id', userId)
+      .eq('editor_type', 'image')
       .neq('status', 'deleted')
       .select()
       .single();

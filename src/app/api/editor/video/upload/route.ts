@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
       .select('id, name, project_id')
       .eq('id', projectId)
       .eq('user_id', userId)
+      .eq('editor_type', 'video')
       .neq('status', 'deleted')
       .single();
 

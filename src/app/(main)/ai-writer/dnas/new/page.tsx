@@ -8,6 +8,7 @@ import PageHeader from "@/components/ai-writer/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { withBasePath } from "@/lib/base-path";
 
 export default function NewDNAPage() {
   const router = useRouter();
@@ -20,7 +21,7 @@ export default function NewDNAPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/v1/ai-writer/dnas", {
+      const res = await fetch(withBasePath("/api/v1/ai-writer/dnas"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { DNA_SECTIONS } from "@/lib/ai-writer/constants";
 import DNASection from "@/components/ai-writer/dnas/DNASection";
+import { withBasePath } from "@/lib/base-path";
 
 interface DNASectionData {
   id: string;
@@ -30,8 +31,8 @@ export default function DNAEditPage() {
   const loadDNA = async () => {
     try {
       const [dnaRes, sectionsRes] = await Promise.all([
-        fetch(`/api/v1/ai-writer/dnas/${dnaId}`, { credentials: "include" }),
-        fetch(`/api/v1/ai-writer/dnas/${dnaId}/sections`, { credentials: "include" }),
+        fetch(withBasePath(`/api/v1/ai-writer/dnas/${dnaId}`), { credentials: "include" }),
+        fetch(withBasePath(`/api/v1/ai-writer/dnas/${dnaId}/sections`), { credentials: "include" }),
       ]);
       if (!dnaRes.ok) throw new Error("Failed to load DNA");
       if (!sectionsRes.ok) throw new Error("Failed to load sections");
@@ -74,7 +75,7 @@ export default function DNAEditPage() {
   }, []);
 
   const saveSection = async (sectionId: string, content: string, completed: boolean) => {
-    const res = await fetch(`/api/v1/ai-writer/dnas/${dnaId}/sections`, {
+    const res = await fetch(withBasePath(`/api/v1/ai-writer/dnas/${dnaId}/sections`), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",

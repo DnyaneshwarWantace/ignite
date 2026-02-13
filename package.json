@@ -35,7 +35,7 @@
     "@auth/prisma-adapter": "^2.5.0",
     "@aws-sdk/client-s3": "^3.864.0",
     "@designcombo/events": "^1.0.2",
-    "@designcombo/frames": "^0.0.3",
+    "@designcombo/frames": "0.0.2",
     "@designcombo/state": "^5.1.0",
     "@designcombo/timeline": "^5.1.0",
     "@designcombo/types": "^5.1.0",

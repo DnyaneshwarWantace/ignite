@@ -118,14 +118,32 @@ const nextConfig = {
 
 ## Step 3: Environment Variables
 
-Create `.env.production`:
+Create `/var/www/ignite/.env.production` with these values:
 
-```env
-NEXTAUTH_URL="https://editor.scalez.in/ignite"
+```bash
+cat > .env.production << 'EOF'
+DATABASE_URL="postgresql://postgres:postgres678@0.0.0.0:5432/ignite?schema=public"
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://nrfujyhdlrszkbtsfuac.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5yZnVqeWhkbHJzemtidHNmdWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3NTA4MzgsImV4cCI6MjA4MjMyNjgzOH0.D7DiAn81QUUax6mRIHrbFBzIcp6ywbzBZlJiLdmiTrg
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5yZnVqeWhkbHJzemtidHNmdWFjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2Njc1MDgzOCwiZXhwIjoyMDgyMzI2ODM4fQ.EEnQDdRT3dUy9s8vjYPAE5PHNXZ6h09qF0JbVJbKJOE
+
+# Auth js
+NEXTAUTH_SECRET="3+sdBgEhEe2uzw3xdZKlwLtj/UU92OycSYFIUPSWBHA="
+AUTH_SECRET="3+sdBgEhEe2uzw3xdZKlwLtj/UU92OycSYFIUPSWBHA="
+AUTH_TRUST_HOST=1
+AUTH_URL="https://editor.scalez.in/ignite"
+
+# Google Auth
+AUTH_GOOGLE_ID="403934823504-qjuou59jk3kfc7bv6ejuko8h3dktu8db.apps.googleusercontent.com"
+AUTH_GOOGLE_SECRET="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"
+
 NEXT_PUBLIC_BACKEND_URL="https://editor.scalez.in/ignite/api/v1"
-
-# Copy all other vars from .env file
+EOF
 ```
+
+**Copy remaining environment variables from your local `.env` file** (AWS keys, API keys, etc.)
 
 ---
 

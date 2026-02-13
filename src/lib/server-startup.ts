@@ -62,7 +62,8 @@ export async function initializeServerSideMediaWorker() {
       mediaWorkerTimeout = setTimeout(async () => {
         mediaWorkerTimeout = null;
         try {
-          const response = await fetch(`http://localhost:3000/api/v1/media/process?batch=${MEDIA_BATCH_SIZE}`);
+          const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL?.replace('/api/v1', '') || 'http://localhost:3000';
+          const response = await fetch(`${baseUrl}/api/v1/media/process?batch=${MEDIA_BATCH_SIZE}`);
           const contentType = response.headers.get('content-type') || '';
           if (!contentType.includes('application/json')) {
             const text = await response.text();
